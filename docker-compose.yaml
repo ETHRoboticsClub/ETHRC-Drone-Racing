@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        BASE_IMAGE: "ubuntu:22.04"
+    container_name: erc-aeronautics
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - GZ_SIM_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
+      - IGN_GAZEBO_RESOURCE_PATH=${IGN_GAZEBO_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
+    volumes:
+      # X11 GUI (Linux)
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+
+      # Whole repo as the ROS 2 workspace
+      - ./:/ws:rw
+
+      # Keep colcon artifacts outside the image
+      - ./.colcon/build:/ws/build
+      - ./.colcon/install:/ws/install
+      - ./.colcon/log:/ws/log
+
+      # USB / serial passthrough
+      - /dev/bus/usb:/dev/bus/usb
+      - /dev:/dev
+    privileged: true
+    working_dir: /ws
+    tty: true
+    # Optional: enable GPU on NVIDIA laptops
+    # gpus: all

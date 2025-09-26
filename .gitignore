@@ -1,0 +1,6 @@
+.colcon/
+build/
+install/
+log/
+*.swp
+.DS_Store
