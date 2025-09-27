@@ -19,8 +19,8 @@ Dockerized environment for drone racing with:
 
 ### Step 1 — Clone (with PX4 submodule)
 ```bash
-git clone --recurse-submodules git@github.com:<YOUR_ORG_OR_USER>/<YOUR_REPO>.git
-cd <YOUR_REPO>
+git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
+cd ETHRC-Drone-Racing
 ```
 
 ### Step 2 — Build the Docker image
