@@ -1,12 +1,19 @@
 # ETHRC-Drone-Racing
 
-Dockerized environment for drone racing with:
+This repo gives us a ready-to-use drone racing environment in Docker.
+Why Docker? → So everyone works in the same environment, avoiding “it works on my machine” issues.
 
-- **ROS 2 Humble**
-- **Gazebo Sim (gz)** + **ros_gz** bridge  
-- **PX4 SITL**
-- **MAVROS & MAVSDK**
-- A ROS 2 workspace at `/ws`
+It bundles:
+
+ROS 2 Humble → our robotics framework
+
+Gazebo (gz) → 3D simulator for drones
+
+PX4 SITL → autopilot software in simulation
+
+MAVROS / MAVSDK → talk between PX4 and ROS
+
+Workspace /ws → where we put our ROS 2 packages
 
 > **Host OS:** Ubuntu/Linux recommended  
 > **Requires:** Docker Engine + Compose v2
@@ -16,6 +23,8 @@ Dockerized environment for drone racing with:
 ## Quick Start
 
 ### Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)
+We need SSH so git clone works smoothly without typing passwords.
+Follow GitHub’s guide: [Follow Github's guide here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
 
 ### Step 1 — Clone (with PX4 submodule)
 ```bash
