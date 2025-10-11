@@ -1,0 +1,21 @@
+{
+  "name": "ERC Aeronautics Dev",
+  "dockerComposeFile": "../docker-compose.yaml",
+  "service": "dev",
+  "workspaceFolder": "/ws",
+  "remoteUser": "root",
+  "runServices": ["dev"],
+  "shutdownAction": "stopCompose",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "ms-azuretools.vscode-docker",
+        "twxs.cmake",
+        "redhat.vscode-yaml"
+      ]
+    }
+  }
+}
