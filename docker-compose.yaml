@@ -9,8 +9,10 @@ services:
         BASE_IMAGE: "ubuntu:22.04"
     container_name: erc-aeronautics
     network_mode: host
+    ports:
+      - "11345:11345"
     environment:
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY} 
       - QT_X11_NO_MITSHM=1
       - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
       - GZ_SIM_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}

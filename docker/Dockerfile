@@ -61,15 +61,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --recursive https://github.com/PX4/PX4-Autopilot.git /opt/PX4-Autopilot
 RUN /bin/bash -lc "cd /opt/PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx"
 
-# ---- MAVSDK (C++) from source ----
+# ---- MAVSDK (C++) from source (latest stable v3.x) ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev \
     libjsoncpp-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Clone the official MAVSDK repo and build the latest stable release (v3.x+)
 RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
-    cmake -S /opt/MAVSDK -B /opt/MAVSDK/build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build /opt/MAVSDK/build -j"$(nproc)" && \
-    cmake --install /opt/MAVSDK/build && ldconfig
+    cd /opt/MAVSDK && \
+    git checkout v3.10.2 && \       
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
+    cmake --build build -j$(nproc) && \
+    cmake --install build && \
+    ldconfig
 
 # ---- Useful C++/CV/Serial/Math + Python tooling ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
