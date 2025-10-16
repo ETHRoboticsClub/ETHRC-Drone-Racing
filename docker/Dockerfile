@@ -67,6 +67,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjsoncpp-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# ---- ACADOS C++ Dependencies ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake git libblas-dev liblapack-dev libopenblas-dev libeigen3-dev \
+    libboost-all-dev gfortran \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- Clone and Build ACADOS ----
+RUN git clone --recursive https://github.com/acados/acados.git /opt/acados && \
+    cd /opt/acados && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j$(nproc) && \
+    sudo make install
+
 # Clone the official MAVSDK repo and build the latest stable release (v3.x+)
 RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
     cd /opt/MAVSDK && \
