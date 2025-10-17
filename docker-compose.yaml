@@ -2,38 +2,68 @@ version: "3.9"
 
 services:
   dev:
+    container_name: erc-aeronautics
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
         BASE_IMAGE: "ubuntu:22.04"
-    container_name: erc-aeronautics
+        WORKSPACE: ${PWD}   # Or containerWorkspaceFolder equivalent
+        USERNAME: ${USERNAME:-drone_dev}     # Default user options in dockerfile 
+        # USER_UID: 1000
+        # USER_GID: 1000
     network_mode: host
     ports:
       - "11345:11345"
-    environment:
-      - DISPLAY=${DISPLAY} 
-      - QT_X11_NO_MITSHM=1
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - GZ_SIM_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
-      - IGN_GAZEBO_RESOURCE_PATH=${IGN_GAZEBO_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
-    volumes:
-      # X11 GUI (Linux)
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
-
-      # Whole repo as the ROS 2 workspace
-      - ./:/ws:rw
-
-      # Keep colcon artifacts outside the image
-      - ./.colcon/build:/ws/build
-      - ./.colcon/install:/ws/install
-      - ./.colcon/log:/ws/log
-
-      # USB / serial passthrough
-      - /dev/bus/usb:/dev/bus/usb
-      - /dev:/dev
-    privileged: true
-    working_dir: /ws
+    # devices: 
+    #   - "/dev/ttyUSB0:/dev/ttyUSB0" # usb device is need to interface with motors
     tty: true
+    working_dir: /home/${USERNAME:-drone_dev}/ros_ws/
+    environment:
+      # ==== ROS Related ====
+      - ROS_DOMAIN_ID=1 # Any number in the range of 0 and 101; 0 by default
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      - GZ_SIM_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH:-/home/${USERNAME:-drone_dev}/sim/gazebo/models:/home/${USERNAME:-drone_dev}/sim/gazebo/worlds}
+      - IGN_GAZEBO_RESOURCE_PATH=${IGN_GAZEBO_RESOURCE_PATH:-/home/${USERNAME:-drone_dev}/sim/gazebo/models:/home/${USERNAME:-drone_dev}/sim/gazebo/worlds}
+      # ==== Display Related: Xorg ====
+      - XAUTHORITY=${XAUTHORITY} #Points to the X11 authentication file that grants display access.
+      - DISPLAY=${DISPLAY} # Tells X11 apps where to render their GUI (e.g. :0 for local desktop).
+      - QT_X11_NO_MITSHM=1 #disable the MIT-SHM (shared memory) X11 extension, slower rendering, but no errors
+      # ==== Display Related: Wayland ====
+      # - WAYLAND_DISPLAY=${WAYLAND_DISPLAY}
+      - XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR} # Path for temporary per-user runtime files (e.g. Wayland sockets, D-Bus). #rviz needs it even in X11
+      # - QT_QPA_PLATFORM="wayland"// uncomment to force Wayland
+      # ==== Other Driver Related ====
+      - PULSE_SERVER=${PULSE_SERVER} # Audio
+      # - LIBGL_ALWAYS_SOFTWARE=1 # Opengl bypass GPU (no gpu access to container, maybe for wsl2). Slower
+    # For NVIDIA GPU (Linux) https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+    runtime: nvidia # Make sure nvidia container toolkit is installed
     # Optional: enable GPU on NVIDIA laptops
     # gpus: all
+    volumes:
+      # Share user runtime settings
+      - /run/user/1000:/run/user/1000
+      # Mount the build artifacts: Good to keep build in host machine, in case rebuilding dockerfile for minor changes
+      - ./src:/home/${USERNAME:-drone_dev}/ros_ws/src
+      - ./.colcon/build:/home/${USERNAME:-drone_dev}/ros_ws/build
+      - ./.colcon/install:/home/${USERNAME:-drone_dev}/ros_ws/install
+      - ./.colcon/log:/home/${USERNAME:-drone_dev}/ros_ws/log
+      - ./px4:/home/${USERNAME:-drone_dev}/ros_ws/px4
+      # ==== Display Related: ====
+      # X11 host
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Wayland host
+      # - /mnt/wslg:/mnt/wslg
+      # Uncomment for Intel iGPU
+      # - /dev/dri:/dev/dri
+      # Uncomment for NVIDIA GPU (WSL2)
+      # - /usr/lib/wsl:/usr/lib/wsl
+      # - /dev/dxg:/dev/dxg
+      # - /dev/dri/card0:/dev/dri/card0
+      # - /dev/dri/renderD128:/dev/dri/renderD128
+
+      # ==== External Devices Related: ====
+      # USB / serial passthrough
+      # - /dev/bus/usb:/dev/bus/usb
+      # - /dev:/dev
+

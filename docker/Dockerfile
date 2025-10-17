@@ -43,8 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Resource paths for your mounted worlds/models
-ENV GZ_SIM_RESOURCE_PATH=/ws/sim/gazebo/models:/ws/sim/gazebo/worlds:${GZ_SIM_RESOURCE_PATH}
-ENV IGN_GAZEBO_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH}
+# ENV GZ_SIM_RESOURCE_PATH=/ws/sim/gazebo/models:/ws/sim/gazebo/worlds:${GZ_SIM_RESOURCE_PATH}
+# ENV IGN_GAZEBO_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH}
 
 # ---- MAVROS + GeographicLib datasets ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -52,6 +52,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN /bin/bash -lc "source /opt/ros/humble/setup.bash && /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"
 
+# PX4 is cloned and also submodule in repo -> conflict.
 # ---- PX4 SITL deps + (image-bundled) PX4 clone (can be overridden by bind mount) ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git zip unzip tar xz-utils \
@@ -114,16 +115,67 @@ EOF
 # udev isn't active during image build; this is harmless but kept for runtime containers.
 RUN udevadm control --reload-rules || true && udevadm trigger || true
 
-# ---- ROS 2 workspace (/ws) ----
+# Add custom user
+ARG USERNAME=drone_dev
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
 ENV ROS_DISTRO=humble
-WORKDIR /ws
-RUN mkdir -p /ws/src
-ENV COLCON_DEFAULTS_FILE=/ws/colcon.defaults
-RUN bash -lc 'printf "{\\n  \\"build-base\\": \\"build\\",\\n  \\"install-base\\": \\"install\\",\\n  \\"test-result-base\\": \\"test_results\\"\\n}\\n" > ${COLCON_DEFAULTS_FILE}'
+
+# Find and replace any user with matching UID
+RUN set -eux; \
+    existing_user=$(getent passwd "$USER_UID" | cut -d: -f1 || true); \
+    if [ -n "$existing_user" ]; then \
+        usermod -l $USERNAME -d /home/$USERNAME -m $existing_user && \
+        groupmod -n $USERNAME $existing_user && \
+        echo "Renamed $existing_user to $USERNAME"; \
+    else \
+        groupadd --gid $USER_GID $USERNAME && \
+        useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME && \
+        echo "Created new user $USERNAME"; \
+    fi
+# Ensure necessary directories and permissions
+RUN mkdir -p /home/$USERNAME /run/user/$USER_UID && \
+    chown -R $USER_UID:$USER_GID /home/$USERNAME /run/user/$USER_UID
+
+# Add sudo support for the non-root user
+RUN echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && touch /home/$USERNAME/.sudo_as_admin_successful
+
+# Set up autocompletion for user
+RUN  echo "if [ -f /opt/ros/${ROS_DISTRO}/setup.bash ]; then source /opt/ros/${ROS_DISTRO}/setup.bash; fi" >> /home/$USERNAME/.bashrc \
+  && echo "if [ -f /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash ]; then source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash; fi" >> /home/$USERNAME/.bashrc \
+  && echo "if [ -f /usr/share/vcs2l-completion/vcs.bash ]; then source /usr/share/vcs2l-completion/vcs.bash; fi" >> /home/$USERNAME/.bashrc \
+  # Set up auto-source of workspace for user
+  && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc
+
+# Set up python symlinks for vscode paths
+RUN PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')") \
+ && tgt="/opt/ros/${ROS_DISTRO}/lib/python${PYTHON_VERSION}/site-packages" \
+ && [ -d "$tgt" ] && ln -s "$tgt" "/opt/ros/${ROS_DISTRO}/lib/ros_site_packages"
+
+USER $USERNAME
+
+
+WORKDIR /home/$USERNAME
+# ---- ROS 2 workspace (/ros_ws) ----
+RUN mkdir -p /home/$USERNAME/ros_ws/src
+RUN mkdir -p /home/$USERNAME/ros_ws/install
+RUN mkdir -p /home/$USERNAME/ros_ws/build
+RUN mkdir -p /home/$USERNAME/ros_ws/log
+# ENV COLCON_DEFAULTS_FILE=/home/$USERNAME/ros_ws/colcon.defaults
+# RUN bash -lc 'printf "{\\n  \\"build-base\\": \\"build\\",\\n  \\"install-base\\": \\"install\\",\\n  \\"test-result-base\\": \\"test_results\\"\\n}\\n" > ${COLCON_DEFAULTS_FILE}'
+
+# copy src and build
+COPY --chown=$USERNAME:$USERNAME src /home/$USERNAME/ros_ws/src 
+WORKDIR /home/$USERNAME/ros_ws
+RUN bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build \
+        --symlink-install \
+        --cmake-args "-DCMAKE_BUILD_TYPE=RelWithDebInfo"'
 
 # Auto-source ROS + overlay
-RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /etc/bash.bashrc && \
-              echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /etc/bash.bashrc && \
-              echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /etc/bash.bashrc'
+RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc && \
+              echo "[ -f /home/${USERNAME}/ros_ws/install/setup.bash ] && source /home/${USERNAME}/ros_ws/install/setup.bash" >> /home/$USERNAME/.bashrc && \
+              echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
 
 CMD ["/bin/bash"]
