@@ -32,7 +32,8 @@ public:
     {
         RCLCPP_INFO(this->get_logger(), "Starting MAVSDK connection...");
 
-        ConnectionResult connection_result = mavsdk.add_any_connection("udpin://:14540");
+        // ConnectionResult connection_result = mavsdk.add_any_connection("udpin://:14540");
+        ConnectionResult connection_result = mavsdk.add_any_connection("udp://0.0.0.0:14540");
         if (connection_result != ConnectionResult::Success) {
             RCLCPP_ERROR(this->get_logger(), "Connection failed: %s",
                          connection_result_to_str(connection_result).c_str());

@@ -2,38 +2,60 @@ version: "3.9"
 
 services:
   dev:
+    container_name: erc-aeronautics
     build:
       context: .
       dockerfile: docker/Dockerfile
       args:
-        BASE_IMAGE: "ubuntu:22.04"
-    container_name: erc-aeronautics
+        BASE_IMAGE: ubuntu:22.04
+        WORKSPACE: ${PWD}
+        USERNAME: ${USERNAME:-drone_dev}
+        # USER_UID: 1000
+        # USER_GID: 1000
+
     network_mode: host
+    tty: true
+    working_dir: /home/${USERNAME:-drone_dev}/ros_ws/
+
     ports:
       - "11345:11345"
+
     environment:
-      - DISPLAY=${DISPLAY} 
-      - QT_X11_NO_MITSHM=1
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - GZ_SIM_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
-      - IGN_GAZEBO_RESOURCE_PATH=${IGN_GAZEBO_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
-    volumes:
-      # X11 GUI (Linux)
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # --- ROS Configuration ---
+      ROS_DOMAIN_ID: 1
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
 
-      # Whole repo as the ROS 2 workspace
-      - ./:/ws:rw
+      # --- Gazebo Resource Paths ---
+      GZ_SIM_RESOURCE_PATH: ${GZ_SIM_RESOURCE_PATH:-/home/${USERNAME:-drone_dev}/sim/gazebo/models:/home/${USERNAME:-drone_dev}/sim/gazebo/worlds}
+      IGN_GAZEBO_RESOURCE_PATH: ${IGN_GAZEBO_RESOURCE_PATH:-/home/${USERNAME:-drone_dev}/sim/gazebo/models:/home/${USERNAME:-drone_dev}/sim/gazebo/worlds}
 
-      # Keep colcon artifacts outside the image
-      - ./.colcon/build:/ws/build
-      - ./.colcon/install:/ws/install
-      - ./.colcon/log:/ws/log
+      # --- Display (X11 / Wayland) ---
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: ${XAUTHORITY}
+      QT_X11_NO_MITSHM: "1"
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+      PULSE_SERVER: ${PULSE_SERVER}
 
-      # USB / serial passthrough
-      - /dev/bus/usb:/dev/bus/usb
-      - /dev:/dev
-    privileged: true
-    working_dir: /ws
-    tty: true
-    # Optional: enable GPU on NVIDIA laptops
+      # --- Optional GPU ---
+      # LIBGL_ALWAYS_SOFTWARE: 1
+
+    # Uncomment if NVIDIA Container Toolkit is installed
+    # runtime: nvidia
     # gpus: all
+
+    volumes:
+      # --- Runtime & Build Paths ---
+      - /run/user/1000:/run/user/1000
+      - ./src:/home/${USERNAME:-drone_dev}/ros_ws/src
+      - ./.colcon/build:/home/${USERNAME:-drone_dev}/ros_ws/build
+      - ./.colcon/install:/home/${USERNAME:-drone_dev}/ros_ws/install
+      - ./.colcon/log:/home/${USERNAME:-drone_dev}/ros_ws/log
+      - ./px4:/home/${USERNAME:-drone_dev}/ros_ws/px4
+      - ./.git:/home/${USERNAME:-drone_dev}/ros_ws/.git
+
+      # --- Display (X11) ---
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+
+      # --- Optional: Devices / USB ---
+      # - /dev:/dev
+      # - /dev/bus/usb:/dev/bus/usb
