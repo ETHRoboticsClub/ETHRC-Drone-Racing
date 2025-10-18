@@ -61,6 +61,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN git clone --recursive https://github.com/PX4/PX4-Autopilot.git /opt/PX4-Autopilot
 RUN /bin/bash -lc "cd /opt/PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx"
+RUN pip3 install --no-cache-dir \
+    kconfiglib jsonschema pyros-genmsg
 
 # ---- MAVSDK (C++) from source (latest stable v3.x) ----
 RUN apt-get update && apt-get install -y --no-install-recommends \

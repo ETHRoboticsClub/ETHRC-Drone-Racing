@@ -49,6 +49,7 @@ services:
       - ./.colcon/install:/home/${USERNAME:-drone_dev}/ros_ws/install
       - ./.colcon/log:/home/${USERNAME:-drone_dev}/ros_ws/log
       - ./px4:/home/${USERNAME:-drone_dev}/ros_ws/px4
+      - ./.git:/home/${USERNAME:-drone_dev}/ros_ws/.git #mount git for PX4
       # ==== Display Related: ====
       # X11 host
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
