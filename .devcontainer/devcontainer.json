@@ -34,7 +34,14 @@
         "ms-azuretools.vscode-docker",
         "twxs.cmake",
         "redhat.vscode-yaml"
-      ]
+      ],
+      "settings": {
+        // 🧠 Add ROS 2 include path globally for IntelliSense
+        "C_Cpp.default.includePath": [
+          "${workspaceFolder}/**",
+          "/opt/ros/humble/**"
+        ]
+      }
     }
   }
 }
