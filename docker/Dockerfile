@@ -59,8 +59,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-jinja2 python3-numpy python3-yaml \
     xterm xsltproc libxml2-utils \
     && rm -rf /var/lib/apt/lists/*
-RUN git clone --recursive https://github.com/PX4/PX4-Autopilot.git /opt/PX4-Autopilot
-RUN /bin/bash -lc "cd /opt/PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx"
+# RUN git clone --recursive https://github.com/PX4/PX4-Autopilot.git /opt/PX4-Autopilot
+# RUN /bin/bash -lc "cd /opt/PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx"
 RUN pip3 install --no-cache-dir \
     kconfiglib jsonschema pyros-genmsg
 
