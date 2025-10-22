@@ -4,3 +4,4 @@ install/
 log/
 *.swp
 .DS_Store
+get-docker.sh
