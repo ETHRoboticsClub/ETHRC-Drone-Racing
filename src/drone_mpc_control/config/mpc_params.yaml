@@ -1,0 +1,35 @@
+# Parametri MPC
+control_rate: 50        # Hz
+t_horizon: 1.0          # secondi
+n_nodes: 20             # nodi di predizione
+
+# Pesi della funzione costo
+weights:
+  position:             # [x, y, z]
+    - 200.0
+    - 200.0
+    - 500.0
+  velocity:             # [vx, vy, vz]
+    - 1.0
+    - 1.0
+    - 1.0
+  quaternion:           # [qw, qx, qy, qz]
+    - 5.0
+    - 5.0
+    - 200.0
+    - 1.0
+  angular_velocity:     # [wx, wy, wz]
+    - 1.0
+    - 1.0
+    - 1.0
+  control:              # [T, Mx, My, Mz]
+    - 6.0
+    - 6.0
+    - 6.0
+    - 6.0
+
+# Target default
+target:
+  x: 0.0
+  y: 0.0
+  z: 2.0
