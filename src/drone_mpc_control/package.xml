@@ -13,12 +13,12 @@
   <!-- ROS 2 dependencies (only for node infrastructure) -->
   <depend>rclpy</depend>
 
-  <!-- Python dependencies -->
-  <!-- MAVSDK is installed via pip -->
-  <!-- ACADOS is installed separately -->
-  <exec_depend>python3-numpy</exec_depend>
-  <exec_depend>python3-scipy</exec_depend>
-  <exec_depend>python3-asyncio</exec_depend>
+  <!-- Python dependencies are managed via pip in the Dockerfile/setup.
+    We avoid pinning numpy/scipy to apt packages to prevent ABI conflicts
+    with ACADOS (NumPy 1.x vs 2.x). The package's setup.py lists
+    pip install requirements. -->
+  <exec_depend>python3-pip</exec_depend>
+  <exec_depend>python3-setuptools</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

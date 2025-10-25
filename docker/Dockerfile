@@ -30,75 +30,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 RUN rosdep init || true
 
-# Install Ignition / Gazebo (ros_gz bridge and common rendering backends).
-# We use OSRF's packages to get ignition/gz packages compatible with the OS.
-RUN apt-get update && apt-get install -y --no-install-recommends lsb-release wget gnupg && \
-    wget -qO /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg https://packages.osrfoundation.org/gazebo.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gz-stable.list && \
-    apt-get update && apt-get install -y --no-install-recommends \
-      ros-humble-ros-gz gz-transport-tools gz-sim7 gz-tools || true && \
-    rm -rf /var/lib/apt/lists/*
-
-# Resource paths for your mounted worlds/models
-# ENV GZ_SIM_RESOURCE_PATH=/ws/sim/gazebo/models:/ws/sim/gazebo/worlds:${GZ_SIM_RESOURCE_PATH}
-# ENV IGN_GAZEBO_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH}
-
 # ---- MAVROS + GeographicLib datasets ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-humble-mavros ros-humble-mavros-extras geographiclib-tools \
     && rm -rf /var/lib/apt/lists/*
 RUN /bin/bash -lc "source /opt/ros/humble/setup.bash && /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"
 
-# PX4 is cloned and also submodule in repo -> conflict.
-# ---- PX4 SITL deps + (image-bundled) PX4 clone (can be overridden by bind mount) ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git zip unzip tar xz-utils \
-    python3-jinja2 python3-numpy python3-yaml \
-    xterm xsltproc libxml2-utils \
-    && rm -rf /var/lib/apt/lists/*
-# RUN git clone --recursive https://github.com/PX4/PX4-Autopilot.git /opt/PX4-Autopilot
-# RUN /bin/bash -lc "cd /opt/PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx"
-RUN pip3 install --no-cache-dir \
-    kconfiglib jsonschema pyros-genmsg
-
 # ---- MAVSDK (C++) from source (latest stable v3.x) ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev \
     libjsoncpp-dev libssl-dev \
     && rm -rf /var/lib/apt/lists/*
-
-# ---- ACADOS C++ Dependencies ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    cmake git libblas-dev liblapack-dev libopenblas-dev libeigen3-dev \
-    libboost-all-dev gfortran python3-numpy python3-pip python3-setuptools \
-    liblapacke-dev liblapack-dev libblas-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install CasADi (binary wheel) for Python — acados Python interface depends on this.
-RUN python3 -m pip install --no-cache-dir casadi
-
-# Clone and build acados (with python interface). We clone recursively to fetch hpipm/blasfeo.
-RUN git clone --recursive https://github.com/acados/acados.git /opt/acados && \
-    cd /opt/acados && \
-    mkdir -p build && cd build && \
-    cmake .. -DACADOS_SHARED_LIBS=ON && \
-    make -j$(nproc) && \
-    make install
-
-# Install acados python interface (editable install so user code can import acados)
-# The python interface lives under interfaces/acados_template in upstream acados
-RUN python3 -m pip install --no-cache-dir cython || true
-RUN python3 -m pip install --no-cache-dir -e /opt/acados/interfaces/acados_template
-
-# ---- Tera renderer (Rust) ----
-# Build and install the tera_renderer tool used by acados templating.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    rustc cargo libx11-dev libxrandr-dev libxcursor-dev libxinerama-dev \
-    libgl1-mesa-dev libegl1-mesa-dev libvulkan-dev && rm -rf /var/lib/apt/lists/*
-RUN git clone --depth 1 https://github.com/acados/tera_renderer.git /opt/tera_renderer && \
-    cd /opt/tera_renderer && \
-    cargo build --verbose --release && \
-    if [ -f target/release/tera_renderer ]; then install -m 0755 target/release/tera_renderer /usr/local/bin/tera_renderer; fi || true
 
 # Clone the official MAVSDK repo and build the latest stable release (v3.x+)
 RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
@@ -116,8 +58,103 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libserial-dev libusb-1.0-0-dev libudev-dev libzmq3-dev \
     gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     && rm -rf /var/lib/apt/lists/*
+# Ensure pip tooling is up-to-date and install Python packages pinned to
+# versions compatible with system/compiled extensions. In particular we
+# pin NumPy < 2 to avoid ABI conflicts with SciPy and other C extensions
+# which were built against NumPy 1.x.
+RUN python3 -m pip install --upgrade pip setuptools packaging wheel
 RUN python3 -m pip install --no-cache-dir \
-    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk
+    numpy==1.24.4 scipy==1.10.1 matplotlib pandas tqdm pyyaml pyserial ipython pre-commit mavsdk
+# ---- ACADOS C++ Dependencies ----
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    cmake git libblas-dev liblapack-dev libopenblas-dev libeigen3-dev \
+    libboost-all-dev gfortran python3-pip python3-setuptools \
+    liblapacke-dev liblapack-dev libblas-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CasADi (binary wheel) for Python — acados Python interface depends on this.
+RUN python3 -m pip install --no-cache-dir casadi
+
+# Clone and build acados (with python interface). We clone recursively to fetch hpipm/blasfeo.
+RUN git clone https://github.com/acados/acados.git /opt/acados && \
+    cd /opt/acados && \
+    git submodule update --recursive --init && \
+    mkdir -p build && cd build && \
+    cmake -DACADOS_SHARED_LIBS=ON -DACADOS_WITH_QPOASES=ON .. && \
+    make install -j$(nproc)
+
+# Install acados python interface (editable install so user code can import acados)
+# The python interface lives under interfaces/acados_template in upstream acados
+RUN python3 -m pip install --no-cache-dir cython
+RUN python3 -m pip install --no-cache-dir -e /opt/acados/interfaces/acados_template
+
+# Make acados available at the user's home path so runtime builds that expect
+# /home/<user>/acados will find the headers/libs. Also expose lib path and
+# tera renderer location to the environment.
+ENV LD_LIBRARY_PATH=/opt/acados/lib
+ENV ACADOS_SOURCE_DIR=/opt/acados
+
+# ---- Tera renderer (Rust) ----
+# Build and install the tera_renderer tool used by acados templating.
+RUN mkdir -p /opt/acados/bin
+RUN cd /opt/acados/bin 
+RUN wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64
+RUN mv t_renderer-v0.2.0-linux-amd64 t_renderer 
+RUN chmod +x t_renderer
+ENV TERA_PATH=/t_renderer
+
+
+# ===========================================================
+# Gazebo (GZ Harmonic) + ROS 2 Bridge + PX4 SITL deps
+# ===========================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    lsb-release wget gnupg curl \
+    dmidecode bc \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+    gstreamer1.0-libav libgstreamer-plugins-base1.0-dev \
+    libeigen3-dev libopencv-dev libxml2-utils \
+    libimage-exiftool-perl pkg-config protobuf-compiler \
+    libunwind-dev \
+    && wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] \
+        https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+        > /etc/apt/sources.list.d/gz-stable.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gz-harmonic \
+        libgz-sim8-dev \
+        libgz-plugin2-dev \
+        libgz-msgs10-dev \
+        libgz-transport13-dev \
+        libgz-math7-dev \
+        libgz-common5-dev \
+        libsdformat14-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ROS2 <--> Gazebo Harmonic bridge
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-ros-gz-bridge \
+    && rm -rf /var/lib/apt/lists/*
+
+# ===========================================================
+# PX4 SITL Dependencies (clean and correct)
+# ===========================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git zip unzip tar xz-utils \
+    python3-dev python3-pip python3-rospkg python3-jinja2 python3-yaml \
+    xsltproc libxml2-utils xterm \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    libvulkan1 vulkan-tools \
+    libopencv-dev \
+    clang clang-format ccache \
+    && rm -rf /var/lib/apt/lists/*
+
+# PX4-specific Python tools
+RUN pip3 install --no-cache-dir \
+    pyulog pyserial empy toml jinja2 pandas \
+    jsonschema pyros-genmsg kconfiglib
+
 
 # ---- udev rules for FMU/USB bridges ----
 RUN install -d -m 0755 /etc/udev/rules.d && \
@@ -132,6 +169,12 @@ EOF
 # udev isn't active during image build; this is harmless but kept for runtime containers.
 RUN udevadm control --reload-rules || true && udevadm trigger || true
 
+
+# --- Fix NumPy / SciPy compatibility ---
+RUN pip install --upgrade --force-reinstall \
+    numpy==1.24.4 scipy==1.10.1
+
+    
 # Add custom user
 ARG USERNAME=drone_dev
 ARG USER_UID=1000
@@ -197,10 +240,3 @@ RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME
               echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
 
 CMD ["/bin/bash"]
-
-### Notes:
-# - CasADi is installed via pip (binary wheel). If you need a specific casadi C library built from source,
-#   replace the pip step with a source build and set CASADI_DIR accordingly.
-# - "Tera renderer" was requested: please provide the exact repository or package name for the renderer
-#   you want built from source. I left a placeholder here so we don't guess the wrong project.
-#   Once you confirm, I will add the clone/build steps (it can be heavy and may need extra system deps).

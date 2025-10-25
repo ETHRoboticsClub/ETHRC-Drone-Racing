@@ -6,7 +6,7 @@ package_name = 'drone_mpc_control'
 
 setup(
     name=package_name,
-    version='2.0.0',
+    version='0.0.1',  # Simple version string
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -16,10 +16,17 @@ setup(
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         # Config files
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
-        # RViz files
-        (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
     ],
-    install_requires=['setuptools'],
+    install_requires=[
+        'setuptools',
+        'packaging',  # Required for version handling
+        # Pin NumPy/SciPy to versions compatible with compiled extensions used by ACADOS
+        'numpy==1.24.4',
+        'scipy==1.10.1',
+        # Runtime python packages
+        'casadi',
+        'mavsdk',
+    ],
     zip_safe=True,
     maintainer='Mattia',
     maintainer_email='y',

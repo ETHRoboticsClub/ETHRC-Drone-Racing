@@ -44,8 +44,8 @@ def generate_launch_description():
     # ========================================================================
 
     # ACADOS paths (required for MPC solver)
-    acados_source_dir = os.path.expanduser('~/acados')
-    acados_lib_path = os.path.join(acados_source_dir, 'lib')
+    acados_source_dir = os.path.expanduser('/opt/acados')
+    acados_lib_path = os.path.join(acados_source_dir, '/opt/acados/lib')
 
     set_acados_source = SetEnvironmentVariable(
         'ACADOS_SOURCE_DIR',
