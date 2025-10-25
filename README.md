@@ -53,3 +53,18 @@ docker exec -it erc-aeronautics bash
 cd /ws/px4/PX4-Autopilot
 make px4_sitl gz_x500
 ```
+
+# Using dev containers
+
+## Using nvidia graphics card inside the container. 
+1. Install the [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). 
+    - Install on your platform
+    - Configure ([here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuration))
+    -  Run the [sample](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/sample-workload.html)  
+
+## Rebuilding the container after new configuration
+1. Make sure all the folders in the workspace are owned by the local user. 
+    ```sh
+    sudo chown -R $USER:$USER .
+    ```
+2. Inside `px4/PX4-Autopilot` use `make clean` to clear all the build artifacts. Then build again.
