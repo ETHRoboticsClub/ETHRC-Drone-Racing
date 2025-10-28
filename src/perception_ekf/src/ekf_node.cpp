@@ -2,7 +2,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-//#include "perception_ekf/ekf.hpp"
+// #include "perception_ekf/ekf.hpp"
 
 class EKFNode : public rclcpp::Node
 {
@@ -19,7 +19,7 @@ public:
           // Show the EKF received VIO pose
           const auto &p = msg->pose.pose.position;
           RCLCPP_INFO(this->get_logger(), "VIO Position: (%.3f, %.3f, %.3f)", p.x, p.y, p.z);
-          
+
           // Show the EKF received VIO velocity
           const auto &v = msg->twist.twist.linear;
           RCLCPP_INFO(this->get_logger(), "VIO Velocity: (%.3f, %.3f, %.3f)", v.x, v.y, v.z);
@@ -41,7 +41,7 @@ public:
           // Show the EKF received Vision pose
           const auto &p = msg->pose.pose.position;
           RCLCPP_INFO(this->get_logger(), "Vision Position: (%.3f, %.3f, %.3f)", p.x, p.y, p.z);
-          
+
           // Show the timestamp
           RCLCPP_INFO(this->get_logger(), "Vision Timestamp: %u.%u", msg->header.stamp.sec, msg->header.stamp.nanosec);
 
