@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>perception_ekf</name>
+  <name>ekf</name>
   <version>0.0.0</version>
   <description>Extended Kalman Filter (EKF) of the drone</description>
   <maintainer email="oliver.calvet@icloud.com">oliomap</maintainer>
@@ -14,6 +14,8 @@
   <depend>rclcpp</depend>
   <depend>nav_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+
 
   <export>
     <build_type>ament_cmake</build_type>

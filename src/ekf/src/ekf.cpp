@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
-#include "perception_ekf/ekf.hpp"
+#include "ekf/ekf.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
-namespace perception_ekf
+namespace ekf
 {
 
 // ----------------------------
@@ -440,4 +440,4 @@ void Ekf::injectOrientationError(const std::array<double, 3> &dtheta)
   (void)dtheta; // Implementation applies small-angle correction to quaternion.
 }
 
-} // namespace perception_ekf
+} // namespace ekf

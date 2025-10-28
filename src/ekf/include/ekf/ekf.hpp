@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace perception_ekf
+namespace ekf
 {
 
 /**
@@ -299,4 +299,4 @@ private:
   Matrix H_vis_;
 };
 
-} // namespace perception_ekf
+} // namespace ekf
