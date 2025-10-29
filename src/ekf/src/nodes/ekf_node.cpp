@@ -18,12 +18,6 @@ EKFNode::EKFNode()
       rclcpp::SensorDataQoS(),
       std::bind(&EKFNode::visionCallback, this, std::placeholders::_1));
 
-  // IMU subscriber
-  imu_subscription_ = this->create_subscription<sensor_msgs::msg::Imu>(
-      "/imu/data",
-      rclcpp::SensorDataQoS(),
-      std::bind(&EKFNode::imuCallback, this, std::placeholders::_1));
-
   // Odometry publisher
   odom_publisher_ = this->create_publisher<nav_msgs::msg::Odometry>(
       "/ekf/odometry",
@@ -86,32 +80,6 @@ void EKFNode::visionCallback(const geometry_msgs::msg::PoseWithCovarianceStamped
   publishOdometry();
 }
 
-void EKFNode::imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg)
-{
-  if (!is_initialized_)
-  {
-    initialize();
-  }
-
-  // Update linear acceleration from IMU
-  ax_ = msg->linear_acceleration.x;
-  ay_ = msg->linear_acceleration.y;
-  az_ = msg->linear_acceleration.z;
-
-  // Update angular velocity from IMU
-  wx_ = msg->angular_velocity.x;
-  wy_ = msg->angular_velocity.y;
-  wz_ = msg->angular_velocity.z;
-
-  // Update covariance matrices from IMU
-  for (size_t i = 0; i < 9; ++i)
-  {
-    linear_acceleration_covariance_[i] = msg->linear_acceleration_covariance[i];
-    angular_velocity_covariance_[i] = msg->angular_velocity_covariance[i];
-  }
-
-}
-
 void EKFNode::initialize()
 {
   // Initialize position to zero
@@ -133,18 +101,6 @@ void EKFNode::initialize()
   wx_ = 0.0;
   wy_ = 0.0;
   wz_ = 0.0;
-
-  // Initialize accelerations to zero
-  ax_ = 0.0;
-  ay_ = 0.0;
-  az_ = 0.0;
-
-  // Initialize covariance matrices to zero
-  linear_acceleration_covariance_.fill(0.0);
-  angular_velocity_covariance_.fill(0.0);
-
-  is_initialized_ = true;
-  RCLCPP_INFO(this->get_logger(), "EKF initialized");
 }
 
 void EKFNode::publishOdometry()

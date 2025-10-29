@@ -9,7 +9,6 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
 
 # Include directories
 include_directories(include)
@@ -20,7 +19,6 @@ ament_target_dependencies(ekf_node
   rclcpp
   nav_msgs
   geometry_msgs
-  sensor_msgs
 )
 
 # Publisher node
@@ -29,7 +27,6 @@ ament_target_dependencies(mock_publisher
   rclcpp
   nav_msgs
   geometry_msgs
-  sensor_msgs
 )
 
 install(TARGETS ekf_node

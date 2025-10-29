@@ -14,9 +14,6 @@ MockPublisher::MockPublisher()
     vision_publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
         "/vision/pose", rclcpp::SensorDataQoS());
 
-    imu_publisher_ = this->create_publisher<sensor_msgs::msg::Imu>(
-        "/imu/data", rclcpp::SensorDataQoS());
-
     // Actual publisher will obviously have a higher rate than this mock
     vio_timer_ = this->create_wall_timer(
         1s, [this]()
@@ -81,39 +78,6 @@ MockPublisher::MockPublisher()
 
             // Increment count after both messages are published
             ++count_; });
-
-    // IMU runs at higher rate (100Hz for mock purposes)
-    imu_timer_ = this->create_wall_timer(
-        10ms, [this]()
-        {
-            sensor_msgs::msg::Imu msg;
-            msg.header.stamp = this->now();
-            msg.header.frame_id = "imu_link";
-
-            // Simulate some accelerations (including gravity on z-axis)
-            msg.linear_acceleration.x = 0.1;
-            msg.linear_acceleration.y = 0.05;
-            msg.linear_acceleration.z = 9.81;  // gravity
-
-            // Simulate angular velocities
-            msg.angular_velocity.x = 0.01;
-            msg.angular_velocity.y = 0.02;
-            msg.angular_velocity.z = 0.0;
-
-            msg.linear_acceleration_covariance.fill(0.0);
-            msg.linear_acceleration_covariance[0] = 0.01;  // x variance
-            msg.linear_acceleration_covariance[4] = 0.01;  // y variance
-            msg.linear_acceleration_covariance[8] = 0.01;  // z variance
-
-            msg.angular_velocity_covariance.fill(0.0);
-            msg.angular_velocity_covariance[0] = 0.001;  // x variance
-            msg.angular_velocity_covariance[4] = 0.001;  // y variance
-            msg.angular_velocity_covariance[8] = 0.001;  // z variance
-
-            msg.orientation_covariance.fill(0.0);
-            msg.orientation_covariance[0] = -1.0;
-
-            imu_publisher_->publish(msg); });
 }
 
 } // namespace ekf

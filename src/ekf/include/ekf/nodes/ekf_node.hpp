@@ -2,11 +2,9 @@
 #pragma once
 
 #include <memory>
-#include <array>
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
-#include "sensor_msgs/msg/imu.hpp"
 
 namespace ekf
 {
@@ -15,7 +13,7 @@ namespace ekf
  * EKFNode
  *
  * ROS 2 node that implements an Extended Kalman Filter for sensor fusion.
- * Subscribes to VIO, Vision pose, and IMU data.
+ * Subscribes to VIO and Vision pose data.
  */
 class EKFNode : public rclcpp::Node
 {
@@ -46,13 +44,6 @@ private:
   void visionCallback(const geometry_msgs::msg::PoseWithCovarianceStamped::ConstSharedPtr msg);
 
   /**
-   * Callback for IMU messages
-   *
-   * @param msg IMU message containing linear acceleration and angular velocity
-   */
-  void imuCallback(const sensor_msgs::msg::Imu::ConstSharedPtr msg);
-
-  /**
    * Initialize the EKF state with default values
    */
   void initialize();
@@ -65,7 +56,6 @@ private:
   // Subscribers
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr vio_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr vision_subscription_;
-  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
 
   // Publisher
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
@@ -75,12 +65,7 @@ private:
   double qx_, qy_, qz_, qw_;         // orientation (quaternion)
   double vx_, vy_, vz_;              // linear velocity
   double wx_, wy_, wz_;              // angular velocity
-  double ax_, ay_, az_;              // linear acceleration
   bool is_initialized_;
-
-  // IMU covariance matrices (3x3, stored as 9-element arrays)
-  std::array<double, 9> angular_velocity_covariance_;
-  std::array<double, 9> linear_acceleration_covariance_;
 };
 
 } // namespace ekf
