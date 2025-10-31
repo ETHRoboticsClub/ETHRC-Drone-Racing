@@ -56,7 +56,7 @@ private:
   // Subscribers
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr vio_subscription_;
   rclcpp::Subscription<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr vision_subscription_;
-
+  
   // Publisher
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_publisher_;
 

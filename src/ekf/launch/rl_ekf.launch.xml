@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <node pkg="robot_localization" exec="ekf_node" name="ekf_filter_node" output="screen">
+    <param from="$(find-pkg-share ekf)/config/rl_ekf.yaml"/>
+    <remap from="odometry/filtered" to="/ekf/odometry"/>
+  </node>
+</launch>

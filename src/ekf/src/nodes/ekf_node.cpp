@@ -131,6 +131,12 @@ void EKFNode::publishOdometry()
   msg.twist.twist.angular.y = wy_;
   msg.twist.twist.angular.z = wz_;
 
+  RCLCPP_INFO(this->get_logger(), "Publishing EKF Odometry");
+  RCLCPP_INFO(this->get_logger(), "Position: [%f, %f, %f]", px_, py_, pz_);
+  RCLCPP_INFO(this->get_logger(), "Orientation: [%f, %f, %f, %f]", qx_, qy_, qz_, qw_);
+  RCLCPP_INFO(this->get_logger(), "Linear Velocity: [%f, %f, %f]", vx_, vy_, vz_);
+  RCLCPP_INFO(this->get_logger(), "Angular Velocity: [%f, %f, %f]", wx_, wy_, wz_);
+
   odom_publisher_->publish(msg);
 }
 

@@ -40,10 +40,23 @@ MockPublisher::MockPublisher()
             msg.twist.twist.angular.y = 0.0;
             msg.twist.twist.angular.z = 0.0;
 
-            RCLCPP_INFO(this->get_logger(), "Publishing VIO Odometry: (%.3f, %.3f, %.3f)",
+            RCLCPP_INFO(this->get_logger(), "Publishing VIO Position: (%.3f, %.3f, %.3f)",
                         msg.pose.pose.position.x,
                         msg.pose.pose.position.y,
                         msg.pose.pose.position.z);
+            RCLCPP_INFO(this->get_logger(), "Publishing VIO Orientation: (%.3f, %.3f, %.3f, %.3f)",
+                        msg.pose.pose.orientation.x,
+                        msg.pose.pose.orientation.y,
+                        msg.pose.pose.orientation.z,
+                        msg.pose.pose.orientation.w);
+            RCLCPP_INFO(this->get_logger(), "Publishing VIO Linear Velocity: (%.3f, %.3f, %.3f)",
+                        msg.twist.twist.linear.x,
+                        msg.twist.twist.linear.y,
+                        msg.twist.twist.linear.z);
+            RCLCPP_INFO(this->get_logger(), "Publishing VIO Angular Velocity: (%.3f, %.3f, %.3f)",
+                        msg.twist.twist.angular.x,
+                        msg.twist.twist.angular.y,
+                        msg.twist.twist.angular.z);
             vio_publisher_->publish(msg); });
 
     vision_timer_ = this->create_wall_timer(
@@ -74,6 +87,18 @@ MockPublisher::MockPublisher()
                         msg.pose.pose.position.x,
                         msg.pose.pose.position.y,
                         msg.pose.pose.position.z);
+            RCLCPP_INFO(this->get_logger(), "Publishing Vision Orientation: (%.3f, %.3f, %.3f, %.3f)",
+                        msg.pose.pose.orientation.x,
+                        msg.pose.pose.orientation.y,
+                        msg.pose.pose.orientation.z,
+                        msg.pose.pose.orientation.w);
+            RCLCPP_INFO(this->get_logger(), "Publishing Vision Covariance: (%.3f, %.3f, %.3f, %.3f, %.3f, %.3f)",
+                        msg.pose.covariance[0],
+                        msg.pose.covariance[7],
+                        msg.pose.covariance[14],
+                        msg.pose.covariance[21],
+                        msg.pose.covariance[28],
+                        msg.pose.covariance[35]);
             vision_publisher_->publish(msg);
 
             // Increment count after both messages are published

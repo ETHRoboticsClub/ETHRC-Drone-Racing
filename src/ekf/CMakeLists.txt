@@ -39,4 +39,8 @@ install(TARGETS mock_publisher
 install(DIRECTORY include/
   DESTINATION include/)
 
+# Install robot-localization (RL) package
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
+install(DIRECTORY config DESTINATION share/${PROJECT_NAME}/)
+
 ament_package()

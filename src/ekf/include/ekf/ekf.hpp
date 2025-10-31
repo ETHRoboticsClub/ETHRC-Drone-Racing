@@ -2,11 +2,14 @@
 #pragma once
 
 #include <array>
+#include <deque>
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <Eigen/Core>
 
 namespace ekf
 {
@@ -20,17 +23,13 @@ namespace ekf
  * in the corresponding source file. Keep this class free of any ROS headers to
  * facilitate offline testing and reuse.
  *
- * State vector layout (error-state for orientation):
- *   x = [ px, py, pz, vx, vy, vz, qx, qy, qz, qw ]^T
- * where position p and velocity v are in meters (world frame), and q is a
- * unit quaternion (world->body or body->world per convention you adopt; the
- * class does not fix the convention but requires consistency across inputs).
- *
  * Notes on representation and API choices:
- * - This header intentionally avoids external dependencies (e.g., Eigen) to
- *   keep the public interface lightweight. Matrices passed to or returned from
- *   the API use flattened row-major vectors and explicit dimension parameters
- *   where relevant. Internals may use a linear algebra library in the .cpp.
+ * - Nominal state layout mirrors the EKF definition (ICRA07 §III-A, §III-C)
+ *   with an IMU core and a sliding window of camera clones. Orientation errors
+ *   use the standard three-parameter small-angle approximation.
+ * - This header exposes Eigen-based type aliases consistent with the EKF
+ *   sizing while the external API continues to traffic in flattened row-major
+ *   buffers for compatibility with existing code.
  * - All measurement update methods accept both the measurement vector and its
  *   covariance matrix. If the input covariance is unknown, pass reasonable
  *   defaults or configure them in Params.
@@ -38,8 +37,11 @@ namespace ekf
 class Ekf
 {
 public:
+  // ICRA07 §III-A/§III-C: Type system below encodes EKF nominal plus clone error-state structure.
   /** Dimension constants of the filter's nominal state. */
-  static constexpr std::size_t kStateDim = 10;  // 3 pos + 3 vel + 4 quat
+  static constexpr int ERR_IMU_DIM = 15;  // ICRA07 §III-A: 3 dtheta + b_g + v + b_a + p -> 15-dim IMU error core.
+  static constexpr int ERR_CLONE_DIM = 6; // ICRA07 §III-C: Each camera clone contributes 3 dtheta + 3 dpos = 6 error states.
+  static constexpr std::size_t kStateDim = static_cast<std::size_t>(ERR_IMU_DIM); // ICRA07 §III-A: Legacy constant reflects 15-dim IMU error subspace.
   static constexpr std::size_t kPosOffset = 0;
   static constexpr std::size_t kVelOffset = 3;
   static constexpr std::size_t kQuatOffset = 6;
@@ -76,15 +78,62 @@ public:
   };
 
   /** Snapshot of the current nominal state for external consumers. */
-  struct State
+  struct ImuState
   {
-    std::array<double, 3> position{ {0.0, 0.0, 0.0} };
-    std::array<double, 3> velocity{ {0.0, 0.0, 0.0} };
-    // Quaternion stored as [x, y, z, w], normalized.
-    std::array<double, 4> orientation{ {0.0, 0.0, 0.0, 1.0} };
-    // Timestamp (seconds) of the nominal state, typically the last predict time.
-    double stamp_sec{0.0};
+    double stamp_sec{0.0}; // ICRA07 §III-B: Not part of the estimated vector; timestamp bookkeeping only.
+    // Attitude stored as unit quaternion [x, y, z, w]; EKF attitude error is a 3-vector small angle. ICRA07 §III-A.
+    std::array<double, 4> orientation{ {0.0, 0.0, 0.0, 1.0} }; // ICRA07 §III-A: Nominal quaternion ^I_G q in storage form.
+    std::array<double, 3> gyro_bias{ {0.0, 0.0, 0.0} };        // ICRA07 §III-A: Gyroscope bias b_g estimated in the core state.
+    std::array<double, 3> velocity{ {0.0, 0.0, 0.0} };         // ICRA07 §III-A: IMU velocity ^G v_I stored in nominal state.
+    std::array<double, 3> accel_bias{ {0.0, 0.0, 0.0} };       // ICRA07 §III-A: Accelerometer bias b_a required for propagation consistency.
+    std::array<double, 3> position{ {0.0, 0.0, 0.0} };         // ICRA07 §III-A: IMU position ^G p_I completes the 16-dof nominal IMU state.
   };
+
+  struct CamClone
+  {
+    double stamp_sec{0.0}; // ICRA07 §III-C: Clone timestamp stored for book-keeping, not part of error state.
+    // Attitude stored as unit quaternion [x, y, z, w]; error modeled as 3-vector small angle. ICRA07 §III-C.
+    std::array<double, 4> orientation{ {0.0, 0.0, 0.0, 1.0} }; // ICRA07 §III-C: Camera clone quaternion ^C_k_G q nominal storage (7 dof).
+    std::array<double, 3> position{ {0.0, 0.0, 0.0} };         // ICRA07 §III-C: Camera clone position ^G p_{C_k} contributes 3 of 6 error dims.
+  };
+
+  struct CamExtrinsics
+  {
+    // Attitude stored as unit quaternion [x, y, z, w]; fixed extrinsic rotation. ICRA07 §III-C.
+    std::array<double, 4> orientation{ {0.0, 0.0, 0.0, 1.0} }; // ICRA07 §III-C: ^C R_I kept constant (not estimated).
+    std::array<double, 3> position{ {0.0, 0.0, 0.0} };         // ICRA07 §III-C: ^I p_C is known translation offset.
+  };
+
+  struct EkfState : ImuState
+  {
+    EkfState() = default;
+    EkfState &operator=(const ImuState &imu)
+    {
+      static_cast<ImuState &>(*this) = imu; // ICRA07 §III-A: Reuses IMU nominal overwrite while preserving EKF bookkeeping.
+      clones.clear(); // ICRA07 §III-C: Resetting IMU nominal requires clearing existing camera clones.
+      last_propagation_stamp_sec = imu.stamp_sec; // ICRA07 §III-B: Sync bookkeeping timestamp with new IMU nominal time.
+      return *this;
+    }
+
+    std::deque<CamClone> clones{};       // ICRA07 §III-C: Sliding-window camera pose clones (size N).
+    CamExtrinsics T_CI{};                // ICRA07 §III-C: Fixed IMU<->camera extrinsics held outside error state.
+    Eigen::Vector3d g{0.0, 0.0, 0.0};    // ICRA07 §III-B: Gravity treated as known constant vector.
+    double last_propagation_stamp_sec{0.0}; // ICRA07 §III-B: Book-keeping timestamp only, not estimated.
+  };
+
+  using State = EkfState; // ICRA07 §III-A: Legacy alias maintains API returning IMU core nominal state.
+
+  using CoreErrorJacobian = Eigen::Matrix<double, ERR_IMU_DIM, ERR_IMU_DIM>; // ICRA07 §III-B: Continuous error dynamics F in R^{15x15}.
+  using CoreNoiseJacobian = Eigen::Matrix<double, ERR_IMU_DIM, 12>;          // ICRA07 §III-B: Noise input G in R^{15x12} for gyro/acc noises and bias random walks.
+  using CoreStateTransition = Eigen::Matrix<double, ERR_IMU_DIM, ERR_IMU_DIM>; // ICRA07 §III-B: Discrete transition Phi in R^{15x15}.
+  using CoreProcessNoise = Eigen::Matrix<double, ERR_IMU_DIM, ERR_IMU_DIM>;     // ICRA07 §III-B: Discrete process noise Q_d in R^{15x15}.
+  using ErrorCovariance = Eigen::MatrixXd;                                      // ICRA07 §III-A/§III-C: Covariance P sized (15+6N)x(15+6N).
+  using CloneAugmentationJacobian = Eigen::Matrix<double, ERR_CLONE_DIM, ERR_IMU_DIM>; // ICRA07 §III-C: J_clone_from_imu in R^{6x15} for augmentation.
+
+  int err_state_dim() const noexcept
+  {
+    return ERR_IMU_DIM + ERR_CLONE_DIM * static_cast<int>(current_num_clones());
+  } // ICRA07 §III-A/§III-C: Total error-state = 15 + 6N for IMU plus N clones.
 
   /**
    * Construct an EKF with default parameters. The filter starts uninitialized
@@ -137,7 +186,7 @@ public:
    * Time update (prediction) using a constant-velocity motion model.
    *
    * This advances the nominal state forward by dt seconds, constructs the
-   * continuous/discrete state transition (F/Φ) and process noise (Q), and
+   * continuous/discrete state transition (F/Phi) and process noise (Q), and
    * propagates the covariance P accordingly. Orientation is propagated either
    * as constant or via small-angle random walk depending on Params.
    *
@@ -205,7 +254,7 @@ private:
   void normalizeQuaternion();
 
   /**
-   * Compute or update the discrete-time state transition matrix Φ (phi) for a
+   * Compute or update the discrete-time state transition matrix Phi (phi) for a
    * constant-velocity model over dt seconds. Stored internally as row-major
    * (kStateDim x kStateDim).
    */
@@ -285,7 +334,13 @@ private:
 
   // --- Internal storage ---
   Params params_{};
-  State state_{};
+  EkfState state_{};
+  CoreErrorJacobian F_core_{};                   // ICRA07 §III-B: Continuous-time IMU error Jacobian F.
+  CoreNoiseJacobian G_core_{};                   // ICRA07 §III-B: IMU noise Jacobian G for gyro/acc noises and bias RWs.
+  CoreStateTransition Phi_core_{};               // ICRA07 §III-B: Discrete IMU transition Phi from integrating F.
+  CoreProcessNoise Qd_core_{};                   // ICRA07 §III-B: Discrete IMU process noise covariance Q_d.
+  ErrorCovariance P_ekf_{};                      // ICRA07 §III-A/§III-C: Full covariance partitioned into IMU/clones blocks.
+  CloneAugmentationJacobian J_clone_from_imu_{}; // ICRA07 §III-C: Augmentation Jacobian mapping IMU error into new clone.
   bool initialized_{false};
 
   // Row-major matrices sized to kStateDim x kStateDim unless noted.
@@ -297,6 +352,12 @@ private:
   // H_vio: 6 x kStateDim, H_vis: 3 x kStateDim
   Matrix H_vio_;
   Matrix H_vis_;
+  // ICRA07 §IV: After left-nullspace projection, effective measurement Jacobians map {IMU (+) clones} only; rows depend on feature track length.
+
+  std::size_t current_num_clones() const noexcept
+  {
+    return state_.clones.size();
+  } // ICRA07 §III-C: Clone count N from sliding-window maintained clones deque.
 };
 
 } // namespace ekf

@@ -9,6 +9,14 @@
 namespace ekf
 {
 
+// ICRA07 §III-A, §III-C: X_nominal = { q_GI, b_g, v_IinG, b_a, p_IinG } (+) { q_GC_k, p_Ck_inG }_{k=1..N}.
+// ICRA07 §III-A/§III-C: Error-state dimension n_x = 15 + 6N for IMU core plus N camera clones.
+// ICRA07 §III-B: Propagation matrices sized F(15x15), G(15x12), Phi(15x15), Qd(15x15) for the IMU core; clones stay static during propagation.
+// ICRA07 §III-A/§III-C: Covariance P partitioned as [P_II (15x15), P_IC (15x6N); P_CI, P_CC (6N x 6N)].
+// ICRA07 §III-C: J_clone_from_imu in R^{6x15} augments each new camera clone from the IMU error.
+// ICRA07 §IV: Feature states are marginalized via left-nullspace projection, leaving residuals over {IMU (+) clones} only.
+// ICRA07 §III-B, §III-C: Gravity g and extrinsics T_CI are treated as known, fixed parameters.
+
 // ----------------------------
 // Public API: construction
 // ----------------------------
@@ -74,14 +82,17 @@ void Ekf::setParams(const Params &p) { params_ = p; }
  * before predict/update can be used.
  *
  * Postconditions:
- * - state() returns default-initialized values (zero position/velocity,
- *   identity quaternion, timestamp 0).
+ * - state() returns default-initialized IMU components (identity quaternion,
+ *   zero gyro/accel biases, zero velocity/position) with timestamp 0.
+ * - Camera clone bookkeeping is cleared so a fresh EKF clone window can be
+ *   established on the next augmentation.
  * - covariance() returns an empty vector until reinitialized.
  */
 void Ekf::reset()
 {
   initialized_ = false;
-  state_ = State{};
+  state_ = EkfState{};
+  // ICRA07 §III-C: Assignment path clears the EKF clone deque before reuse.
   P_.clear();
   Phi_.clear();
   Q_.clear();
@@ -96,12 +107,12 @@ void Ekf::reset()
  * @param position         Initial position in world frame [m] (x,y,z).
  * @param velocity         Initial linear velocity in world frame [m/s] (x,y,z).
  * @param orientation_xyzw Initial unit quaternion [x,y,z,w]. No reordering.
- * @param P_diag           Optional diagonal entries (size 10) used to seed the
- *                         covariance P. If empty, defaults from Params are
- *                         used by the implementation.
+ * @param P_diag           Optional diagonal entries (size = kStateDim) used to
+ *                         seed the covariance P. If empty, defaults from Params
+ *                         are used by the implementation.
  *
  * Behavior:
- * - Stores provided nominal state and timestamp.
+ * - Stores provided nominal IMU state (biases default to zero) and timestamp.
  * - Allocates row-major matrices (P_, Phi_, Q_, H_vio_, H_vis_) with expected
  *   sizes. Actual numeric values are assigned by the implementation.
  * - Sets isInitialized() to true.
@@ -110,12 +121,14 @@ void Ekf::initialize(double stamp_sec,
                      const std::array<double, 3> &position,
                      const std::array<double, 3> &velocity,
                      const std::array<double, 4> &orientation_xyzw,
-                     const Vector &P_diag)
+                     const Vector &P_diag = Vector{})
 {
   // Store nominal state; actual covariance setup occurs elsewhere.
   state_.position = position;
   state_.velocity = velocity;
   state_.orientation = orientation_xyzw;
+  state_.gyro_bias = {0.0, 0.0, 0.0};  // ICRA07 §III-A: Biases start at zero unless calibrated externally.
+  state_.accel_bias = {0.0, 0.0, 0.0}; // ICRA07 §III-A: Biases start at zero unless calibrated externally.
   state_.stamp_sec = stamp_sec;
 
   // Allocate/initialize matrices to expected shapes; values filled by math code.
@@ -194,8 +207,9 @@ void Ekf::updateVisionPose(const std::array<double, 3> &position,
 /**
  * Get a copy of the current nominal state.
  *
- * @return A value copy of State containing position, velocity, orientation, and
- *         timestamp (seconds) associated with the nominal state.
+ * @return A value copy of State containing quaternion, gyro/accel biases,
+ *         velocity, position, and the timestamp (seconds) associated with the
+ *         nominal IMU state.
  */
 Ekf::State Ekf::state() const noexcept
 {
