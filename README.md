@@ -37,6 +37,10 @@ cd ETHRC-Drone-Racing
 docker compose build
 ```
 
+### Option A — Dev Containers (recommended for multiple terminals)
+Open this folder in VS Code/Cursor and "Reopen in Container". The container mirrors the compose setup with GUI, PX4 deps, and ROS 2 Humble. Multiple terminals are trivial via the IDE.
+
+### Option B — Docker Compose (manual)
 ### Step 3 — Start services (enable GUI, start container, open shell)
 ```bash
 # Allow container GUI apps to open windows on your desktop (X11)
@@ -53,3 +57,5 @@ docker exec -it erc-aeronautics bash
 cd /ws/px4/PX4-Autopilot
 make px4_sitl gz_x500
 ```
+
+

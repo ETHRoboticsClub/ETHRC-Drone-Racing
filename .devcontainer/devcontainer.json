@@ -4,9 +4,19 @@
   "service": "dev",
   "workspaceFolder": "/ws",
   "remoteUser": "root",
-  "runServices": ["dev"],
   "shutdownAction": "stopCompose",
-
+  "remoteEnv": {
+    "ROS_DOMAIN_ID": "1",
+    "RMW_IMPLEMENTATION": "rmw_cyclonedds_cpp",
+    "GZ_SIM_RESOURCE_PATH": "/ws/sim/gazebo/models:/ws/sim/gazebo/worlds",
+    "IGN_GAZEBO_RESOURCE_PATH": "/ws/sim/gazebo/models:/ws/sim/gazebo/worlds",
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "QT_X11_NO_MITSHM": "1",
+    "XAUTHORITY": "${localEnv:XAUTHORITY}",
+    "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+    "PULSE_SERVER": "${localEnv:PULSE_SERVER}"
+  },
+  
   "customizations": {
     "vscode": {
       "extensions": [
@@ -15,7 +25,15 @@
         "ms-azuretools.vscode-docker",
         "twxs.cmake",
         "redhat.vscode-yaml"
-      ]
+      ],
+      "settings": {
+        // 🧠 Add ROS 2 include path globally for IntelliSense
+        "C_Cpp.default.includePath": [
+          "${workspaceFolder}/**",
+          "/opt/ros/humble/**"
+        ]
+      }
     }
   }
+
 }
