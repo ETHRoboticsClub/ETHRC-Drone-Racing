@@ -23,6 +23,7 @@ public:
   ~MockPublisher() override = default;
 
 private:
+  
   // Timers for periodic publishing
   rclcpp::TimerBase::SharedPtr vio_timer_;
   rclcpp::TimerBase::SharedPtr vision_timer_;
@@ -33,6 +34,10 @@ private:
 
   // Counter for generating varying data
   size_t count_;
+
+  // Helper function to generate mock data
+    void test_resting_drone(nav_msgs::msg::Odometry& msg);
+    void test_resting_drone(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
 };
 
 } // namespace ekf
