@@ -29,7 +29,7 @@ Open a third terminal, source the workspace, then record. Use clear naming!
 Record for ~60–120 s:
 ```bash
 source install/setup.bash
-ros2 bag record -o <your-super-creative-bag-name> /ekf/odometry /vio/odometry /vision/pose /tf /tf_static
+ros2 bag record -o tests/<your-super-creative-bag-name> /ekf/odometry /vio/odometry /vision/pose /tf /tf_static
 ```
 Stop with Ctrl+C after sufficient duration.
 
