@@ -133,8 +133,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ROS2 <--> Gazebo Harmonic bridge
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-ros-gz-bridge \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ros-humble-ros-gzharmonic \
+    ros-humble-ros-gzharmonic-bridge \
+    ros-humble-ros-gzharmonic-image \
+    ros-humble-ros-gzharmonic-interfaces \
+    ros-humble-ros-gzharmonic-sim \
     && rm -rf /var/lib/apt/lists/*
 
 # ===========================================================
