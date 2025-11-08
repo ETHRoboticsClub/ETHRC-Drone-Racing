@@ -17,10 +17,9 @@ setup(
     maintainer_email='saad.lahlou@epfl.ch',
     description='TODO: Package description',
     license='TODO: License declaration',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'image_viewer = image_viewer_pkg.image_viewer:main',
+            'image_viewer = image_viewer_pkg.image_view:main',
         ],
     },
 )

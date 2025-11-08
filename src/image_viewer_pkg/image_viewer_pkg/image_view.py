@@ -16,6 +16,7 @@ class ImageViewer(Node):
             10)
 
     def listener_callback(self, msg):
+        self.get_logger().info(f"Got image {msg.width}x{msg.height}")
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         cv2.imshow("Camera View", frame)
         cv2.waitKey(1)
