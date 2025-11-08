@@ -38,6 +38,8 @@ private:
   // Helper function to generate mock data
     void test_resting_drone(nav_msgs::msg::Odometry& msg);
     void test_resting_drone(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
+    void test_constant_velocity_drone(nav_msgs::msg::Odometry& msg);
+    void test_constant_velocity_drone(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
 };
 
 } // namespace ekf
