@@ -54,17 +54,74 @@ cd /ws/px4/PX4-Autopilot
 make px4_sitl gz_x500
 ```
 
-# Using dev containers
+# Using simulated camera
 
-## Using nvidia graphics card inside the container. 
-1. Install the [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). 
-    - Install on your platform
-    - Configure ([here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuration))
-    -  Run the [sample](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/sample-workload.html)  
+## X500 Cam Simulation (PX4 + Gazebo + ROS 2)
 
-## Rebuilding the container after new configuration
-1. Make sure all the folders in the workspace are owned by the local user. 
-    ```sh
-    sudo chown -R $USER:$USER .
-    ```
-2. Inside `px4/PX4-Autopilot` use `make clean` to clear all the build artifacts. Then build again.
+### Step 1 — Pull the changes with submodules
+```bash
+git pull
+git submodule update --init --recursive
+```
+### Step 2 — Fix PX4 permissions (host machine), if you have any
+```bash
+cd px4/PX4-Autopilot
+sudo rm -rf build
+sudo chown -R $USER:$USER .
+```
+
+### Step 3 — Enter the simulation container
+```bash
+docker exec -it erc-aeroantics bash
+```
+
+### Step 4 — Run the simulation (inside container)
+```bash
+cd /workspaces/ETHRC-Drone-Racing/px4/PX4-Autopilot
+make clean
+make px4_sitl gz_x500_cam
+```
+
+This launches PX4 + Gazebo Harmonic + the x500_cam model.
+
+### Step 5 — Build ROS workspace 
+In a new container:
+```bash
+cd ~/ros_ws
+colcon build
+source install/setup.bash
+```
+
+### Step 6 — Bridge the camera topic 
+```bash
+ros2 launch camera_plugin camera_bridge.launch.py
+```
+Creates:
+```bash
+Gazebo  →  ROS 2
+/drone/camera/image
+```
+If you do ros2 topic list in another terminal, you should see the topic /drone/camera/image
+### Step 7 — View the camera feed 
+In a new container:
+```bash
+cd ~/ros_ws
+source install/setup.bash
+ros2 run image_viewer_pkg image_viewer
+```
+
+## Adding Custom Worlds
+
+Place worlds here:
+```bash
+px4/PX4-Autopilot/Tools/simulation/gz/worlds/
+```
+
+Set which world is loaded in:
+```bash
+px4/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/4022_gz_x500_cam
+PX4_GZ_WORLD=<world_name>
+```
+
+## Command the drone to fly
+Use Mavsdk API (offboard or action library) or Qgroundcontrol 
