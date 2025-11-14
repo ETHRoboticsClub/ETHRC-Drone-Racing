@@ -69,10 +69,17 @@ cd px4/PX4-Autopilot
 sudo rm -rf build
 sudo chown -R $USER:$USER .
 ```
+```bash
+git config --global --add safe.directory '*'
+```
+```bash
+sudo chown -R user:user /your_path_to_file/ETHRC-Drone-Racing/.colcon/
+```
+replace user and the path
 
 ### Step 3 — Enter the simulation container
 ```bash
-docker exec -it erc-aeroantics bash
+docker exec -it erc-aeronautics bash
 ```
 
 ### Step 4 — Run the simulation (inside container)
@@ -109,6 +116,28 @@ cd ~/ros_ws
 source install/setup.bash
 ros2 run image_viewer_pkg image_viewer
 ```
+
+
+### Run detedction Node with parameters
+```bash
+ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py     camera_topic:=/drone/camera/image     camera_calibration_file:=/home/jules/ros_ws/src/aruco_pose_estimation/config/camera_calibration_simulation.yaml     marker_map_file:=/home/jules/ros_ws/src/aruco_pose_estimation/config/marker_map.yaml     world_frame:=world     camera_frame:=camera_link     publish_tf:=true     publish_debug_image:=true
+```
+
+## Script
+ to hover at (1,1,1) adn (0,0,-3.14)
+
+ ```bash
+ python3 ./src/scripts/hover_at_position.py 
+ ```
+
+### RVIZ2
+
+ ```bash
+rviz2 
+```
+Add topic you need visualized
+
+(TODO:predefined rviz setup)
 
 ## Adding Custom Worlds
 
