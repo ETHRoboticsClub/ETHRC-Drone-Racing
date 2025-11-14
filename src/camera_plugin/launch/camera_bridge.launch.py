@@ -10,6 +10,8 @@ def generate_launch_description():
             output="screen",
             arguments=[
                 "/drone/camera/image@sensor_msgs/msg/Image@gz.msgs.Image",
+                "/drone/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo",
+                "/model/x500_cam_0/pose@geometry_msgs/msg/Pose@gz.msgs.Pose",
             ],
         ),
     ])
