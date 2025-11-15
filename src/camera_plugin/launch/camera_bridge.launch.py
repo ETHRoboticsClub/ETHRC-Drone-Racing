@@ -11,7 +11,7 @@ def generate_launch_description():
             arguments=[
                 "/drone/camera/image@sensor_msgs/msg/Image@gz.msgs.Image",
                 "/drone/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo",
-                "/model/x500_cam_0/pose@geometry_msgs/msg/Pose@gz.msgs.Pose",
+                "/model/x500_cam_0/odometry@nav_msgs/msg/Odometry@gz.msgs.Odometry",
             ],
         ),
     ])

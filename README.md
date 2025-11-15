@@ -54,6 +54,11 @@ cd /ws/px4/PX4-Autopilot
 make px4_sitl gz_x500
 ```
 
+### Step 4 — Run the simulation in the container
+```bash
+ros2 run pointcloud_gt pointcloud_GT
+
+```
 # Using simulated camera
 
 ## X500 Cam Simulation (PX4 + Gazebo + ROS 2)

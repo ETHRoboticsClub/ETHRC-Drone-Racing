@@ -205,9 +205,9 @@ private:
         pose_msg.pose.orientation.w = tf_quat.w();
         pose_pub_->publish(pose_msg);
 
-        // Publish trail marker every 2 seconds
+        // Publish trail marker every 0.5 seconds
         rclcpp::Time current_time = this->now();
-        if ((current_time - last_trail_time_).seconds() >= 2.0) {
+        if ((current_time - last_trail_time_).seconds() >= 0.5) {
             publishTrailMarker(camera_position, msg->header.stamp);
             last_trail_time_ = current_time;
         }
@@ -256,7 +256,8 @@ private:
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
                             "Camera pose: [%.3f, %.3f, %.3f] orientation: [%.3f, %.3f, %.3f] (using %zu/%zu markers)",
                             camera_position[0], camera_position[1], camera_position[2],
-                            camera_orientation[0], camera_orientation[1], camera_orientation[2]);
+                            camera_orientation[0], camera_orientation[1], camera_orientation[2],
+                            used_markers.size(), marker_ids.size());
     }
 
     // Member variables
