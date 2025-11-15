@@ -592,12 +592,12 @@ void drone_thrust_acados_setup_nlp_in(drone_thrust_solver_capsule* capsule, cons
     double* lbu = lubu;
     double* ubu = lubu + NBU;
     ubu[0] = 34.19432;
-    lbu[1] = -18;
-    ubu[1] = 18;
-    lbu[2] = -18;
-    ubu[2] = 18;
-    lbu[3] = -30;
-    ubu[3] = 30;
+    lbu[1] = -50;
+    ubu[1] = 50;
+    lbu[2] = -50;
+    ubu[2] = 50;
+    lbu[3] = -50;
+    ubu[3] = 50;
 
     for (int i = 0; i < N; i++)
     {

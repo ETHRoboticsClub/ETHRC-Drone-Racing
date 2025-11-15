@@ -149,8 +149,8 @@ class DroneModel(object):
         constraint.thrust_max = self.maxThrust  # N
         
         # Body rate limits (rad/s)
-        constraint.w_max_xy = 18.0   # roll/pitch rates
-        constraint.w_max_yaw = 30.0  # yaw rate
+        constraint.w_max_xy = 50.0   # roll/pitch rates
+        constraint.w_max_yaw = 50.0  # yaw rate
         
         # Control input bounds
         constraint.u_min = np.array([constraint.thrust_min, 

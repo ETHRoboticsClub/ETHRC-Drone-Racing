@@ -95,6 +95,18 @@ async def wait_until_armable(drone: System, timeout_s: float = 30.0):
         await asyncio.sleep(0.5)
     return False
 
+def target_reached(current_pos, target_pos, tolerance):
+    """
+    Switch to next waypoint BEFORE reaching it.
+    We shrink effective distance by a factor, causing smooth transitions.
+    """
+    dist = np.linalg.norm(current_pos - target_pos)
+
+    # anticipative smoothing factor
+    anticip = 0.65     # lower = earlier switching (0.5 = aggressive, 0.8 = mild)
+
+    return dist <= (tolerance * anticip)
+
 
 async def main():
     # ============================================
@@ -109,12 +121,42 @@ async def main():
 
     # Reference state: hovering at (1, 1, -2) meters NED (2m altitude)
     # NED: North, East, Down (down is positive in PX4 convention)
-    x_ref = np.array([
-        5.0, 3.0, -4.0,           # position NED
-        0.0, 0.0, 0.0,            # velocity NED
-        1.0, 0.0, 0.0, 0.0,       # quaternion (hover = identity)
-        0.0, 0.0, 0.0             # angular rates (zero)
-    ], dtype=float)
+    # ===============================
+    # WAYPOINTS (add at top of main)
+    # ===============================
+    waypoints = [
+        np.array([0.0, 0.0, -1.0]),
+        np.array([1.0, 0.5, -1.2]),
+        np.array([2.0, 1.0, -1.5]),
+        np.array([3.5, 2.0, -2.0]),
+        np.array([5.0, 3.0, -4.0]),
+    ]
+
+    current_wp_index = 0
+
+    def yaw_to_quaternion(yaw):
+        """Convert yaw (rad) to quaternion [w, x, y, z] with zero roll/pitch."""
+        cy = np.cos(yaw * 0.5)
+        sy = np.sin(yaw * 0.5)
+        return np.array([cy, 0.0, 0.0, sy])
+
+    def compute_yaw_facing(current_pos, next_target):
+        """Compute yaw so drone points toward next waypoint."""
+        direction = next_target - current_pos
+        yaw = np.arctan2(direction[1], direction[0])  # yaw around Z
+        return yaw
+
+    # Initialize first reference
+    position = np.array([0.0, 0.0, 0.0])
+    velocity = np.array([0.0, 0.0, 0.0])
+
+    goal_pos = waypoints[current_wp_index]
+    yaw_ref = compute_yaw_facing(position, goal_pos)
+    q_ref = yaw_to_quaternion(yaw_ref)
+
+    x_ref = np.zeros(13)
+    x_ref[0:3] = goal_pos
+    x_ref[6:10] = q_ref
 
     # ============================================
     # Connect to drone
@@ -188,7 +230,6 @@ async def main():
 
     rate_hz = 200.0
     period = 1.0 / rate_hz
-
     try:
         print("Control loop start (thrust + body rates)")
         iteration = 0
@@ -199,8 +240,6 @@ async def main():
             # ============================================
             # Get telemetry
             # ============================================
-            position = np.array([0.0, 0.0, 0.0])
-            velocity = np.array([0.0, 0.0, 0.0])
             async for pos in drone.telemetry.position_velocity_ned():
                 p = pos.position
                 v = pos.velocity
@@ -327,6 +366,27 @@ async def main():
                 
             except Exception as e_vis:
                 print(f"Visualizer error: {e_vis}")
+
+
+            if target_reached(position, goal_pos, tolerance=0.3):
+                print(f"Reached waypoint {current_wp_index}!")
+
+                if current_wp_index < len(waypoints) - 1:
+                    current_wp_index += 1
+                    goal_pos = waypoints[current_wp_index]
+
+                    # Update yaw orientation to face next goal
+                    yaw_ref = compute_yaw_facing(position, goal_pos)
+                    q_ref = yaw_to_quaternion(yaw_ref)
+
+                    x_ref = np.zeros(13)
+                    x_ref[0:3] = goal_pos
+                    x_ref[6:10] = q_ref
+
+                    print(f"Switching to waypoint {current_wp_index}: {goal_pos}")
+
+                else:
+                    print("🏁 Final waypoint reached — holding position.")
 
             # Wait for next control cycle
             await asyncio.sleep(period)

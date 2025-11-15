@@ -80,10 +80,10 @@ class DroneOptimizer(object):
         # Stage cost weights - heavily reduced for numerical stability
         Q_pos = 5.0        # Position tracking (was 10.0)
         Q_vel = 0.5        # Velocity tracking (was 1.0)
-        Q_quat = 0.0       # Quaternion tracking (was 1.0)
-        Q_omega = 0.0     # Angular rate tracking (was 0.1)
-        R_thrust = 0.0  # Thrust penalty (was 0.001)
-        R_rates = 0.0    # Body rate penalty (was 0.01)
+        Q_quat = 0.5       # Quaternion tracking (was 1.0)
+        Q_omega = 0.1     # Angular rate tracking (was 0.1)
+        R_thrust = 0.01  # Thrust penalty (was 0.001)
+        R_rates = 0.1   # Body rate penalty (was 0.01)
 
         # Terminal weights - slightly higher than stage weights
         Q_pos_term = 5.0       # Terminal position (was 20.0)
