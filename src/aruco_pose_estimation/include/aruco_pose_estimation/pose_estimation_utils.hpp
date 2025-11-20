@@ -1,13 +1,14 @@
-#ifndef MARKER_MAP_HPP
-#define MARKER_MAP_HPP
+#ifndef POSE_ESTIMATION_UTILS_HPP
+#define POSE_ESTIMATION_UTILS_HPP
 
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/types.hpp>
+#include <opencv2/core.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
 #include <map>
 #include <vector>
 #include <string>
 
-namespace marker_map {
+namespace pose_estimation_utils {
 
 // Structure to hold marker information
 struct MarkerInfo {
@@ -62,7 +63,9 @@ public:
         const cv::Mat& dist_coeffs,
         cv::Vec3d& camera_position,
         cv::Vec3d& camera_orientation,
-        std::vector<int>& used_markers
+        std::vector<int>& used_markers,
+        std::vector<cv::Point3f>* all_object_points = nullptr,
+        std::vector<cv::Point2f>* all_image_points = nullptr
     ) const;
 
 private:
@@ -71,17 +74,15 @@ private:
     std::string reference_frame_;
     float default_marker_size_;
     bool is_loaded_;
-
-    // Helper function to convert Euler angles to rotation vector for OpenCV
-    cv::Vec3d eulerToRotationVector(const cv::Vec3d& euler) const;
 };
 
-// Helper function to convert rotation vector to Euler angles
-cv::Vec3d rotationVectorToEulerAngles(const cv::Vec3d& rvec);
-// Helper function to convert rotation matrix to Euler angles
-cv::Vec3d rotationMatrixToEulerAngles(const cv::Mat& R);
+// ============================================================================
+// Conversion Utilities
+// ============================================================================
 
+// Convert OpenCV rotation vector (Rodrigues) to TF2 quaternion
+tf2::Quaternion cvRotationVecToQuaternion(const cv::Vec3d& rotation_vector);
 
-} // namespace marker_map
+} // namespace pose_estimation_utils
 
-#endif // MARKER_MAP_HPP
+#endif // POSE_ESTIMATION_UTILS_HPP

@@ -8,14 +8,14 @@
 
 marker_dict: "DICT_5X5_100"
 reference_frame: "world"
-marker_size: 0.2 
+marker_size: 0.5 
 
 markers:
   # Marker 0: On Wall 1 surface facing +Y direction
   # Located at X=0.5m, Y=0.01m, Z=0.5m
   # Rotation: -90° around X axis (facing away from wall)
   - id: 0
-    size: 0.2
+    size: 0.5
     pose:
       position: [0.5, 0.01, 0.5]
       orientation: [-1.5708, 0.0, 0.0]
@@ -25,7 +25,7 @@ markers:
   # Located at X=0.01m, Y=0.5m, Z=0.5m
   # Rotation: 90° around X, 90° around Z (facing away from wall)
   - id: 1
-    size: 0.2
+    size: 0.5
     pose:
       position: [0.01, 0.5, 0.5]
       orientation: [1.5708, 0.0, 1.5708]
@@ -35,7 +35,7 @@ markers:
   # Located at X=0.5m, Y=0.5m, Z=0.01m
   # Rotation: No rotation (lying flat)
   - id: 2
-    size: 0.2
+    size: 0.5
     pose:
       position: [0.5, 0.5, 0.01]
       orientation: [0.0, 0.0, 0.0]
