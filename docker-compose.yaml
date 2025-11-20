@@ -35,3 +35,22 @@ services:
     tty: true
     # Optional: enable GPU on NVIDIA laptops
     # gpus: all
+
+  ov_ros1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ros1
+    container_name: erc-ov-ros1
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_MASTER_URI=http://127.0.0.1:11311
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # Mount the whole repo to access EuRoC config and bags
+      - ./:/ws:rw
+      # A persistent catkin_ws outside the image is optional; you can also build in-container
+      - ./.colcon/ros1_catkin_ws:/catkin_ws
+    working_dir: /catkin_ws
+    tty: true
