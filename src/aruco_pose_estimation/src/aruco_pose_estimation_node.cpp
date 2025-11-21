@@ -24,7 +24,7 @@ constexpr int DEBUG_TEXT_LINE_HEIGHT = 30;
 namespace aruco_pose_estimation {
 
 ArucoPoseEstimationNode::ArucoPoseEstimationNode()
-    : Node("aruco_pose_estimation_node"), is_initialized_(false), trail_marker_id_(0)
+    : Node("aruco_pose_estimation_node"), is_initialized_(false), trail_marker_id_(0), has_previous_pose_(false)
     {
         // Parameters
         camera_topic_ = this->declare_parameter("camera_topic", "/camera/image_raw");
@@ -48,6 +48,11 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         polygonal_approx_accuracy_rate_ = this->declare_parameter("polygonal_approx_accuracy_rate", POLYGONAL_APPROX_ACCURACY_RATE);
         min_marker_distance_rate_ = this->declare_parameter("min_marker_distance_rate", MIN_MARKER_DISTANCE_RATE);
 
+        // Smoothing parameters
+        use_smoothing_ = this->declare_parameter("use_smoothing", true);
+        position_smoothing_alpha_ = this->declare_parameter("position_smoothing_alpha", 0.3);
+        orientation_smoothing_alpha_ = this->declare_parameter("orientation_smoothing_alpha", 0.3);
+
         // Initialize TF2 buffer and listener
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -68,6 +73,9 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         RCLCPP_INFO(this->get_logger(), "World frame: %s, Camera frame: %s, Base link frame: %s",
                     world_frame_.c_str(), camera_frame_.c_str(), base_link_frame_.c_str());
         RCLCPP_INFO(this->get_logger(), "Using TF2 to look up camera->base_link transform");
+        RCLCPP_INFO(this->get_logger(), "Smoothing: %s (pos_alpha=%.2f, orient_alpha=%.2f)",
+                    use_smoothing_ ? "enabled" : "disabled", 
+                    position_smoothing_alpha_, orientation_smoothing_alpha_);
     }
 
 bool ArucoPoseEstimationNode::initializeCalibration()
@@ -193,6 +201,33 @@ bool ArucoPoseEstimationNode::transformCameraToDrone(const cv::Vec3d& camera_pos
                                  base_link_frame_.c_str(), camera_frame_.c_str(), ex.what());
             return false;
         }
+}
+
+cv::Vec3d ArucoPoseEstimationNode::smoothPosition(const cv::Vec3d& new_position, const cv::Vec3d& prev_position, double alpha)
+{
+    if (!has_previous_pose_) {
+        return new_position;
+    }
+    
+    // Exponential moving average
+    cv::Vec3d smoothed;
+    smoothed[0] = alpha * new_position[0] + (1.0 - alpha) * prev_position[0];
+    smoothed[1] = alpha * new_position[1] + (1.0 - alpha) * prev_position[1];
+    smoothed[2] = alpha * new_position[2] + (1.0 - alpha) * prev_position[2];
+    
+    return smoothed;
+}
+
+tf2::Quaternion ArucoPoseEstimationNode::smoothOrientation(const tf2::Quaternion& new_quat, const tf2::Quaternion& prev_quat, double alpha)
+{
+    if (!has_previous_pose_) {
+        return new_quat;
+    }
+    
+    tf2::Quaternion smoothed = prev_quat.slerp(new_quat, alpha);
+    smoothed.normalize();
+    
+    return smoothed;
 }
 
 void ArucoPoseEstimationNode::addDiagnosticKeyValue(diagnostic_msgs::msg::DiagnosticStatus& status,

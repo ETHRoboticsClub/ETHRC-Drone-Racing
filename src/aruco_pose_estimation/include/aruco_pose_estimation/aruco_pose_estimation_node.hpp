@@ -42,6 +42,10 @@ private:
     bool transformCameraToDrone(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
                                 cv::Vec3d& drone_position, tf2::Quaternion& drone_quat);
 
+    // Smoothing methods
+    cv::Vec3d smoothPosition(const cv::Vec3d& new_position, const cv::Vec3d& prev_position, double alpha);
+    tf2::Quaternion smoothOrientation(const tf2::Quaternion& new_quat, const tf2::Quaternion& prev_quat, double alpha);
+
     // Diagnostic
     void addDiagnosticKeyValue(diagnostic_msgs::msg::DiagnosticStatus& status,
                                const std::string& key, const std::string& value);
@@ -105,6 +109,14 @@ private:
     //Runtime state
     rclcpp::Time last_trail_time_;
     std::vector<std::vector<cv::Point2f>> rejected_candidates_;
+
+    // Smoothing parameters and state
+    bool use_smoothing_;
+    double position_smoothing_alpha_;
+    double orientation_smoothing_alpha_;
+    cv::Vec3d prev_camera_position_;
+    tf2::Quaternion prev_camera_quat_;
+    bool has_previous_pose_;
 
     //publishers and subscribers
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
