@@ -30,17 +30,18 @@ ament_target_dependencies(mock_publisher
 )
 
 install(TARGETS ekf_node
-  DESTINATION lib/${PROJECT_NAME})
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 install(TARGETS mock_publisher
-  DESTINATION lib/${PROJECT_NAME})
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
 
 # Install header files
 install(DIRECTORY include/
   DESTINATION include/)
 
 # Install robot-localization (RL) package
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME}/)
+install(DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}/)
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME}/)
 
 ament_package()

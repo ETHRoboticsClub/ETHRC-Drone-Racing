@@ -1,19 +1,21 @@
 ekf_filter_node:
   ros__parameters:
-    frequency: 50.0
+    frequency: 100.0
     sensor_timeout: 0.1
     publish_tf: true
     two_d_mode: false
 
+    # map_frame: map
     base_link_frame: base_link
     odom_frame: odom
-    world_frame: base_link
+    vision_frame: base_link
+    world_frame: odom
 
     # VIO as Odometry
     # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
     odom0: /vio/odometry
-    odom0_config: [true, true, true,   false, false, true,   true, true, true,
-                   false, false, false, false, false, false]
+    odom0_config: [true, true, true,   true, true, true,   true, true, true,
+                   true, true, true,  false, false, false]
     odom0_differential: false
 
     # Vision absolute pose fixes
@@ -33,7 +35,7 @@ ekf_filter_node:
     # --- core filter behavior & observability ---
     # =======================
     predict_to_current_time: true        # Reduces output lag by propagating last state to "now"
-    target_frame: base_link              # All measurements fused in that frame
+    # target_frame: base_link              # All measurements fused in that frame
     transform_timeout: 0.02              # How long to wait for TF (sec); tune with your TF latencies
     transform_time_offset: 0.0           # Nonzero if you know all TFs are consistently early/late
 
@@ -92,7 +94,7 @@ ekf_filter_node:
     # =======================
     odom0_queue_size: 10                 # Buffer for delayed/out-of-order VIO
     odom0_nodelay: false                 # If true, fuse immediately on receipt (good for low-latency links)
-    odom0_relative: true                 # VIO often has occasional global resets; relative helps make it robust
+    odom0_relative: false                # VIO often has occasional global resets; relative helps make it robust
     odom0_pose_rejection_threshold: 5.0  # Mahalanobis gating; 0 disables. Start 4–7 and refine via NIS
     odom0_twist_rejection_threshold: 5.0
     # odom0_remove_gravitational_acceleration: false  # (only for IMU messages)

@@ -5,3 +5,6 @@ log/
 *.swp
 .DS_Store
 get-docker.sh
+rosbag
+tests/
+plots/

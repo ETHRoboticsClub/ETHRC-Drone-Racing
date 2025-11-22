@@ -2,6 +2,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
@@ -40,6 +41,17 @@ private:
     void test_resting_drone(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
     void test_constant_velocity_drone(nav_msgs::msg::Odometry& msg);
     void test_constant_velocity_drone(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
+    void test_constant_turn(nav_msgs::msg::Odometry& msg);
+    void test_constant_turn(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
+    void test_constant_accel(nav_msgs::msg::Odometry& msg);
+    void test_constant_accel(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
+
+  std::string scenario_;
+  double duration_sec_;
+  int rng_seed_;
+  double vio_rate_hz_;
+  double vision_rate_hz_;
+  rclcpp::TimerBase::SharedPtr shutdown_timer_;
 };
 
 } // namespace ekf
