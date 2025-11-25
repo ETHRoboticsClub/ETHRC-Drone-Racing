@@ -34,3 +34,9 @@ cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 4. Load already compiled model in mpc 
 5. [important] Add trajectory tracking
 6. [important] Ensure MPC is solved in specified time
+7. [important] Add useful services
+    - Lifting off
+    - Landing
+    - Disarming & arming
+8. [important] Add Mattias RT - Visualization
+9. [important] Add services for setting position and trajectory goals

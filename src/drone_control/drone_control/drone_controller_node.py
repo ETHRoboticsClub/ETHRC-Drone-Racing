@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node, Timer, Publisher
 from std_msgs.msg import Float64MultiArray
 
-from drone_control.mavsdk_client import MavSDKClient
+from drone_control.mavsdk_client import MavSDKClient, AttitudeRate
 import numpy as np
 from mpc.drone_mpc_controller import DroneMpcController
 
@@ -59,8 +59,13 @@ class DroneController(Node):
 
     def _control_timer_callback(self):
         """This function publishes the drone commands immediately through the mav sdk"""
-        # TODO: do control
-        print(f"State is {self.state}")        
+        # TODO: just a reference target for now
+        x_ref = np.zeros(13)
+        x_ref[0:3] = np.array([0.0, 0.0, -1.0])
+        x_ref[6:10] = np.array([1.0, 0.0, 0.0, 0.0])
+
+        attitude_cmd : AttitudeRate  = self.controller.controller_update(self.state,x_ref)
+        self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd)       
 
 
 def main(args=None):

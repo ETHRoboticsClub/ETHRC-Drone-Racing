@@ -91,13 +91,17 @@ class DroneMpcController():
         # Send Command
         # MAVSDK AttitudeRate: roll_deg_s, pitch_deg_s, yaw_deg_s, thrust_value
         # thrust_value: [0,1] normalized thrust
+        thrust_N = float(u0[0][0])
+        wx_cmd = float(u0[0][1])  # roll rate
+        wy_cmd = float(u0[0][2])  # pitch rate
+        wz_cmd = float(u0[0][3])  # yaw rate
 
-        thrust_normalized = self._thrust_to_normalized(u0[0])
+        thrust_normalized = self._thrust_to_normalized(thrust_N)
         
         # Convert body rates from rad/s to deg/s
-        roll_rate_deg  = np.degrees(u0[1])
-        pitch_rate_deg = np.degrees(u0[2])
-        yaw_rate_deg   = np.degrees(u0[3])
+        roll_rate_deg  = np.degrees(wx_cmd)
+        pitch_rate_deg = np.degrees(wy_cmd)
+        yaw_rate_deg   = np.degrees(wz_cmd)
         
         # Safety clipping
         max_rate_deg = 200.0  # deg/s
@@ -110,33 +114,3 @@ class DroneMpcController():
     def _thrust_to_normalized(self, thrust_N):
         """Convert thrust in Newtons to normalized [0,1] for MAVSDK."""
         return float(np.clip(thrust_N / self.max_thrust, 0.0, 1.0))
-
-    # @staticmethod
-    # def compute_thrust_vector_ned(thrust_magnitude, quaternion):
-    #     """
-    #     Compute thrust vector in NED frame from thrust magnitude and drone orientation.
-        
-    #     Args:
-    #         thrust_magnitude: thrust magnitude in Newtons
-    #         quaternion: attitude quaternion [w, x, y, z]
-            
-    #     Returns:
-    #         thrust_vector_ned: (3,) thrust vector in NED frame
-    #     """
-    #     # Thrust vector in body frame (pointing up = +z_body)
-    #     thrust_body = np.array([0.0, 0.0, thrust_magnitude])
-        
-    #     # Rotation matrix from body to NED using quaternion
-    #     qw, qx, qy, qz = quaternion
-        
-    #     # Rotation matrix body -> NED
-    #     R_bn = np.array([
-    #         [1 - 2*(qy**2 + qz**2), 2*(qx*qy - qw*qz), 2*(qx*qz + qw*qy)],
-    #         [2*(qx*qy + qw*qz), 1 - 2*(qx**2 + qz**2), 2*(qy*qz - qw*qx)],
-    #         [2*(qx*qz - qw*qy), 2*(qy*qz + qw*qx), 1 - 2*(qx**2 + qy**2)]
-    #     ])
-        
-    #     # Transform thrust to NED frame
-    #     thrust_ned = R_bn @ thrust_body
-        
-    #     return thrust_ned
