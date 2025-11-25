@@ -4,6 +4,7 @@ from std_msgs.msg import Float64MultiArray
 
 from drone_control.mavsdk_client import MavSDKClient
 import numpy as np
+from mpc.drone_mpc_controller import DroneMpcController
 
 class DroneController(Node):
 
@@ -18,12 +19,14 @@ class DroneController(Node):
     state: np.ndarray  = np.zeros(13) #TODO: maybe change to state class
 
     #TODO: add control
+    controller : DroneMpcController
 
 
     def __init__(self):
         super().__init__('drone_controller_node')
 
         self.mav_sdk_client = MavSDKClient()
+        self.controller = DroneMpcController()
         self.declare_parameter('controller_rate',100.0)
         self.declare_parameter('state_update_rate',200.0)
 
@@ -35,10 +38,13 @@ class DroneController(Node):
 
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
-        init_future = self.mav_sdk_client.run_async(self.mav_sdk_client.initialize())
-        # Do any other time consuming job
+        # TODO: improve this logic
+        mav_sdk_init_future = self.mav_sdk_client.run_async(self.mav_sdk_client.initialize())
+        controller_init_future = self.mav_sdk_client.run_async(self.controller.initialize())
 
-        init_future.result() #TODO: handle failure
+        #TODO: handle initialization failures
+        mav_sdk_init_future.result() 
+        controller_init_future.result() 
 
         # start timers after connecting to mavsdk
         self.control_timer = self.create_timer(1.0/self.control_rate, self._control_timer_callback)
