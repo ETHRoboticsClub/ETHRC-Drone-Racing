@@ -145,6 +145,9 @@ class MavSDKClient():
     
      # TODO: disarm
 
+
+# Testing MAVSDK client
+
 def main(args=None):
     mav_sdk_client = MavSDKClient()
     init_future = mav_sdk_client.run_async(mav_sdk_client.initialize())
