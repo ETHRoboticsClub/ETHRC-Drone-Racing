@@ -66,6 +66,16 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         createPublishersAndSubscribers();
 
         last_trail_time_ = this->now();
+
+        // Lucas-Kanade tracking parameters
+        use_optical_flow_ = this->declare_parameter("use_optical_flow", true);
+        max_tracking_age_ = this->declare_parameter("max_tracking_age", 10);
+        redetect_interval_ = this->declare_parameter("redetect_interval", 30);
+        
+        // LK algorithm parameters
+        lk_win_size_ = cv::Size(21, 21);
+        lk_max_level_ = 3;
+        lk_term_criteria_ = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
         
         RCLCPP_INFO(this->get_logger(), "ArUco Pose Estimation Node initialized");
         RCLCPP_INFO(this->get_logger(), "Camera topic: %s", camera_topic_.c_str());
@@ -76,6 +86,10 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         RCLCPP_INFO(this->get_logger(), "Smoothing: %s (pos_alpha=%.2f, orient_alpha=%.2f)",
                     use_smoothing_ ? "enabled" : "disabled", 
                     position_smoothing_alpha_, orientation_smoothing_alpha_);
+        RCLCPP_INFO(this->get_logger(), 
+            "Optical flow tracking: %s (max_age=%d, redetect_interval=%d)",
+            use_optical_flow_ ? "enabled" : "disabled", 
+            max_tracking_age_, redetect_interval_);
     }
 
 bool ArucoPoseEstimationNode::initializeCalibration()
@@ -202,6 +216,109 @@ bool ArucoPoseEstimationNode::transformCameraToDrone(const cv::Vec3d& camera_pos
             return false;
         }
 }
+
+// Track corners using Lucas-Kanade optical flow
+void ArucoPoseEstimationNode::trackCornersWithLK(const cv::Mat& gray, std::vector<int>& marker_ids, std::vector<std::vector<cv::Point2f>>& marker_corners)
+{
+    if (prev_gray_.empty() || tracked_corners_.empty()) {
+        return;  // Nothing to track yet
+    }
+    
+    marker_ids.clear();
+    marker_corners.clear();
+    
+    std::vector<int> markers_to_remove;
+    
+    for (auto& [marker_id, prev_corners] : tracked_corners_) {
+        std::vector<cv::Point2f> next_corners;
+        std::vector<uchar> status;
+        std::vector<float> err;
+        
+        // Track corners from previous frame to current frame
+        cv::calcOpticalFlowPyrLK(
+            prev_gray_, gray,
+            prev_corners, next_corners,
+            status, err,
+            lk_win_size_, lk_max_level_,
+            lk_term_criteria_,
+            0);
+        
+        // Check if all 4 corners were successfully tracked
+        int tracked_count = std::count(status.begin(), status.end(), 1);
+        
+        if (tracked_count == 4 && validateTrackedCorners(next_corners, gray.size())) {
+            // Successfully tracked all corners
+            marker_ids.push_back(marker_id);
+            marker_corners.push_back(next_corners);
+            tracked_corners_[marker_id] = next_corners;
+            tracking_age_[marker_id]++;
+            
+            // If tracked too long, mark for redetection
+            if (tracking_age_[marker_id] > max_tracking_age_) {
+                markers_to_remove.push_back(marker_id);
+            }
+        } else {
+            // Lost tracking for this marker
+            markers_to_remove.push_back(marker_id);
+        }
+    }
+    
+    // Remove markers that lost tracking or exceeded max age
+    for (int marker_id : markers_to_remove) {
+        tracked_corners_.erase(marker_id);
+        tracking_age_.erase(marker_id);
+    }
+    
+    RCLCPP_DEBUG(this->get_logger(), 
+                 "LK Tracking: %zu markers tracked, %zu lost",
+                 marker_ids.size(), markers_to_remove.size());
+}
+
+bool ArucoPoseEstimationNode::validateTrackedCorners(
+    const std::vector<cv::Point2f>& corners,
+    const cv::Size& frame_size)
+{
+    if (corners.size() != 4) return false;
+    
+    // Check all corners are within frame bounds
+    for (const auto& corner : corners) {
+        if (corner.x < 0 || corner.x >= frame_size.width ||
+            corner.y < 0 || corner.y >= frame_size.height) {
+            return false;
+        }
+    }
+    
+    // Check corners form a convex quadrilateral (basic sanity check)
+    double area = cv::contourArea(corners);
+    if (area < 100.0) {  // Minimum marker size in pixels
+        return false;
+    }
+    
+    // Check aspect ratio isn't too distorted
+    double side1 = cv::norm(corners[0] - corners[1]);
+    double side2 = cv::norm(corners[1] - corners[2]);
+    double side3 = cv::norm(corners[2] - corners[3]);
+    double side4 = cv::norm(corners[3] - corners[0]);
+    
+    double ratio1 = std::max(side1, side3) / std::min(side1, side3);
+    double ratio2 = std::max(side2, side4) / std::min(side2, side4);
+    
+    if (ratio1 > 3.0 || ratio2 > 3.0) {
+        return false;  // Too distorted
+    }
+    
+    return true;
+}
+
+void ArucoPoseEstimationNode::updateTrackedMarkers(const std::vector<int>& detected_ids, const std::vector<std::vector<cv::Point2f>>& detected_corners)
+{
+    for (size_t i = 0; i < detected_ids.size(); ++i) {
+        int marker_id = detected_ids[i];
+        tracked_corners_[marker_id] = detected_corners[i];
+        tracking_age_[marker_id] = 0;  // Reset age for newly detected markers
+    }
+}
+
 
 cv::Vec3d ArucoPoseEstimationNode::smoothPosition(const cv::Vec3d& new_position, const cv::Vec3d& prev_position, double alpha)
 {
@@ -367,21 +484,36 @@ bool ArucoPoseEstimationNode::estimateAndValidatePose(const std::vector<int>& ma
 void ArucoPoseEstimationNode::publishPoses(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
                       const rclcpp::Time& timestamp)
 {
+    // Apply smoothing to camera pose if enabled
+    cv::Vec3d smoothed_camera_position = camera_position;
+    tf2::Quaternion smoothed_camera_quat = camera_quat;
+    
+    if (use_smoothing_ && has_previous_pose_) {
+        smoothed_camera_position = smoothPosition(camera_position, prev_camera_position_, position_smoothing_alpha_);
+        smoothed_camera_quat = smoothOrientation(camera_quat, prev_camera_quat_, orientation_smoothing_alpha_);
+    }
+    
+    // Store current pose for next iteration
+    prev_camera_position_ = smoothed_camera_position;
+    prev_camera_quat_ = smoothed_camera_quat;
+    has_previous_pose_ = true;
+
+    // Publish smoothed camera pose
     geometry_msgs::msg::PoseStamped camera_pose_msg;
         camera_pose_msg.header.stamp = timestamp;
         camera_pose_msg.header.frame_id = world_frame_;
-        camera_pose_msg.pose.position.x = camera_position[0];
-        camera_pose_msg.pose.position.y = camera_position[1];
-        camera_pose_msg.pose.position.z = camera_position[2];
-        camera_pose_msg.pose.orientation.x = camera_quat.x();
-        camera_pose_msg.pose.orientation.y = camera_quat.y();
-        camera_pose_msg.pose.orientation.z = camera_quat.z();
-        camera_pose_msg.pose.orientation.w = camera_quat.w();
+        camera_pose_msg.pose.position.x = smoothed_camera_position[0];
+        camera_pose_msg.pose.position.y = smoothed_camera_position[1];
+        camera_pose_msg.pose.position.z = smoothed_camera_position[2];
+        camera_pose_msg.pose.orientation.x = smoothed_camera_quat.x();
+        camera_pose_msg.pose.orientation.y = smoothed_camera_quat.y();
+        camera_pose_msg.pose.orientation.z = smoothed_camera_quat.z();
+        camera_pose_msg.pose.orientation.w = smoothed_camera_quat.w();
         camera_pose_pub_->publish(camera_pose_msg);
 
         cv::Vec3d drone_position;
         tf2::Quaternion drone_quat;
-        if (!transformCameraToDrone(camera_position, camera_quat, drone_position, drone_quat)) {
+        if (!transformCameraToDrone(smoothed_camera_position, smoothed_camera_quat, drone_position, drone_quat)) {
             return;  // Transform failed, skip publishing drone pose
         }
 
@@ -516,9 +648,41 @@ void ArucoPoseEstimationNode::imageCallback(const sensor_msgs::msg::Image::Share
         cv::Mat frame = convertRosImageToCV(msg);
         if (frame.empty()) return;
 
-        std::vector<int> marker_ids;
-        std::vector<std::vector<cv::Point2f>> marker_corners;
+    // Convert to grayscale for optical flow
+    cv::Mat gray;
+    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+
+    std::vector<int> marker_ids;
+    std::vector<std::vector<cv::Point2f>> marker_corners;
+    
+    bool force_detection = (frames_since_detection_ >= redetect_interval_);
+    
+    if (use_optical_flow_ && !prev_gray_.empty() && !tracked_corners_.empty() && !force_detection) {
+        trackCornersWithLK(gray, marker_ids, marker_corners);
+        
+        // If we lost too many markers, force a full detection
+        if (marker_ids.size() < 2) {
+            RCLCPP_DEBUG(this->get_logger(), "Too few tracked markers, forcing full detection");
+            marker_ids.clear();
+            marker_corners.clear();
+            force_detection = true;
+        }
+    }
+    
+    // Perform full ArUco detection if needed
+    if (marker_ids.empty() || force_detection) {
         detectArucoMarkers(frame, marker_ids, marker_corners);
+        updateTrackedMarkers(marker_ids, marker_corners);
+        frames_since_detection_ = 0;
+        
+        RCLCPP_DEBUG(this->get_logger(), "Full detection: %zu markers found", marker_ids.size());
+    } else {
+        frames_since_detection_++;
+        RCLCPP_DEBUG(this->get_logger(), "Using optical flow: %zu markers tracked", marker_ids.size());
+    }
+    
+    // Store current frame for next iteration
+    prev_gray_ = gray.clone();
 
         if (marker_ids.empty()) return;
 

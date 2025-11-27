@@ -118,6 +118,29 @@ private:
     tf2::Quaternion prev_camera_quat_;
     bool has_previous_pose_;
 
+    // Lucas-Kanade tracking members
+    cv::Mat prev_gray_;
+    std::map<int, std::vector<cv::Point2f>> tracked_corners_;
+    std::map<int, int> tracking_age_;  // How many frames each marker has been tracked
+    bool use_optical_flow_;
+    int max_tracking_age_;
+    int redetect_interval_;  // Force full detection every N frames
+    int frames_since_detection_;
+    
+    // LK parameters
+    cv::Size lk_win_size_;
+    int lk_max_level_;
+    cv::TermCriteria lk_term_criteria_;
+    
+    // Methods
+    void trackCornersWithLK(const cv::Mat& gray, 
+                           std::vector<int>& marker_ids,
+                           std::vector<std::vector<cv::Point2f>>& marker_corners);
+    void updateTrackedMarkers(const std::vector<int>& detected_ids,
+                             const std::vector<std::vector<cv::Point2f>>& detected_corners);
+    bool validateTrackedCorners(const std::vector<cv::Point2f>& corners, 
+                               const cv::Size& frame_size);
+
     //publishers and subscribers
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr camera_pose_pub_;
