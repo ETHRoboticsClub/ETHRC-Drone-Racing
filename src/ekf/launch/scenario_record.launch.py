@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from multiprocessing import context
 import shlex
 from pathlib import Path
 
@@ -30,6 +31,16 @@ CSV_HEADER = (
     "twist_cov_13,twist_cov_14,twist_cov_15,twist_cov_16,twist_cov_17,twist_cov_18,twist_cov_19,twist_cov_20,"
     "twist_cov_21,twist_cov_22,twist_cov_23,twist_cov_24,twist_cov_25,twist_cov_26,twist_cov_27,twist_cov_28,"
     "twist_cov_29,twist_cov_30,twist_cov_31,twist_cov_32,twist_cov_33,twist_cov_34,twist_cov_35"
+)
+
+ACCEL_CSV_HEADER = (
+    "t_sec,t_nsec,_,ax,ay,az,wx,wy,wz,"
+    "accel_cov_0,accel_cov_1,accel_cov_2,accel_cov_3,accel_cov_4,accel_cov_5,"
+    "accel_cov_6,accel_cov_7,accel_cov_8,accel_cov_9,accel_cov_10,accel_cov_11,"
+    "accel_cov_12,accel_cov_13,accel_cov_14,accel_cov_15,accel_cov_16,accel_cov_17,"
+    "accel_cov_18,accel_cov_19,accel_cov_20,accel_cov_21,accel_cov_22,accel_cov_23,"
+    "accel_cov_24,accel_cov_25,accel_cov_26,accel_cov_27,accel_cov_28,accel_cov_29,"
+    "accel_cov_30,accel_cov_31,accel_cov_32,accel_cov_33,accel_cov_34,accel_cov_35"
 )
 
 
@@ -70,10 +81,18 @@ def generate_launch_description():
 
     def _prepare_csv(context):
         bagdir_path = _resolve_bagdir_path(context)
+
+        # EKF odometry CSV
         csv_path = bagdir_path / "scenario_data.csv"
         if not csv_path.exists():
             csv_path.write_text(CSV_HEADER + "\n")
-        return bagdir_path, csv_path
+
+        # Acceleration CSV from /accel/filtered
+        accel_csv_path = bagdir_path / "accel_data.csv"
+        if not accel_csv_path.exists():
+            accel_csv_path.write_text(ACCEL_CSV_HEADER + "\n")
+
+        return bagdir_path, csv_path, accel_csv_path
 
     declare_args = [
         DeclareLaunchArgument("scenario", default_value=TextSubstitution(text="const_vel")),
@@ -120,13 +139,14 @@ def generate_launch_description():
                     "/odometry/filtered",
                     "/tf",
                     "/tf_static",
+                    "/control/command"
                 ],
                 output="screen",
             ),
         ]
 
     def _start_csv_capture(context):
-        _, csv_path = _prepare_csv(context)
+        _, csv_path, _ = _prepare_csv(context)
         csv_target = shlex.quote(str(csv_path))
         record_cmd = (
             f"echo 'Streaming /ekf/odometry to CSV at {csv_path}' >&2; "
@@ -139,9 +159,25 @@ def generate_launch_description():
                 output="screen",
             ),
         ]
+    
+    def _start_accel_csv_capture(context):
+        _, _, accel_csv_path = _prepare_csv(context)
+        accel_target = shlex.quote(str(accel_csv_path))
+        record_cmd = (
+            f"echo 'Streaming /accel/filtered to CSV at {accel_csv_path}' >&2; "
+            f"exec ros2 topic echo /accel/filtered --csv >> {accel_target}"
+        )
+        return [
+            LogInfo(msg=f"Streaming /accel/filtered to CSV at {accel_csv_path}"),
+            ExecuteProcess(
+                cmd=["bash", "-lc", record_cmd],
+                output="screen",
+            ),
+        ]
 
     recorder = OpaqueFunction(function=_launch_recorder)
     csv_capture = OpaqueFunction(function=_start_csv_capture)
+    accel_csv_capture = OpaqueFunction(function=_start_accel_csv_capture)
 
     stop_on_mock_exit = RegisterEventHandler(
         OnProcessExit(
@@ -153,4 +189,4 @@ def generate_launch_description():
         )
     )
 
-    return LaunchDescription(declare_args + [rl_ekf, mock, recorder, csv_capture, stop_on_mock_exit])
+    return LaunchDescription(declare_args + [rl_ekf, mock, recorder, csv_capture, accel_csv_capture, stop_on_mock_exit])

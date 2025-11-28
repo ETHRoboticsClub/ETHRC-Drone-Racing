@@ -6,6 +6,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include <geometry_msgs/msg/twist_stamped.hpp>
 
 namespace ekf
 {
@@ -28,10 +29,12 @@ private:
   // Timers for periodic publishing
   rclcpp::TimerBase::SharedPtr vio_timer_;
   rclcpp::TimerBase::SharedPtr vision_timer_;
+  rclcpp::TimerBase::SharedPtr control_timer_;
 
   // Publishers
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr vio_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr vision_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr control_publisher_;
 
   // Counter for generating varying data
   size_t count_;
@@ -46,11 +49,18 @@ private:
     void test_constant_accel(nav_msgs::msg::Odometry& msg);
     void test_constant_accel(geometry_msgs::msg::PoseWithCovarianceStamped& msg);
 
+  // Controls helpers
+    void test_resting_control(geometry_msgs::msg::TwistStamped & msg);
+    void test_constant_velocity_control(geometry_msgs::msg::TwistStamped & msg);
+    void test_constant_turn_control(geometry_msgs::msg::TwistStamped & msg);
+    void test_constant_accel_control(geometry_msgs::msg::TwistStamped & msg);
+
   std::string scenario_;
   double duration_sec_;
   int rng_seed_;
   double vio_rate_hz_;
   double vision_rate_hz_;
+  double control_rate_hz_;
   rclcpp::TimerBase::SharedPtr shutdown_timer_;
 };
 

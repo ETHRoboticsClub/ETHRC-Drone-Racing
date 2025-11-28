@@ -58,14 +58,14 @@ namespace ekf
         const double att_var = att_std * att_std;
 
         // Position variances
-        cov[0] = pos_var;   // x
-        cov[7] = pos_var;   // y
-        cov[14] = pos_var;  // z
+        cov[0] = pos_var;  // x
+        cov[7] = pos_var;  // y
+        cov[14] = pos_var; // z
 
         // Orientation variances (small-angle roll/pitch/yaw)
-        cov[21] = att_var;  // roll
-        cov[28] = att_var;  // pitch
-        cov[35] = att_var;  // yaw
+        cov[21] = att_var; // roll
+        cov[28] = att_var; // pitch
+        cov[35] = att_var; // yaw
     }
 
     static void set_twist_covariance(nav_msgs::msg::Odometry &msg,
@@ -79,14 +79,14 @@ namespace ekf
         const double ang_var = ang_vel_std * ang_vel_std;
 
         // Linear velocity variances
-        cov[0] = lin_var;   // vx
-        cov[7] = lin_var;   // vy
-        cov[14] = lin_var;  // vz
+        cov[0] = lin_var;  // vx
+        cov[7] = lin_var;  // vy
+        cov[14] = lin_var; // vz
 
         // Angular velocity variances
-        cov[21] = ang_var;  // wx
-        cov[28] = ang_var;  // wy
-        cov[35] = ang_var;  // wz
+        cov[21] = ang_var; // wx
+        cov[28] = ang_var; // wy
+        cov[35] = ang_var; // wz
     }
 
     static void set_pose_covariance(geometry_msgs::msg::PoseWithCovarianceStamped &msg,
@@ -149,6 +149,17 @@ namespace ekf
         set_pose_covariance(msg, default_err_pos, default_err_rest);
     }
 
+    void MockPublisher::test_resting_control(geometry_msgs::msg::TwistStamped &msg)
+    {
+        // No motion command
+        msg.twist.linear.x = 0.0;
+        msg.twist.linear.y = 0.0;
+        msg.twist.linear.z = 0.0;
+        msg.twist.angular.x = 0.0;
+        msg.twist.angular.y = 0.0;
+        msg.twist.angular.z = 0.0;
+    }
+
     void MockPublisher::test_constant_velocity_drone(nav_msgs::msg::Odometry &msg)
     {
         // Constant velocity motion in x with small measurement noise
@@ -207,6 +218,17 @@ namespace ekf
         set_pose_covariance(msg, default_err_pos, default_err_rest);
     }
 
+    void MockPublisher::test_constant_velocity_control(geometry_msgs::msg::TwistStamped &msg)
+    {
+        // Match test_constant_velocity_drone: vx = 0.05 m/s
+        msg.twist.linear.x = 0.05;
+        msg.twist.linear.y = 0.0;
+        msg.twist.linear.z = 0.0;
+        msg.twist.angular.x = 0.0;
+        msg.twist.angular.y = 0.0;
+        msg.twist.angular.z = 0.0;
+    }
+
     void MockPublisher::test_constant_turn(nav_msgs::msg::Odometry &msg)
     {
         const double omega = 0.5; // rad/s
@@ -255,6 +277,17 @@ namespace ekf
         quat.w = std::cos(0.5 * yaw) + gaussian(0.0, default_err_rest);
         normalize_quaternion(quat);
         set_pose_covariance(msg, default_err_pos, default_err_rest);
+    }
+
+    void MockPublisher::test_constant_turn_control(geometry_msgs::msg::TwistStamped &msg)
+    {
+        // Match test_constant_turn: yaw rate omega = 0.5 rad/s
+        msg.twist.linear.x = 0.0;
+        msg.twist.linear.y = 0.0;
+        msg.twist.linear.z = 0.0;
+        msg.twist.angular.x = 0.0;
+        msg.twist.angular.y = 0.0;
+        msg.twist.angular.z = 0.5;
     }
 
     void MockPublisher::test_constant_accel(nav_msgs::msg::Odometry &msg)
@@ -308,6 +341,22 @@ namespace ekf
         set_pose_covariance(msg, default_err_pos, default_err_rest);
     }
 
+    void MockPublisher::test_constant_accel_control(geometry_msgs::msg::TwistStamped &msg)
+    {
+        // Match test_constant_accel: vx(t) = a * t
+        const double accel = 0.5; // m/s^2 (same as in test_constant_accel)
+        const double dt = (vio_rate_hz_ > 0.0) ? (1.0 / vio_rate_hz_) : 0.01;
+        const double t = static_cast<double>(count_) * dt;
+        const double velocity_x = accel * t;
+
+        msg.twist.linear.x = velocity_x;
+        msg.twist.linear.y = 0.0;
+        msg.twist.linear.z = 0.0;
+        msg.twist.angular.x = 0.0;
+        msg.twist.angular.y = 0.0;
+        msg.twist.angular.z = 0.0;
+    }
+
     MockPublisher::MockPublisher()
         : Node("mock_publisher"), count_(0)
     {
@@ -316,6 +365,7 @@ namespace ekf
         rng_seed_ = this->declare_parameter<int>("rng_seed", 42);
         vio_rate_hz_ = this->declare_parameter<double>("vio_rate_hz", 100.0);
         vision_rate_hz_ = this->declare_parameter<double>("vision_rate_hz", 60.0);
+        control_rate_hz_ = this->declare_parameter<double>("control_rate_hz", 100.0);
 
         rng.seed(static_cast<std::mt19937::result_type>(rng_seed_));
 
@@ -350,6 +400,9 @@ namespace ekf
 
         vision_publisher_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
             "/vision/pose", rclcpp::SensorDataQoS());
+
+        control_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>(
+            "/control/command", rclcpp::QoS(10));
 
         auto to_duration = [](double seconds)
         {
@@ -399,8 +452,7 @@ namespace ekf
                             msg.twist.twist.angular.y,
                             msg.twist.twist.angular.z);
                 vio_publisher_->publish(msg);
-                ++count_;
-            });
+                ++count_; });
 
         vision_timer_ = this->create_wall_timer(
             to_duration(1.0 / vision_rate_hz_), [this]()
@@ -442,8 +494,39 @@ namespace ekf
                             msg.pose.covariance[21],
                             msg.pose.covariance[28],
                             msg.pose.covariance[35]);
-                vision_publisher_->publish(msg);
-            });
+                vision_publisher_->publish(msg); });
+
+        control_timer_ = this->create_wall_timer(
+            to_duration(1.0 / control_rate_hz_), [this]()
+            {
+                geometry_msgs::msg::TwistStamped msg;
+                msg.header.stamp = this->now();
+                // Control is in base_link frame (what robot_localization expects)
+                msg.header.frame_id = "base_link";
+
+                if (scenario_ == "rest")
+                {
+                    test_resting_control(msg);
+                }
+                else if (scenario_ == "const_vel")
+                {
+                    test_constant_velocity_control(msg);
+                }
+                else if (scenario_ == "turn")
+                {
+                    test_constant_turn_control(msg);
+                }
+                else if (scenario_ == "accel")
+                {
+                    test_constant_accel_control(msg);
+                }
+
+                RCLCPP_INFO(this->get_logger(),
+                            "Publishing control: lin (%.3f, %.3f, %.3f), ang (%.3f, %.3f, %.3f)",
+                            msg.twist.linear.x,  msg.twist.linear.y,  msg.twist.linear.z,
+                            msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z);
+
+                control_publisher_->publish(msg); });
 
         shutdown_timer_ = this->create_wall_timer(
             to_duration(duration_sec_), [this]()
@@ -453,8 +536,7 @@ namespace ekf
                 {
                     shutdown_timer_->cancel();
                 }
-                rclcpp::shutdown();
-            });
+                rclcpp::shutdown(); });
     }
 
 } // namespace ekf

@@ -15,7 +15,7 @@ Launch everything with a single command:
 ```bash
 ros2 launch ekf scenario_record.launch.py \
   scenario:=const_vel \
-  bagname:=const_vel_defaultqp \
+  bagname:=defaultqp \
   duration:=30.0 \
   seed:=1 \
   vio_rate_hz:=100.0 \

@@ -8,7 +8,6 @@ ekf_filter_node:
     # map_frame: map
     base_link_frame: base_link
     odom_frame: odom
-    vision_frame: base_link
     world_frame: odom
 
     # VIO as Odometry
@@ -87,7 +86,7 @@ ekf_filter_node:
 
     # --- smoothing & delayed measurements (handy with VIO + vision) ---
     smooth_lagged_data: true             # Enable partial back-update for delayed/out-of-order messages
-    history_length:  0.5                 # Seconds of state history to keep for smoothing; tune to your typical vision delay
+    history_length:  0.5                 # Seconds of state history to keep for smoothing; tune to our typical vision delay
 
     # =======================
     # VIO as Odometry (odom0)
@@ -95,8 +94,8 @@ ekf_filter_node:
     odom0_queue_size: 10                 # Buffer for delayed/out-of-order VIO
     odom0_nodelay: false                 # If true, fuse immediately on receipt (good for low-latency links)
     odom0_relative: false                # VIO often has occasional global resets; relative helps make it robust
-    odom0_pose_rejection_threshold: 5.0  # Mahalanobis gating; 0 disables. Start 4–7 and refine via NIS
-    odom0_twist_rejection_threshold: 5.0
+    # odom0_pose_rejection_threshold: 5.0  # Mahalanobis gating; 0 disables. Start 4–7 and refine via NIS
+    # odom0_twist_rejection_threshold: 5.0
     # odom0_remove_gravitational_acceleration: false  # (only for IMU messages)
 
     # =========================
@@ -105,8 +104,26 @@ ekf_filter_node:
     pose0_queue_size: 10
     pose0_nodelay: false
     pose0_relative: false                # Keep absolute; this is your "global" correction
-    pose0_rejection_threshold: 7.5       # Slightly higher than VIO; vision updates are sparse and may be noisier
+    # pose0_rejection_threshold: 7.5       # Slightly higher than VIO; vision updates are sparse and may be noisier
 
     # --- outputs (optional but nice while tuning) ---
-    publish_acceleration: true          # Turn true if you actually need accel in output topics
+    publish_acceleration: true          # Publish estimated linear acceleration (to accel/filtered)
 
+    # Controls
+    use_control: true                   # Whether to use control inputs
+    stamped_control: true               # Whether control inputs are stamped
+    control_timeout: 0.2                # Timeout for control inputs (sec)
+    control0: cmd_vel                   # Topic for control input; Can't be changed, just written here for clarity
+
+    # [vx, vy, vz, vroll, vpitch, vyaw]
+    control_config: [true, true, true,
+                      false, false, false] 
+
+    # acceleration_limits: [6.9, 6.9, 6.9,
+    #                       6.9, 6.9, 6.9]  
+    # deceleration_limits: [6.9, 6.9, 6.9,
+    #                       6.9, 6.9, 6.9]
+    # acceleration_gains: [1.0, 1.0, 1.0,
+    #                      1.0, 1.0, 1.0]
+    # deceleration_gains: [1.0, 1.0, 1.0,
+    #                      1.0, 1.0, 1.0]
