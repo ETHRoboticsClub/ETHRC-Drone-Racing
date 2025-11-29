@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass
 
 from mavsdk import System
-from mavsdk.offboard import AttitudeRate
+from mavsdk.offboard import AttitudeRate, PositionNedYaw
 
 import time
 import numpy as np
@@ -69,6 +69,10 @@ class MavSDKClient():
     def send_AttitudeRate_cmd(self, cmd : AttitudeRate):
         #TODO: verify that it is best way
         self.run_async(self.drone.offboard.set_attitude_rate(cmd))
+
+    def send_Position_cmd(self, cmd : PositionNedYaw):
+        #TODO: verify that it is best way
+        self.run_async(self.drone.offboard.set_position_ned(cmd))
 
     def run_async(self, coroutine):
         """Schedule async coroutines safely from another thread"""

@@ -38,5 +38,6 @@ cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
     - Lifting off
     - Landing
     - Disarming & arming
-8. [important] Add Mattias RT - Visualization
+8. Add Mattias RT - Visualization
 9. [important] Add services for setting position and trajectory goals
+10. [important] Add plotjuggler
