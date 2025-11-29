@@ -21,9 +21,9 @@ $ kill 62707 # copy the PID
 ```
 
 # Run the node
+This runs the mpc controller && the plotjuggler visualization
 ```sh
-export PYTHONPATH=$PYTHONPATH:~/ros_ws/src
-ros2 run drone_control drone_controller_node
+ros2 launch drone_control drone_controller.launch.py 
 ```
 
 You need to run the simulation first:
@@ -31,26 +31,37 @@ You need to run the simulation first:
 cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 ```
 
-You can test the action client with:
+You can test the action client with (this is a placeholder node, since this functionalities will be implemented using GUI):
 ```sh
 ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -1.0 -yaw 0.0
 ```
 
 # TO DO
-1. [important] Better file structure to avoid exporting pythonpath
-2. [important] Improve asyncio event loop logic
-3. Handle Failures in initialization
-4. Load already compiled model in mpc 
-5. [important] Add trajectory tracking
-6. [important] Ensure MPC is solved in specified time
-    - Improvement, since using ros2 rate **WIP**
-7. [important] Add useful services
-    - Lifting off
-    - Landing
-    - Disarming & arming
-8. Add Mattias RT - Visualization
-9. [important] Add actions for setting position and trajectory goals
+1. [important] Add actions for setting position and trajectory goals
     - Position **done**
     - Trajectory
     - Cancellation - **WIP**
-10. [important] Add plotjuggler & nav2_msgs in docker
+2. [important] Add trajectory tracking
+3. [important] Add Visualization & Telemetry
+    - Plotjuggler config **done**
+    - Robot TF
+    - Rviz  
+    - Add plotjuggler & nav2_msgs in docker
+    - Add mpc information (e.g. iterations-solve time)
+4. [important] Add useful services
+    - Lifting off
+    - Landing
+    - Disarming & arming
+5. [important] Ensure MPC is solved in specified time 
+    - Use ros2 rate **done**
+    - Informed Initialization
+    - Statistics on solve time
+6. [important] Fix Bug
+    - if controller is started without a first command soon, it turns off
+6. Quality of life
+    - Avoid exporting pythonpath **done**
+    - Better Life structure
+    - Improve asyncio event loop logic
+    - Handle Failures in initialization
+    - Load already compiled mpc model in mpc 
+    - Add Mattias RT - Visualization for post processing

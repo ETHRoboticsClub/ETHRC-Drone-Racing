@@ -1,0 +1,9 @@
+/drone_controller_node:
+  ros__parameters:
+    controller_rate: 100.0
+    state_update_rate: 200.0
+    threshold:
+      positon: 0.1
+      velocity: 0.02
+      angular_velocity: 0.02
+      orientation: 0.1
