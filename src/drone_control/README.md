@@ -6,6 +6,10 @@ sudo python3 -m pip uninstall -y setuptools
 sudo python3 -m pip install setuptools==79.0.1
 ```
 
+Install nav2 msgs
+```sh
+sudo apt install ros-humble-nav2-msgs
+```
 
 # Fix port is bound:
 Disconnect from container and do this:
@@ -27,6 +31,11 @@ You need to run the simulation first:
 cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 ```
 
+You can test the action client with:
+```sh
+ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -1.0 -yaw 0.0
+```
+
 # TO DO
 1. [important] Better file structure to avoid exporting pythonpath
 2. [important] Improve asyncio event loop logic
@@ -34,10 +43,14 @@ cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 4. Load already compiled model in mpc 
 5. [important] Add trajectory tracking
 6. [important] Ensure MPC is solved in specified time
+    - Improvement, since using ros2 rate **WIP**
 7. [important] Add useful services
     - Lifting off
     - Landing
     - Disarming & arming
 8. Add Mattias RT - Visualization
-9. [important] Add services for setting position and trajectory goals
-10. [important] Add plotjuggler
+9. [important] Add actions for setting position and trajectory goals
+    - Position **done**
+    - Trajectory
+    - Cancellation - **WIP**
+10. [important] Add plotjuggler & nav2_msgs in docker

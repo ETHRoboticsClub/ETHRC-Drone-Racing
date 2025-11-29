@@ -225,7 +225,7 @@ class DroneController(Node):
             
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
-            # self.controller_rate.sleep() #TODO reenable
+            self.controller_rate.sleep() 
         self.get_logger().info('[Position Goal] Reached Target')
         self.hover_at_currrent_position()
         self.get_logger().info('[Position Goal] Hovering at Target')
