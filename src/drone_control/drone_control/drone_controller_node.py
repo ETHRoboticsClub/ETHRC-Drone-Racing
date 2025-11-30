@@ -19,6 +19,8 @@ from mpc.drone_mpc_controller import DroneMpcController
 # general
 import numpy as np
 import threading
+from typing import Optional, List
+from scipy.spatial.transform import Rotation as R, Slerp
 
 class thresholds:
     position : float = 0.1
@@ -35,6 +37,8 @@ class DroneController(Node):
     control_rate: float
     state_update_rate: float
     thresholds_ : thresholds = thresholds()
+    trajectory_max_desired_velocity_linear: float
+    trajectory_max_desired_velocity_angular: float
     
     # ros related
     controller_rate: Rate
@@ -49,7 +53,7 @@ class DroneController(Node):
     current_goal_state: np.ndarray  = np.zeros(13) #TODO: maybe change to state class
     pose_goals : list[PoseStamped] = []
     active_goal : bool = False
-    
+
     # Misc
     state_lock : threading.Lock
     active_goal_lock: threading.Lock
@@ -74,6 +78,8 @@ class DroneController(Node):
         self.declare_parameter('threshold.velocity',0.02)
         self.declare_parameter('threshold.angular_velocity',0.02)
         self.declare_parameter('threshold.orientation',0.1)
+        self.declare_parameter('trajectory_max_desired_velocity.linear',1)
+        self.declare_parameter('trajectory_max_desired_velocity.angular',1)
 
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
         self.state_update_rate = self.get_parameter('state_update_rate').get_parameter_value().double_value
@@ -270,9 +276,6 @@ class DroneController(Node):
             if len(goal_poses.poses) == 1:
                 # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution
                 return GoalResponse.ACCEPT
-            else:
-                self.get_logger().error('[Trajectory Goal] Multiple waypoints received from the goal interface. Use the trajectory interface instead')
-                return GoalResponse.REJECT
         self.get_logger().error('[Trajectory Goal] Empty goal received')
         return GoalResponse.REJECT
     
@@ -328,6 +331,70 @@ class DroneController(Node):
         with self.active_goal_lock:
             self.active_goal = False
 
+    def sample_trajectory(self, desired_trajectory : np.ndarray, desired_timestamps: List[float],current_state: np.ndarray,  tcurrent: Optional[float] = None):
+        """This takes <1ms for 50 sampling points"""
+        if tcurrent is None:
+            # Code to handle the case where tcurrent is not provided (e.g., calculate it)
+            print("tcurrent was not provided; calculating default value.")
+            tcurrent = desired_timestamps[0] # Example default calculation
+
+        mpc_TH = self.controller.t_H
+        mpc_N = self.controller.Nnodes
+        mpc_DT = mpc_TH/(mpc_N-1.0)
+        T_horizon = tcurrent+mpc_TH
+        
+        number_of_time_samples = mpc_N
+        number_of_constant_samples = 0
+
+        # this handles the interpolation at the end of the trajectory
+        if T_horizon > desired_timestamps[-1]:
+            number_of_time_samples = int( np.floor ( (desired_timestamps[-1] - tcurrent)/mpc_DT) )+1
+            if number_of_time_samples > 1:
+                number_of_constant_samples = mpc_N - number_of_time_samples
+            else: 
+                number_of_constant_samples = mpc_N - 1
+            T_horizon = (number_of_time_samples-1)*mpc_DT+tcurrent
+
+        if number_of_time_samples > 1:
+        
+            time_series_mpc = np.linspace(tcurrent,T_horizon,number_of_time_samples)
+            pos_dim = 3
+            quat_dim = 4
+
+            pos_interp = np.vstack([np.interp(time_series_mpc, desired_timestamps, desired_trajectory[i,:]) for i in range(pos_dim)])
+            quat_interp = DroneController.slerp(desired_trajectory[6:10,:],desired_timestamps,time_series_mpc )
+
+            vel_interp = np.diff(pos_interp, axis=1) / mpc_DT
+            vel_interp = np.hstack([vel_interp,vel_interp[:,-1].reshape((3,1))]) #append ending velocity
+        else:
+            pos_interp = desired_trajectory[:3,-1].reshape(3,1)
+            vel_interp = np.zeros((3,1))
+            quat_interp = desired_trajectory[6:10,-1].reshape(4,1)
+            
+
+        # Stack final target as reference
+        if number_of_constant_samples > 0:
+            pos_interp  = np.hstack([pos_interp,np.tile(desired_trajectory[:3,-1].reshape(3,1),number_of_constant_samples)])
+            vel_interp  = np.hstack([vel_interp,np.zeros((3,number_of_constant_samples))])
+            quat_interp = np.hstack([quat_interp,np.tile(desired_trajectory[6:10,-1].reshape(4,1),number_of_constant_samples)])
+
+        ang_vel_interp = np.zeros((3,mpc_N))
+
+        return np.vstack([pos_interp,vel_interp,quat_interp,ang_vel_interp])
+
+    def slerp(desired_trajectory: np.ndarray, desired_timestamps: List[float], query_timestamps: np.ndarray ):
+        #TODO: estimate angular velocity
+        desired_quats = desired_trajectory.T        # convert to (N,4)
+        desired_times = desired_timestamps                   # (N,)
+
+        key_rots = R.from_quat(desired_quats)
+        slerp = Slerp(desired_times, key_rots)
+
+        interp_rots = slerp(query_timestamps)
+
+        # get quaternions back
+        return  interp_rots.as_quat().T                      # return shape (4, M)
+        
 
 def main(args=None):
     rclpy.init(args=args)
