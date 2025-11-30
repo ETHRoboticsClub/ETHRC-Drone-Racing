@@ -42,20 +42,24 @@ class DroneController(Node):
     state_update_timer: Timer
     state_publisher: Publisher
     position_goal_server: ActionServer
+    trajectory_goal_server: ActionServer
     
     # states & goals
     state: np.ndarray  = np.zeros(13) #TODO: maybe change to state class
     current_goal_state: np.ndarray  = np.zeros(13) #TODO: maybe change to state class
     pose_goals : list[PoseStamped] = []
-
+    active_goal : bool = False
+    
     # Misc
     state_lock : threading.Lock
+    active_goal_lock: threading.Lock
 
     def __init__(self):
         super().__init__('drone_controller_node')
 
         self.mav_sdk_client = MavSDKClient()
         self.controller = DroneMpcController()
+        self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
         self.pose_goals = [PoseStamped()]
 
@@ -81,12 +85,20 @@ class DroneController(Node):
         #TODO: maybe change to joint_states
         self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state', 10)
         self.controller_rate =  self.create_rate(self.control_rate)
+        
         self.position_goal_server = rclpy.action.ActionServer(
             self, FollowWaypoints, 'drone_set_pose_goal',
             callback_group=self.action_cb_group,
             goal_callback=self.pose_goal_accept_callback,
             cancel_callback=self.pose_goal_cancel_callback,
             execute_callback=self.pose_goal_execute_callback)
+        
+        self.trajectory_goal_server = rclpy.action.ActionServer(
+            self, FollowWaypoints, 'drone_set_trajectory_goal',
+            callback_group=self.action_cb_group,
+            goal_callback=self.trajectory_goal_accept_callback,
+            cancel_callback=self.trajectory_goal_cancel_callback,
+            execute_callback=self.trajectory_goal_execute_callback)
 
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
@@ -178,6 +190,11 @@ class DroneController(Node):
         Due to mutually exlusive, this cannot run when having an active goal (trajectory or position).
         '''
         self.get_logger().info('[Position Goal] Received goal request')
+        with self.active_goal_lock:
+            if self.active_goal:
+                self.get_logger().error('[Position Goal] Controller already has an active goal. Rejecting goal')
+                return GoalResponse.REJECT
+            self.active_goal = True
         goal_poses : FollowWaypoints = goal
         if goal_poses.poses:
             if len(goal_poses.poses) == 1:
@@ -195,10 +212,7 @@ class DroneController(Node):
     
     def pose_goal_execute_callback(self,goal_handle  : GoalHandle ):
         goal_poses : FollowWaypoints.Goal= goal_handle.request
-        print(goal_poses    )
-        print(goal_poses.poses[0]    )
         self.pose_goals[0]  =goal_poses.poses[0]
-        print('here')
 
         self.current_goal_state = np.zeros(13)
         self.current_goal_state[0] = self.pose_goals[0].pose.position.x
@@ -209,10 +223,6 @@ class DroneController(Node):
         self.current_goal_state[7] = self.pose_goals[0].pose.orientation.x
         self.current_goal_state[8] = self.pose_goals[0].pose.orientation.y
         self.current_goal_state[9] = self.pose_goals[0].pose.orientation.z
-
-        print("receveived ")
-        print(self.current_goal_state)
-        print(goal_handle.is_cancel_requested)
 
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
@@ -235,12 +245,89 @@ class DroneController(Node):
             self.get_logger().info('[Position Goal] Request cancelled')
             if not self.waypoint_reached():
                 result.missed_waypoints = [0] # waypoint id, since it is a list
+                self.terminate_action()
                 return result
                     
         #TODO: check if hovering successful?
         goal_handle.succeed()
         self.get_logger().info('[Position Goal] Goal succeded')
+        self.terminate_action()
         return result
+
+    def trajectory_goal_accept_callback(self, goal : FollowWaypoints.Goal ):
+        '''
+        This function validates the goal target. 
+        Due to mutually exlusive, this cannot run when having an active goal (trajectory or position).
+        '''
+        self.get_logger().info('[Trajectory Goal] Received goal request')
+        with self.active_goal_lock:
+            if self.active_goal:
+                self.get_logger().error('[Trajectory Goal] Controller already has an active goal. Rejecting goal')
+                return GoalResponse.REJECT
+            self.active_goal = True
+        goal_poses : FollowWaypoints = goal
+        if goal_poses.poses:
+            if len(goal_poses.poses) == 1:
+                # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution
+                return GoalResponse.ACCEPT
+            else:
+                self.get_logger().error('[Trajectory Goal] Multiple waypoints received from the goal interface. Use the trajectory interface instead')
+                return GoalResponse.REJECT
+        self.get_logger().error('[Trajectory Goal] Empty goal received')
+        return GoalResponse.REJECT
+    
+    def trajectory_goal_cancel_callback(self, goal : FollowWaypoints.Goal):
+        self.get_logger().info('[Trajectory Goal] Received cancel request')
+        return CancelResponse.ACCEPT
+    
+    def trajectory_goal_execute_callback(self,goal_handle  : GoalHandle ):
+        goal_poses : FollowWaypoints.Goal= goal_handle.request
+        self.pose_goals[0]  =goal_poses.poses[0]
+
+        self.current_goal_state = np.zeros(13)
+        self.current_goal_state[0] = self.pose_goals[0].pose.position.x
+        self.current_goal_state[1] = self.pose_goals[0].pose.position.y
+        self.current_goal_state[2] = self.pose_goals[0].pose.position.z
+
+        self.current_goal_state[6] = self.pose_goals[0].pose.orientation.w
+        self.current_goal_state[7] = self.pose_goals[0].pose.orientation.x
+        self.current_goal_state[8] = self.pose_goals[0].pose.orientation.y
+        self.current_goal_state[9] = self.pose_goals[0].pose.orientation.z
+
+        result = FollowWaypoints.Result() 
+        result.missed_waypoints = []
+        
+        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()): #maybe change to cancel requested
+            with self.state_lock:
+                current_state = self.state.copy()
+            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
+            self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd) 
+            
+            # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
+            # a timer implementation may be better
+            self.controller_rate.sleep() 
+        self.get_logger().info('[Trajectory Goal] Reached Target')
+        self.hover_at_currrent_position()
+        self.get_logger().info('[Trajectory Goal] Hovering at Target')
+
+        if goal_handle.is_cancel_requested:
+            goal_handle.canceled()
+            self.get_logger().info('[Trajectory Goal] Request cancelled')
+            if not self.waypoint_reached():
+                result.missed_waypoints = [0] # waypoint id, since it is a list
+                self.terminate_action()
+                return result
+                    
+        #TODO: check if hovering successful?
+        goal_handle.succeed()
+        self.get_logger().info('[Trajectory Goal] Goal succeded')
+        self.terminate_action()
+        return result
+    
+    def terminate_action(self):
+        with self.active_goal_lock:
+            self.active_goal = False
+
 
 def main(args=None):
     rclpy.init(args=args)

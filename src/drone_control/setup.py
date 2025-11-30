@@ -29,7 +29,8 @@ setup(
     entry_points={
         'console_scripts': [
             'drone_controller_node = drone_control.drone_controller_node:main',
-            'send_pose_goal = drone_control.send_pose_goal:main'
+            'send_pose_goal = drone_control.send_pose_goal:main',
+            'send_trajectory_goal = drone_control.send_trajectory_goal:main',
         ],
     },
 )
