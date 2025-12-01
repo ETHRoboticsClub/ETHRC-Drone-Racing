@@ -50,8 +50,8 @@ class DroneController(Node):
     trajectory_goal_server: ActionServer
     
     # states & goals
-    state: np.ndarray  = np.zeros(13) #TODO: maybe change to state class
-    current_goal_state: np.ndarray  = np.zeros(13) #TODO: maybe change to state class
+    state: np.ndarray  = np.zeros(13) 
+    current_goal_state: np.ndarray  = np.zeros(13) 
     pose_goals : list[PoseStamped] = []
     active_goal : bool = False
 
@@ -89,7 +89,7 @@ class DroneController(Node):
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
 
-        #TODO: maybe change to joint_states
+        #TODO: maybe change to joint_states (Michalis)
         self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state', 10)
         self.current_target_publisher = self.create_publisher(PoseStamped, '/drone_current_target', 10)
         self.controller_rate =  self.create_rate(self.control_rate)
@@ -110,16 +110,15 @@ class DroneController(Node):
 
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
-        # TODO: improve this logic
+        # TODO: improve this logic (Michalis)
         mav_sdk_init_future = self.mav_sdk_client.run_async(self.mav_sdk_client.initialize())
         controller_init_future = self.mav_sdk_client.run_async(self.controller.initialize())
 
-        #TODO: handle initialization failures
+        #TODO: handle initialization failures 
         mav_sdk_init_future.result() 
         controller_init_future.result() 
 
         # start timers after connecting to mavsdk
-        # self.control_timer = self.create_timer(1.0/self.control_rate, self._control_timer_callback,self.timer_cb_group)
         self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.timer_cb_group)
         self.get_logger().info("Controller node initialized")
         
@@ -130,18 +129,7 @@ class DroneController(Node):
             self.state =  self.mav_sdk_client.get_latest_state()
         msg = Float64MultiArray()
         msg.data = self.state.tolist()
-        self.state_publisher.publish(msg)
-
-    def _control_timer_callback(self):
-        """Deprecated: This function publishes the drone commands immediately through the mav sdk"""
-        pass
-        # TODO: just a reference target for now
-        # x_ref = np.zeros(13)
-        # x_ref[0:3] = np.array([0.0, 0.0, -1.0])
-        # x_ref[6:10] = np.array([1.0, 0.0, 0.0, 0.0])
-
-        # attitude_cmd : AttitudeRate  = self.controller.controller_update(self.state,x_ref)
-        # self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd)       
+        self.state_publisher.publish(msg)    
 
     def waypoint_reached(self, ):
         with self.state_lock:
@@ -150,7 +138,7 @@ class DroneController(Node):
 
         pos_error = np.linalg.norm(current_state[0:3] - self.current_goal_state[0:3] )
         vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6] )
-        orientation_error = 3.0 # TODO fix orientation
+        orientation_error = 3.0 
         ang_vel_error = np.linalg.norm(current_state[10:13] - self.current_goal_state[10:13] )
 
 
@@ -160,6 +148,7 @@ class DroneController(Node):
         if vel_error > self.thresholds_.velocity:
             return False
         
+        #TODO: implement orientation threshold
         # if orientation_error > self.thresholds_.orientation:
             # return False
         
@@ -169,9 +158,9 @@ class DroneController(Node):
         return True 
     
     def hover_at_currrent_position(self):
+        # TODO: improve this -> maybe use the MPC to stop smoothly 
         with self.state_lock:
             current_state = self.state.copy()
-        # TODO: fix
         qw = current_state[6]
         qx = current_state[7]
         qy = current_state[8]
@@ -207,7 +196,7 @@ class DroneController(Node):
         goal_poses : FollowWaypoints = goal
         if goal_poses.poses:
             if len(goal_poses.poses) == 1:
-                # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution
+                # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution 
                 return GoalResponse.ACCEPT
             else:
                 self.get_logger().error('[Position Goal] Multiple waypoints received from the goal interface. Use the trajectory interface instead')
@@ -278,7 +267,6 @@ class DroneController(Node):
             goal_poses : FollowWaypoints = goal
             if goal_poses.poses:
                 if len(goal_poses.poses) >= 1:
-                    # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution
                     self.active_goal = True
                     return GoalResponse.ACCEPT
         self.get_logger().error('[Trajectory Goal] Empty goal received')
@@ -315,6 +303,9 @@ class DroneController(Node):
         with self.state_lock:
             current_state = self.state.copy()
         Xtraj[:,0] = current_state
+
+        # TODO: we can add a method to interpolate the trajectory to give smoother references (splines etc) 
+
         self.current_goal_state = Xtraj[:,1]
 
         result = FollowWaypoints.Result() 
@@ -326,7 +317,7 @@ class DroneController(Node):
                 current_state = self.state.copy()
             
             traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
-            self.current_goal_state = traj_desired[:,-1]
+            self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached. 
             attitude_cmd : AttitudeRate  = self.controller.trajectory_controller_update(current_state,traj_desired)
             self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd) 
             
@@ -357,12 +348,19 @@ class DroneController(Node):
             self.active_goal = False
 
     def sample_trajectory(self, desired_trajectory : np.ndarray, desired_timestamps: List[float],current_state: np.ndarray,  tcurrent: Optional[float] = None):
-        """This takes <1ms for 50 sampling points"""
+        """
+        This method performs a linear interpolation to give smooth trajectory references.
+        It runs in the control loop so it should stay minimal
+
+        This takes <1ms for 50 sampling points
+        """
+
         if tcurrent is None:
-            # TODO: implement second alternative, where we find the closes point to trajectory, and set it as current state
-            # Code to handle the case where tcurrent is not provided (e.g., calculate it)
-            self.get_logger().info("tcurrent was not provided; calculating default value.")
-            tcurrent = desired_timestamps[0] # Example default calculation
+            # TODO: [optional] implement feedback in trajectory tracking. Aim: test what is better
+            # Idea: Find the closes point to the trajectory (that is why signature has current state) and use its 
+            # corresponding timestep (or better interpolated timestep) as the "current time"
+            self.get_logger().error("tcurrent was not provided; calculating default value.")
+            # tcurrent = ... # [wrong] Example default calculation
 
         mpc_TH = self.controller.t_H
         mpc_N = self.controller.Nnodes + 1
@@ -409,7 +407,7 @@ class DroneController(Node):
         return np.vstack([pos_interp,vel_interp,quat_interp,ang_vel_interp])
 
     def slerp(desired_trajectory: np.ndarray, desired_timestamps: List[float], query_timestamps: np.ndarray ):
-        #TODO: estimate angular velocity
+        
         desired_quats = desired_trajectory.T        # convert to (N,4)
         desired_times = desired_timestamps                   # (N,)
 
@@ -417,9 +415,9 @@ class DroneController(Node):
         slerp = Slerp(desired_times, key_rots)
 
         interp_rots = slerp(query_timestamps)
+        #TODO: estimate angular velocity from rotation matrices
 
-        # get quaternions back
-        return  interp_rots.as_quat().T                      # return shape (4, M)
+        return  interp_rots.as_quat().T             # return shape (4, M)
         
 
 def main(args=None):

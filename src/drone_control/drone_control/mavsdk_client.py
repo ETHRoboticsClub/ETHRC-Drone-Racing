@@ -67,16 +67,14 @@ class MavSDKClient():
         self.start_telemetry()
 
     def send_AttitudeRate_cmd(self, cmd : AttitudeRate):
-        #TODO: verify that it is best way
+        #TODO: verify that it is best way (Michalis)
         self.run_async(self.drone.offboard.set_attitude_rate(cmd))
 
     def send_Position_cmd(self, cmd : PositionNedYaw):
-        #TODO: verify that it is best way
         self.run_async(self.drone.offboard.set_position_ned(cmd))
 
     def run_async(self, coroutine):
         """Schedule async coroutines safely from another thread"""
-        #TODO: chat suggested this, not yet sold for this
         return asyncio.run_coroutine_threadsafe(coroutine, self.asyncio_loop)
     
     def get_latest_state(self):

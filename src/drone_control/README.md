@@ -32,33 +32,45 @@ cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 ```
 
 You can test the action client with (this is a placeholder node, since this functionalities will be implemented using GUI):
+
+Position goals
 ```sh
 ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -1.0 -yaw 0.0
 ```
 
+Trajectory goals:
+1. Modify the [yaml_file](src/drone_control/config/control_plotjuggler.xml)
+2. Run
+```sh
+ros2 run drone_control send_trajectory_goal goal_only
+```
+
 # TO DO
-1. [important] Add actions for setting position and trajectory goals
+1. [important] Add actions for setting position and trajectory goals **done**
     - Position **done**
-    - Trajectory
-    - Cancellation - **WIP**
-2. [important] Add trajectory tracking
-3. [important] Add Visualization & Telemetry
+    - Trajectory **done** 
+2. [important] Add trajectory tracking **done**
+3. [important] Smooth Cancel Actions - Emergency stop
+    - Current is unsafe
+4. [important] Add Visualization & Telemetry **WIP**
     - Plotjuggler config **done**
     - Robot TF
     - Rviz  
     - Add plotjuggler & nav2_msgs in docker
     - Add mpc information (e.g. iterations-solve time)
-4. [important] Add useful services
+5. [important] Add useful services
     - Lifting off
     - Landing
     - Disarming & arming
-5. [important] Ensure MPC is solved in specified time 
+6. [important] Ensure MPC is solved in specified time 
     - Use ros2 rate **done**
-    - Informed Initialization
+    - Informed Initialization **already done**
     - Statistics on solve time
-6. [important] Fix Bug
+7. [important] Fix Bug
     - if controller is started without a first command soon, it turns off
-6. Quality of life
+8. Quality of life
+    - Trajectory Tracking Improvement
+    - Trajectory Smoother Reference
     - Avoid exporting pythonpath **done**
     - Better Life structure
     - Improve asyncio event loop logic
