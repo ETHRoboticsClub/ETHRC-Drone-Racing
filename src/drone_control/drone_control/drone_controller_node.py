@@ -45,6 +45,7 @@ class DroneController(Node):
     control_timer: Timer
     state_update_timer: Timer
     state_publisher: Publisher
+    current_target_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
     
@@ -66,7 +67,6 @@ class DroneController(Node):
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
         self.state[6] = 1.0
-        self.pose_goals = [PoseStamped()]
 
         # cb groups
         self.action_cb_group = MutuallyExclusiveCallbackGroup()
@@ -91,6 +91,7 @@ class DroneController(Node):
 
         #TODO: maybe change to joint_states
         self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state', 10)
+        self.current_target_publisher = self.create_publisher(PoseStamped, '/drone_current_target', 10)
         self.controller_rate =  self.create_rate(self.control_rate)
         
         self.position_goal_server = rclpy.action.ActionServer(
@@ -220,7 +221,9 @@ class DroneController(Node):
     
     def pose_goal_execute_callback(self,goal_handle  : GoalHandle ):
         goal_poses : FollowWaypoints.Goal= goal_handle.request
-        self.pose_goals[0]  =goal_poses.poses[0]
+        self.pose_goals.clear()
+        self.pose_goals.append( goal_poses.poses[0] )
+        self.current_target_publisher.publish(self.pose_goals[0])
 
         self.current_goal_state = np.zeros(13)
         self.current_goal_state[0] = self.pose_goals[0].pose.position.x
@@ -288,12 +291,14 @@ class DroneController(Node):
     def trajectory_goal_execute_callback(self,goal_handle  : GoalHandle ):
         goal_poses : FollowWaypoints.Goal= goal_handle.request
 
+        self.pose_goals.clear()
         num_wp = len(goal_poses.poses )+1
         Xtraj = np.zeros((13,num_wp ))
         Tdef = np.zeros(num_wp)
 
         for i in range(1, num_wp):
-            # self.pose_goals[i]  = goal_poses.poses[i] #TODO fix, cause list 
+            self.pose_goals.append(goal_poses.poses[i-1])
+            self.current_target_publisher.publish(goal_poses.poses[i-1])
 
             Xtraj[0,i] = goal_poses.poses[i-1].pose.position.x
             Xtraj[1,i] = goal_poses.poses[i-1].pose.position.y
@@ -310,17 +315,18 @@ class DroneController(Node):
         with self.state_lock:
             current_state = self.state.copy()
         Xtraj[:,0] = current_state
-
+        self.current_goal_state = Xtraj[:,1]
 
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
         
         time_expired = 0.0
-        while rclpy.ok() and (not goal_handle.is_cancel_requested):
+        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
                 current_state = self.state.copy()
             
             traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
+            self.current_goal_state = traj_desired[:,-1]
             attitude_cmd : AttitudeRate  = self.controller.trajectory_controller_update(current_state,traj_desired)
             self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd) 
             
