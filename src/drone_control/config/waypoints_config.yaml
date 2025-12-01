@@ -1,0 +1,17 @@
+# waypoints_config.yaml
+waypoints:
+  - x: 1.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 5.0 # seconds relative to the action start
+  - x: 2.5
+    y: 1.0
+    z: -1.5
+    yaw_deg: 90.0
+    time_from_beginning: 10.0
+  - x: 3.0
+    y: 0.0
+    z: -2.0
+    yaw_deg: 180.0
+    time_from_beginning: 15.0

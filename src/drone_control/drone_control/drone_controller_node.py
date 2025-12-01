@@ -65,6 +65,7 @@ class DroneController(Node):
         self.controller = DroneMpcController()
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
+        self.state[6] = 1.0
         self.pose_goals = [PoseStamped()]
 
         # cb groups
@@ -119,6 +120,7 @@ class DroneController(Node):
         # start timers after connecting to mavsdk
         # self.control_timer = self.create_timer(1.0/self.control_rate, self._control_timer_callback,self.timer_cb_group)
         self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.timer_cb_group)
+        self.get_logger().info("Controller node initialized")
         
     def _state_timer_callback(self):
         """This function publishes the drone system to be available in the ros ecosystem"""
@@ -233,7 +235,7 @@ class DroneController(Node):
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
         
-        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()): #maybe change to cancel requested
+        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
                 current_state = self.state.copy()
             attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
@@ -270,12 +272,12 @@ class DroneController(Node):
             if self.active_goal:
                 self.get_logger().error('[Trajectory Goal] Controller already has an active goal. Rejecting goal')
                 return GoalResponse.REJECT
-            self.active_goal = True
-        goal_poses : FollowWaypoints = goal
-        if goal_poses.poses:
-            if len(goal_poses.poses) == 1:
-                # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution
-                return GoalResponse.ACCEPT
+            goal_poses : FollowWaypoints = goal
+            if goal_poses.poses:
+                if len(goal_poses.poses) >= 1:
+                    # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution
+                    self.active_goal = True
+                    return GoalResponse.ACCEPT
         self.get_logger().error('[Trajectory Goal] Empty goal received')
         return GoalResponse.REJECT
     
@@ -285,29 +287,46 @@ class DroneController(Node):
     
     def trajectory_goal_execute_callback(self,goal_handle  : GoalHandle ):
         goal_poses : FollowWaypoints.Goal= goal_handle.request
-        self.pose_goals[0]  =goal_poses.poses[0]
 
-        self.current_goal_state = np.zeros(13)
-        self.current_goal_state[0] = self.pose_goals[0].pose.position.x
-        self.current_goal_state[1] = self.pose_goals[0].pose.position.y
-        self.current_goal_state[2] = self.pose_goals[0].pose.position.z
+        num_wp = len(goal_poses.poses )+1
+        Xtraj = np.zeros((13,num_wp ))
+        Tdef = np.zeros(num_wp)
 
-        self.current_goal_state[6] = self.pose_goals[0].pose.orientation.w
-        self.current_goal_state[7] = self.pose_goals[0].pose.orientation.x
-        self.current_goal_state[8] = self.pose_goals[0].pose.orientation.y
-        self.current_goal_state[9] = self.pose_goals[0].pose.orientation.z
+        for i in range(1, num_wp):
+            # self.pose_goals[i]  = goal_poses.poses[i] #TODO fix, cause list 
+
+            Xtraj[0,i] = goal_poses.poses[i-1].pose.position.x
+            Xtraj[1,i] = goal_poses.poses[i-1].pose.position.y
+            Xtraj[2,i] = goal_poses.poses[i-1].pose.position.z
+            
+            Xtraj[6,i] = goal_poses.poses[i-1].pose.orientation.w
+            Xtraj[7,i] = goal_poses.poses[i-1].pose.orientation.x
+            Xtraj[8,i] = goal_poses.poses[i-1].pose.orientation.y
+            Xtraj[9,i] = goal_poses.poses[i-1].pose.orientation.z
+
+            Tdef[i] = float(goal_poses.poses[i-1].header.stamp.sec + 1e-9* goal_poses.poses[i-1].header.stamp.nanosec)
+
+        # add current state at beggining:
+        with self.state_lock:
+            current_state = self.state.copy()
+        Xtraj[:,0] = current_state
+
 
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
         
-        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()): #maybe change to cancel requested
+        time_expired = 0.0
+        while rclpy.ok() and (not goal_handle.is_cancel_requested):
             with self.state_lock:
                 current_state = self.state.copy()
-            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
+            
+            traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
+            attitude_cmd : AttitudeRate  = self.controller.trajectory_controller_update(current_state,traj_desired)
             self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd) 
             
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
+            time_expired += 1.0/self.control_rate 
             self.controller_rate.sleep() 
         self.get_logger().info('[Trajectory Goal] Reached Target')
         self.hover_at_currrent_position()
@@ -334,12 +353,13 @@ class DroneController(Node):
     def sample_trajectory(self, desired_trajectory : np.ndarray, desired_timestamps: List[float],current_state: np.ndarray,  tcurrent: Optional[float] = None):
         """This takes <1ms for 50 sampling points"""
         if tcurrent is None:
+            # TODO: implement second alternative, where we find the closes point to trajectory, and set it as current state
             # Code to handle the case where tcurrent is not provided (e.g., calculate it)
-            print("tcurrent was not provided; calculating default value.")
+            self.get_logger().info("tcurrent was not provided; calculating default value.")
             tcurrent = desired_timestamps[0] # Example default calculation
 
         mpc_TH = self.controller.t_H
-        mpc_N = self.controller.Nnodes
+        mpc_N = self.controller.Nnodes + 1
         mpc_DT = mpc_TH/(mpc_N-1.0)
         T_horizon = tcurrent+mpc_TH
         

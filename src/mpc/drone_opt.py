@@ -32,11 +32,15 @@ def safe_mkdir_recursive(directory, overwrite=False):
 class DroneOptimizer(object):
     """ACADOS OCP wrapper for drone MPC with thrust/body rate control."""
 
+    """Lambda to normalize quaternions"""
+    normalize_quat = lambda q: q / np.linalg.norm(q) if np.linalg.norm(q) > 1e-12 else np.array([0., 0., 0., 1.])
+
     def __init__(self, d_model, d_constraint, t_horizon, n_nodes, enable_logging=True):
         model = d_model
         self.T = t_horizon
         self.N = n_nodes
         self.enable_logging = enable_logging
+        self.log_failures = True
         
         # Store physical parameters for reference
         self.m = 2.5372
@@ -201,6 +205,7 @@ class DroneOptimizer(object):
 
         self.last_x_pred = None
         self.last_u_pred = None
+        self.warm_start_available = False
 
         if self.enable_logging:
             print(f"Acados OCP solver initialized: N={self.N}, T={self.T}")
@@ -210,123 +215,64 @@ class DroneOptimizer(object):
             print(f"  Constraints: thrust [{lbu[0]:.1f}, {ubu[0]:.1f}] N")
             print(f"              rates  [{lbu[1]:.1f}, {ubu[1]:.1f}] rad/s")
 
-    def compute_control_once(self, x_current, x_ref):
+    def initialize_solver(self,x_current :np.ndarray, x_ref :np.ndarray, trajectory: bool = False):
         """
-        Solve OCP for one step from current state.
-        
-        Args:
-            x_current: current state [p(3), v(3), q(4), w(3)]
-            x_ref: reference state (same dimensions)
-            
-        Returns:
-            u0: optimal control [thrust, wx, wy, wz]
-            x_next: predicted next state
-            x_pred_all: predicted state trajectory (N+1, nx)
-            u_pred_all: predicted control trajectory (N, nu)
+        x_current and x_ref are already normalized
         """
-        
-        # Normalize quaternion in current state
-        q_current = x_current[6:10].copy()
-        q_norm = np.linalg.norm(q_current)
-        if q_norm > 1e-12:
-            x_current[6:10] = q_current / q_norm
-        else:
-            x_current[6:10] = np.array([1.0, 0.0, 0.0, 0.0])  # Default identity
-        
-        # Normalize quaternion in reference
-        q_ref = x_ref[6:10].copy()
-        q_norm_ref = np.linalg.norm(q_ref)
-        if q_norm_ref > 1e-12:
-            x_ref[6:10] = q_ref / q_norm_ref
-        else:
-            x_ref[6:10] = np.array([1.0, 0.0, 0.0, 0.0])  # Default identity
-        
         # Set reference for all stages
-        for i in range(self.N + 1):
-            self.solver.set(i, 'p', x_ref)
+        if trajectory :
+            for i in range(self.N+1):
+                self.solver.set(i, 'p', x_ref[:,i])
+        else: 
+            for i in range(self.N + 1):
+                self.solver.set(i, 'p', x_ref)
 
         # Set initial condition
         self.solver.set(0, 'lbx', x_current)
         self.solver.set(0, 'ubx', x_current)
 
-        # Initialize states with linear interpolation to reference
-        for i in range(self.N + 1):
-            alpha = i / max(self.N, 1)
-            x_init = (1 - alpha) * x_current + alpha * x_ref
-            # Re-normalize quaternion
-            q_init = x_init[6:10]
-            q_init_norm = np.linalg.norm(q_init)
-            if q_init_norm > 1e-12:
-                x_init[6:10] = q_init / q_init_norm
-            self.solver.set(i, 'x', x_init)
-
-        # Initialize controls with hover
-        u_hover = np.array([self.m * self.g, 0.0, 0.0, 0.0])
-        for i in range(self.N):
-            self.solver.set(i, 'u', u_hover)
-
-        # Warm start if available (overrides initialization)
-        if (self.last_x_pred is not None) and (self.last_u_pred is not None):
-            if (np.isfinite(self.last_x_pred).all() and np.isfinite(self.last_u_pred).all()):
-                try:
-                    # Shift trajectory forward
-                    for i in range(min(self.N, self.last_x_pred.shape[0] - 1)):
-                        self.solver.set(i, 'x', self.last_x_pred[i + 1, :])
-                    # Last state: duplicate final state
-                    if self.last_x_pred.shape[0] > 1:
-                        self.solver.set(self.N, 'x', self.last_x_pred[-1, :])
-                    
-                    # Shift controls
-                    for i in range(min(self.N - 1, self.last_u_pred.shape[0] - 1)):
-                        self.solver.set(i, 'u', self.last_u_pred[i + 1, :])
-                    # Last control: duplicate final control
-                    if self.last_u_pred.shape[0] > 0:
-                        self.solver.set(self.N - 1, 'u', self.last_u_pred[-1, :])
-                except Exception as e:
-                    if self.enable_logging:
-                        print(f"Warning: warm start failed: {e}")
-
-        # Solve OCP
-        status = self.solver.solve()
-
-        if self.enable_logging:
-            residuals = self.solver.get_residuals()
-            print(f"[ACADOS] status: {status}, residuals: "
-                  f"stat={residuals[0]:.2e}, "
-                  f"eq={residuals[1]:.2e}, "
-                  f"ineq={residuals[2]:.2e}, "
-                  f"comp={residuals[3]:.2e}")
-
-        # Handle solver status
-        if status not in [0, 2]:
-            if self.enable_logging:
-                print(f"[WARNING] ACADOS solver status {status}")
-            
-            safe_mkdir_recursive('./logs', overwrite=False)
-            try:
-                np.savetxt('./logs/debug_x0.csv', x_current.reshape(1, -1), delimiter=',')
-                np.savetxt('./logs/debug_xref.csv', x_ref.reshape(1, -1), delimiter=',')
-                residuals = self.solver.get_residuals()
-                np.savetxt('./logs/debug_residuals.csv', residuals.reshape(1, -1), delimiter=',')
+        #Initialize Solver States and Control
+        initialized =False
+        if self.warm_start_available:
+            try: #TODO: is try needed? 
+                # Shift trajectory forward
+                for i in range(min(self.N, self.last_x_pred.shape[0] - 1)):
+                    self.solver.set(i, 'x', self.last_x_pred[i + 1, :])
+                # Last state: duplicate final state
+                if self.last_x_pred.shape[0] > 1:
+                    self.solver.set(self.N, 'x', self.last_x_pred[-1, :])
+                
+                # Shift controls
+                for i in range(min(self.N - 1, self.last_u_pred.shape[0] - 1)):
+                    self.solver.set(i, 'u', self.last_u_pred[i + 1, :])
+                # Last control: duplicate final control
+                if self.last_u_pred.shape[0] > 0:
+                    self.solver.set(self.N - 1, 'u', self.last_u_pred[-1, :])
+                
+                initialized =True
             except Exception as e:
                 if self.enable_logging:
-                    print("Error saving debug logs:", e)
-            
-            # Fallback to hover for critical failures
-            if status == 4:
-                if self.enable_logging:
-                    print("[FALLBACK] Using hover control due to QP solver failure")
-                u0 = np.array([self.m * self.g, 0.0, 0.0, 0.0])
-                x_next = x_current.copy()
-                x_pred_all = np.tile(x_current.reshape(1, -1), (self.N + 1, 1))
-                u_pred_all = np.tile(u0.reshape(1, -1), (self.N, 1))
-                return u0, x_next, x_pred_all, u_pred_all
-            elif status not in [0, 2]:
-                raise Exception(f"acados ocp solver returned status {status}")
+                    print(f"Warning: warm start failed: {e}")
+        
+        if not initialized: #if no warm start available or warms start fails:
 
-        # Extract optimal control
-        u0 = self.solver.get(0, 'u').copy()
+            if trajectory: #interpolation of trajectory and 
+                for i in range(self.N + 1):
+                    self.solver.set(i, 'x', x_ref[:,i])
+            else:       
+                # Initialize states with linear interpolation to reference
+                for i in range(self.N + 1):
+                    alpha = i / max(self.N, 1)
+                    x_init = (1 - alpha) * x_current + alpha * x_ref
+                    x_init[6:10] = DroneOptimizer.normalize_quat(x_init[6:10])
+                    self.solver.set(i, 'x', x_init)
 
+            # Initialize controls with hover
+            u_hover = np.array([self.m * self.g, 0.0, 0.0, 0.0])
+            for i in range(self.N):
+                self.solver.set(i, 'u', u_hover)            
+
+    def store_predicted_trajectories(self):
         # Extract predicted trajectories
         x_pred_all = np.zeros((self.N + 1, self.nx))
         for i in range(self.N + 1):
@@ -336,33 +282,76 @@ class DroneOptimizer(object):
         for i in range(self.N):
             u_pred_all[i, :] = self.solver.get(i, 'u').copy()
 
-        # Normalize quaternions in predictions
-        if self.nx >= 10:
-            for k in range(x_pred_all.shape[0]):
-                q = x_pred_all[k, 6:10]
-                qnorm = np.linalg.norm(q)
-                if qnorm > 1e-12:
-                    x_pred_all[k, 6:10] = q / qnorm
+        for k in range(x_pred_all.shape[0]):
+            x_pred_all[k, 6:10] = DroneOptimizer.normalize_quat(x_pred_all[k, 6:10])
 
-        # Store for warm start
         self.last_x_pred = x_pred_all.copy()
         self.last_u_pred = u_pred_all.copy()
 
-        # Simulate one step with integrator
-        self.integrator.set('x', x_current)
-        self.integrator.set('u', u0)
-        status_sim = self.integrator.solve()
-        if status_sim != 0:
-            if self.enable_logging:
-                print(f"Warning: integrator returned status {status_sim}, using x0")
-            x_next = x_current.copy()
-        else:
-            x_next = self.integrator.get('x').copy()
-        
-        # Normalize quaternion in x_next
-        q_next = x_next[6:10]
-        q_next_norm = np.linalg.norm(q_next)
-        if q_next_norm > 1e-12:
-            x_next[6:10] = q_next / q_next_norm
+        if (np.isfinite(x_pred_all).all() and np.isfinite(u_pred_all).all()):
+            self.warm_start_available = True
 
-        return u0, x_next, x_pred_all, u_pred_all
+    def compute_control_once(self, x_current :np.ndarray, x_ref :np.ndarray, is_trajectory: bool = False):
+        """
+        Solve OCP for one step from current state.
+        
+        Args:
+            x_current: current state [p(3), v(3), q(4), w(3)]
+            x_ref: reference state (same dimensions)
+            
+        Returns:
+            u0: optimal control [thrust, wx, wy, wz]
+            x_next: optimal next state
+            x_pred_all: predicted state trajectory (N+1, nx)
+            u_pred_all: predicted control trajectory (N, nu)
+        """
+        
+        # Normalize quaternion in current state
+        x_current[6:10] = DroneOptimizer.normalize_quat(x_current[6:10])
+        if not is_trajectory:
+            x_ref[6:10]     = DroneOptimizer.normalize_quat(x_ref[6:10])
+        else: 
+            for i in range(self.N + 1):
+                x_ref[6:10,i]     = DroneOptimizer.normalize_quat(x_ref[6:10,i])
+        self.initialize_solver(x_current,x_ref,is_trajectory)
+        
+        status = self.solver.solve()
+        self.warm_start_available = False #reset warm start
+                
+        # Handle solver status:
+        if self.enable_logging:
+            residuals = self.solver.get_residuals()
+            print(f"[ACADOS] status: {status}, residuals: "
+                  f"stat={residuals[0]:.2e}, "
+                  f"eq={residuals[1]:.2e}, "
+                  f"ineq={residuals[2]:.2e}, "
+                  f"comp={residuals[3]:.2e}")
+
+        if (status not in [0, 2]):
+            print(f"[WARNING] ACADOS solver status {status}")
+            if self.log_failures:
+                self.log_solver_failures(self, x_current,x_ref[:,-1])
+            raise Exception(f"acados ocp solver returned status {status}")
+                
+        # Extract optimal control & optimal next state
+        u0 = self.solver.get(0, 'u').copy()
+        x_next = self.solver.get(1, 'x').copy()
+
+        self.store_predicted_trajectories()
+
+        # TODO: why return all this?
+        return u0, x_next, self.last_x_pred, self.last_u_pred
+    
+    def log_solver_failures(self, x_current :np.ndarray,x_ref :np.ndarray):
+        # Handle solver status
+        
+        safe_mkdir_recursive('./logs', overwrite=False)
+        try:
+            np.savetxt('./logs/debug_x0.csv', x_current.reshape(1, -1), delimiter=',')
+            np.savetxt('./logs/debug_xref.csv', x_ref.reshape(1, -1), delimiter=',')
+            residuals = self.solver.get_residuals()
+            np.savetxt('./logs/debug_residuals.csv', residuals.reshape(1, -1), delimiter=',')
+        except Exception as e:
+            if self.enable_logging:
+                print("Error saving debug logs:", e)
+        
