@@ -1,35 +1,48 @@
+import os
+import yaml
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from ament_index_python.packages import get_package_share_directory
 
 
 def launch_setup(context, *args, **kwargs):
-    
-    # Read CLI args (strings: "true"/"false")
-    bridge_camera     = LaunchConfiguration("bridge_camera").perform(context)
-    bridge_camera_imu = LaunchConfiguration("bridge_camera_imu").perform(context)
-    bridge_camera_parameters = LaunchConfiguration("bridge_camera_parameters").perform(context)
+    # Possible to pass an alternative config from CLI
+    config_path = LaunchConfiguration("config").perform(context)
+
+    if not config_path:
+        pkg_share = get_package_share_directory("gazebo_ros_bridges")
+        config_path = os.path.join(pkg_share, "config", "gz_bridges.yaml")
+
+    with open(config_path, "r") as f:
+        cfg = yaml.safe_load(f)
 
     arguments = []
+    remappings = []
 
-    if bridge_camera.lower() == "true":
+    for bridge in cfg.get("bridges", []):
+        if not bridge.get("enabled", True):
+            continue
+
+        gz_topic = bridge["gz_topic"]
+        ros2_type = bridge["ros2_type"]
+        gz_type = bridge["gz_type"]
+        remap_to = bridge.get("remap_to")
+
+        # Build parameter_bridge argument:
+        #   "<gz_topic>@<ros2_type>@<gz_type>"
         arguments.append(
-            "/drone/camera/image@sensor_msgs/msg/Image@gz.msgs.Image"
+            f"{gz_topic}@{ros2_type}@{gz_type}"
         )
 
-    if bridge_camera_imu.lower() == "true":
-        arguments.append(
-            "/world/walls/model/x500_cam_0/link/base_link/sensor/imu_sensor/imu"
-            "@sensor_msgs/msg/Imu@gz.msgs.IMU"
-        )
+        if remap_to:
+            remappings.append((gz_topic, remap_to))
 
-    if bridge_camera_parameters.lower() == "true":
-        arguments.append(
-            "/drone/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo"
-        )
-
-    print(f"[gz_sensors_bridge] Bridging topics: {arguments}")
+    print(f"[gz_sensors_bridge] Using config: {config_path}")
+    print(f"[gz_sensors_bridge] Bridging: {arguments}")
+    print(f"[gz_sensors_bridge] Remappings: {remappings}")
 
     node = Node(
         package="ros_gz_bridge",
@@ -37,6 +50,7 @@ def launch_setup(context, *args, **kwargs):
         name="gz_sensors_bridge",
         output="screen",
         arguments=arguments,
+        remappings=remappings,
     )
 
     return [node]
@@ -45,22 +59,9 @@ def launch_setup(context, *args, **kwargs):
 def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
-            "bridge_camera",
-            default_value="true",
-            description="Bridge /drone/camera/image",
+            "config",
+            default_value="",
+            description="Path to gz_bridges.yaml (optional)",
         ),
-
-        DeclareLaunchArgument(
-            "bridge_camera_imu",
-            default_value="true",
-            description="Bridge camera_imu IMU topic",
-        ),
-        
-        DeclareLaunchArgument(
-            "bridge_camera_parameters",
-            default_value="true",
-            description="Bridge camera parameters topic",
-        ),
-
         OpaqueFunction(function=launch_setup),
     ])

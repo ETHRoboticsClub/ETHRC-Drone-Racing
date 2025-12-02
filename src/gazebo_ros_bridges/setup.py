@@ -13,6 +13,10 @@ setup(
         ('share/' + package_name + '/launch', [
             'launch/bridge.launch.py',
         ]),
+        
+        ('share/' + package_name + '/config', [
+    'config/gz_bridges.yaml',
+        ]),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
