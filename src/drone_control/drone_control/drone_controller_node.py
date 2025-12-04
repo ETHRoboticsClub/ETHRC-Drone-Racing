@@ -6,6 +6,7 @@ from rclpy.node import Node, Timer, Publisher
 from rclpy.action import ActionServer,CancelResponse, GoalResponse
 from rclpy.action.server import ServerGoalHandle as GoalHandle
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 
 # msgs
 from std_msgs.msg import Float64MultiArray
@@ -91,7 +92,12 @@ class DroneController(Node):
 
         #TODO: maybe change to joint_states (Michalis)
         self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state', 10)
-        self.current_target_publisher = self.create_publisher(PoseStamped, '/drone_current_target', 10)
+        self.current_target_publisher = self.create_publisher(PoseStamped, 
+                                                              '/drone_current_target', 
+                                                              QoSProfile(
+                                                                            depth=1, 
+                                                                            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
+                                                                        ))
         self.controller_rate =  self.create_rate(self.control_rate)
         
         self.position_goal_server = rclpy.action.ActionServer(
