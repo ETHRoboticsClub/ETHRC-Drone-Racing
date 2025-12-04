@@ -23,6 +23,5 @@
 # echo ""
 
 # Launch PX4 SITL
-cd ../..
-cd px4/PX4-Autopilot
+cd src/px4/PX4-Autopilot
 make px4_sitl gz_drone
