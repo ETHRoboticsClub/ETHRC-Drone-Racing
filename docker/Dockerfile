@@ -79,7 +79,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --no-cache-dir \
-    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk
+    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs
 
 # ---- udev rules for FMU/USB bridges ----
 RUN install -d -m 0755 /etc/udev/rules.d && \
@@ -103,7 +103,9 @@ RUN bash -lc 'printf "{\\n  \\"build-base\\": \\"build\\",\\n  \\"install-base\\
 
 # Auto-source ROS + overlay
 RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /etc/bash.bashrc && \
-              echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /etc/bash.bashrc && \
-              echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /etc/bash.bashrc'
+    echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /etc/bash.bashrc && \
+    echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /etc/bash.bashrc'
 
-CMD ["/bin/bash"]
+
+# Start doc server in background, then drop into bash
+CMD ["/bin/bash", "-c", "mkdocs serve -f /ws/docs/mkdocs.yml -a 0.0.0.0:8000 & exec /bin/bash"]
