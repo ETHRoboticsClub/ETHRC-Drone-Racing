@@ -1,7 +1,7 @@
 # ETHRC Drone Racing
 
 <p align="center">
-  <img src="images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics Logo" width="300"/>
+  <img src="images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics Logo" width="300" class="hero-logo"/>
 </p>
 
 Welcome to the ETHRC Drone Racing project documentation.
