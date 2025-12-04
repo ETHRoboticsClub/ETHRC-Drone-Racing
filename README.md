@@ -56,3 +56,6 @@ docker exec -it erc-aeronautics bash
 cd /ws/px4/PX4-Autopilot
 make px4_sitl gz_x500
 ```
+
+## Agents
+Coding agents should read the files in aeronautics-utility/agents and follow the coding conventions.
