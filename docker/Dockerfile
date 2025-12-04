@@ -56,8 +56,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-dev python3-opencv \
     libeigen3-dev libyaml-cpp-dev libboost-all-dev \
     libserial-dev libusb-1.0-0-dev libudev-dev libzmq3-dev \
+    libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
     gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     && rm -rf /var/lib/apt/lists/*
+
+# Dependencies for OpenVINS
+RUN apt-get update && apt-get install -y --no-install-recommends \
+     libceres-dev libatlas-base-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev
+
+
 # Ensure pip tooling is up-to-date and install Python packages pinned to
 # versions compatible with system/compiled extensions. In particular we
 # pin NumPy < 2 to avoid ABI conflicts with SciPy and other C extensions

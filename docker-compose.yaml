@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   dev:
     container_name: erc-aeronautics
@@ -43,19 +41,21 @@ services:
     # runtime: nvidia
     # gpus: all
 
+  ov_ros1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ros1
+    container_name: erc-ov-ros1
+    network_mode: host
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - ROS_MASTER_URI=http://127.0.0.1:11311
     volumes:
-      # --- Runtime & Build Paths ---
-      - /run/user/1000:/run/user/1000
-      - ./src:/home/${USERNAME:-drone_dev}/ros_ws/src
-      - ./.colcon/build:/home/${USERNAME:-drone_dev}/ros_ws/build
-      - ./.colcon/install:/home/${USERNAME:-drone_dev}/ros_ws/install
-      - ./.colcon/log:/home/${USERNAME:-drone_dev}/ros_ws/log
-      - ./px4:/home/${USERNAME:-drone_dev}/ros_ws/px4
-      - ./.git:/home/${USERNAME:-drone_dev}/ros_ws/.git
-
-      # --- Display (X11) ---
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-
-      # --- Optional: Devices / USB ---
-      # - /dev:/dev
-      # - /dev/bus/usb:/dev/bus/usb
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+      # Mount the whole repo to access EuRoC config and bags
+      - ./:/ws:rw
+      # A persistent catkin_ws outside the image is optional; you can also build in-container
+      - ./.colcon/ros1_catkin_ws:/catkin_ws
+    working_dir: /catkin_ws
+    tty: true
