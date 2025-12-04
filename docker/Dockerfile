@@ -79,7 +79,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
     && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --no-cache-dir \
-    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs
+    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs mkdocs-material pymdown-extensions
 
 # ---- udev rules for FMU/USB bridges ----
 RUN install -d -m 0755 /etc/udev/rules.d && \

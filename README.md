@@ -22,6 +22,9 @@ Workspace /ws → where we put our ROS 2 packages
 
 ## Quick Start
 
+Note: after step 3, the container will be running in the background. You can stop it with `docker compose down`.
+You can access the documentation at `http://localhost:8000`.
+
 ### Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)
 We need SSH so git clone works smoothly without typing passwords.
 Follow GitHub’s guide: [Follow Github's guide here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
