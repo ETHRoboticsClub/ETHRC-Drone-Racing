@@ -238,8 +238,9 @@ RUN mkdir -p /home/$USERNAME/ros_ws/log
 # ENV COLCON_DEFAULTS_FILE=/home/$USERNAME/ros_ws/colcon.defaults
 # RUN bash -lc 'printf "{\\n  \\"build-base\\": \\"build\\",\\n  \\"install-base\\": \\"install\\",\\n  \\"test-result-base\\": \\"test_results\\"\\n}\\n" > ${COLCON_DEFAULTS_FILE}'
 
-# copy src and build
+# copy src and launch files into workspace
 COPY --chown=$USERNAME:$USERNAME src /home/$USERNAME/ros_ws/src 
+COPY --chown=$USERNAME:$USERNAME launch /home/$USERNAME/ros_ws/launch
 WORKDIR /home/$USERNAME/ros_ws
 # Build workspace (non-fatal if user mounts their own workspace at runtime)
 RUN bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build \
@@ -252,5 +253,4 @@ RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME
               echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
 
 CMD ["/bin/bash"]
-
 

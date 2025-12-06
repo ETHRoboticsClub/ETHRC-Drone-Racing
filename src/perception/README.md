@@ -41,6 +41,23 @@ The cmake **Release** option is foundamental for having the best possible comput
 source install/setup.bash
 ```
 
+## Running the pipeline
+
+Start the px4 submodule. Inside the docker container run:
+
+```
+cd px4/PX4-Autopilot/
+make clean
+make px4_sitl gz_x500_cam
+```
+
+Open a new terminal and go into the docker container. From the root (`ros_ws`) run:
+
+```
+ros2 launch launch/perception.launch.py
+```
+
+This starts Vision, VIO, EKF and the camera bridge.
 
 
 
