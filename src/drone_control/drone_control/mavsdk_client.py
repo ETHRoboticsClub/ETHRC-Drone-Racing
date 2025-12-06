@@ -42,7 +42,8 @@ class MavSDKClient(Node):
     #ROS-Related
     state_update_timer: Timer
     state_publisher: Publisher
-    cmd_subscriber: Subscription
+    attitude_cmd_subscriber: Subscription
+    pos_cmd_subscriber: Subscription
 
     asyncio_loop : asyncio.BaseEventLoop # start an event loop to avoid conflicts with ros async callbacks
     event_loop_thread : threading.Thread
@@ -62,8 +63,9 @@ class MavSDKClient(Node):
         self.state_update_rate = self.get_parameter('state_update_rate').get_parameter_value().double_value
 
         #ros related
-        self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state_sim', 10)
-        self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.send_AttitudeRate_cmd_ros,10)
+        self.state_publisher = self.create_publisher(Float64MultiArray, 'drone_state_sim', 10)
+        self.attitude_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.attitudeRate_cmd_cb,10)
+        self.pos_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_position_cmd',self.position_cmd_cb,10)
 
         #asyncio logic #TODO: verify and discuss
         #start a background thread that manages the asyncio loop, so we asyncronously
@@ -110,7 +112,7 @@ class MavSDKClient(Node):
         msg.data = self.get_latest_state_safe().tolist()
         self.state_publisher.publish(msg)
         
-    def send_AttitudeRate_cmd_ros(self,msg :Float64MultiArray ):
+    def attitudeRate_cmd_cb(self,msg :Float64MultiArray ):
         if len(msg.data) == 4:
             roll_r  = msg.data[0]
             pitch_r = msg.data[1]
@@ -121,6 +123,14 @@ class MavSDKClient(Node):
     def send_AttitudeRate_cmd(self, cmd : AttitudeRate):
         #TODO: verify that it is best way (Michalis)
         self.run_async(self.drone.offboard.set_attitude_rate(cmd))
+
+    def position_cmd_cb(self,msg :Float64MultiArray ):
+        if len(msg.data) == 4:
+            north_m  = msg.data[0]
+            east_m   = msg.data[1]
+            down_m   = msg.data[2]
+            yaw_deg  = msg.data[3]
+            self.send_Position_cmd(PositionNedYaw(north_m,east_m,down_m,yaw_deg))
 
     def send_Position_cmd(self, cmd : PositionNedYaw):
         self.run_async(self.drone.offboard.set_position_ned(cmd))

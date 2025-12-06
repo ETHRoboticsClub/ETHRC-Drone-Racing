@@ -1,7 +1,7 @@
 /drone_controller_node:
   ros__parameters:
+    state_topic: "drone_state_sim"
     controller_rate: 100.0
-    state_update_rate: 200.0
     threshold:
       positon: 0.1
       velocity: 0.02

@@ -45,6 +45,37 @@ Trajectory goals:
 ros2 run drone_control send_trajectory_goal goal_only
 ```
 
+# Integration with GS and Perception - Seperate Package RoadMap:
+> flags: MWP: minimum working product/ done 
+
+1. MavSDK node **MWP**
+    - state in ros_topic **done**
+    - controls sub **done**
+    - [important] Imu and other data (e.g. battery specifically)
+    - Debugging
+    - Connecting **done**
+    - [important] Actions for landing-taking off && arm/disarm
+2. Controller node  **done** 
+    - Publish Controls **done**
+    - Subscribe to state (Perception and Sim) **done**
+    - Debugging
+    - Trajectory && Goal actions **done**
+3. GS package
+    - Subscribe to odometry (sim/perception)
+    - Subscribe to Controls input
+    - Debugging
+    - Trigger for position goals
+    - Trigger for trajectory goals
+4. Perception
+    - Publish state
+    - Subscribe to controls input
+    - Debugging
+    - other sim
+
+# TODO:
+2. Add battery topic
+3. Actions for landing && taking off
+
 # TO DO
 1. [important] Add actions for setting position and trajectory goals **done**
     - Position **done**

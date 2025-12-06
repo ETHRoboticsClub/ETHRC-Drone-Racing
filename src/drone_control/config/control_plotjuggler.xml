@@ -1,129 +1,21 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <root>
- <tabbed_widget name="Main Window" parent="main_window">
-  <Tab tab_name="Position" containers="1">
+ <tabbed_widget parent="main_window" name="Main Window">
+  <Tab tab_name="XY" containers="1">
    <Container>
-    <DockSplitter sizes="0.35;0.35;0.3" count="3" orientation="-">
-     <DockArea name="X">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.040928" left="91.950011" top="0.009139" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[0]"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Y">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.016582" left="91.950011" top="0.032341" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[1]"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Z">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-1.003459" left="91.950011" top="-0.972496" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[2]"/>
-      </plot>
-     </DockArea>
-    </DockSplitter>
-   </Container>
-  </Tab>
-  <Tab tab_name="Velocity" containers="1">
-   <Container>
-    <DockSplitter sizes="0.35;0.35;0.3" count="3" orientation="-">
-     <DockArea name="Vx">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.028124" left="91.950011" top="0.023998" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[3]"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Vy">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.028974" left="91.950011" top="0.013805" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[4]"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Vz">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.023928" left="91.950011" top="0.007991" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[5]"/>
-      </plot>
-     </DockArea>
-    </DockSplitter>
-   </Container>
-  </Tab>
-  <Tab tab_name="Orientation" containers="1">
-   <Container>
-    <DockSplitter sizes="0.35;0.35;0.3" count="3" orientation="-">
-     <DockArea name="Roll">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.240923" left="91.950011" top="0.318146" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="Drone Roll"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Pitch">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.260462" left="91.950011" top="0.269257" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="Drone Pitch"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Yaw">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="1.961699" left="91.950011" top="2.023768" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="Drone Yaw"/>
-      </plot>
-     </DockArea>
-    </DockSplitter>
-   </Container>
-  </Tab>
-  <Tab tab_name="Angular Velocity" containers="1">
-   <Container>
-    <DockSplitter sizes="0.333333;0.333333;0.333333" count="3" orientation="-">
-     <DockArea name="Ωx">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.014537" left="91.950011" top="0.014914" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[10]"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Ωy">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.012223" left="91.950011" top="0.012723" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[11]"/>
-      </plot>
-     </DockArea>
-     <DockArea name="Ωz">
-      <plot style="Lines" mode="TimeSeries" flip_x="false" flip_y="false">
-       <range bottom="-0.002363" left="91.950011" top="0.002381" right="106.949688"/>
-       <limitY/>
-       <curve color="#000000" name="/drone_state/data[12]"/>
-      </plot>
-     </DockArea>
-    </DockSplitter>
-   </Container>
-  </Tab>
-  <Tab tab_name="ΧΥ" containers="1">
-   <Container>
-    <DockSplitter sizes="1" count="1" orientation="-">
+    <DockSplitter sizes="1" orientation="-" count="1">
      <DockArea name="...">
-      <plot style="Lines" mode="XYPlot" flip_x="false" flip_y="false">
-       <range bottom="-0.863698" left="-0.115730" top="0.879457" right="3.075993"/>
+      <plot mode="XYPlot" flip_x="false" style="Lines" flip_y="false">
+       <range bottom="-0.035315" left="-0.040388" right="0.065895" top="0.023130"/>
        <limitY/>
-       <curve curve_x="/drone_state/data[0]" color="#000000" curve_y="/drone_state/data[1]" name="Drone Path"/>
-       <curve curve_x="/drone_current_target/pose/position/x" color="#d62728" curve_y="/drone_current_target/pose/position/y" name="Drone Target"/>
+       <curve curve_y="/drone_state_sim/data[1]" color="#000000" name="Drone Path" curve_x="/drone_state_sim/data[0]"/>
+       <curve curve_y="/drone_current_target/pose/position/y" color="#ff0000" name="Drone Target" curve_x="/drone_current_target/pose/position/x"/>
       </plot>
      </DockArea>
     </DockSplitter>
    </Container>
   </Tab>
-  <currentTabIndex index="4"/>
+  <currentTabIndex index="0"/>
  </tabbed_widget>
  <use_relative_time_offset enabled="1"/>
  <!-- - - - - - - - - - - - - - - -->
@@ -148,7 +40,7 @@
    <max_array_size value="100"/>
    <boolean_strings_to_number value="true"/>
    <remove_suffix_from_strings value="true"/>
-   <selected_topics value="/drone_state;/drone_current_target"/>
+   <selected_topics value="/drone_current_target;/drone_state_sim"/>
   </plugin>
   <plugin ID="UDP Server"/>
   <plugin ID="WebSocket Server"/>
@@ -166,67 +58,7 @@
  <previouslyLoaded_Datafiles/>
  <previouslyLoaded_Streamer name="ROS2 Topic Subscriber"/>
  <!-- - - - - - - - - - - - - - - -->
- <customMathEquations>
-  <snippet name="Drone Roll">
-   <global></global>
-   <function>w = value
-x = v1
-y = v2
-z = v3
-
-dcm21 = 2 * (w * x + y * z)
-dcm22 = w*w - x*x - y*y + z*z
-
-roll = math.atan2(dcm21, dcm22) * 180/math.pi
-
-return roll</function>
-   <linked_source>/drone_state/data[6]</linked_source>
-   <additional_sources>
-    <v1>/drone_state/data[7]</v1>
-    <v2>/drone_state/data[8]</v2>
-    <v3>/drone_state/data[9]</v3>
-   </additional_sources>
-  </snippet>
-  <snippet name="Drone Pitch">
-   <global></global>
-   <function>w = value
-x = v1
-y = v2
-z = v3
-
-dcm20 = 2 * (x * z - w * y)
-
-pitch = math.asin(-dcm20)* 180/math.pi
-
-return pitch</function>
-   <linked_source>/drone_state/data[6]</linked_source>
-   <additional_sources>
-    <v1>/drone_state/data[7]</v1>
-    <v2>/drone_state/data[8]</v2>
-    <v3>/drone_state/data[9]</v3>
-   </additional_sources>
-  </snippet>
-  <snippet name="Drone Yaw">
-   <global></global>
-   <function>w = value
-x = v1
-y = v2
-z = v3
-
-dcm10 = 2 * (x * y + w * z)
-dcm00 = w*w + x*x - y*y - z*z
-
-yaw = math.atan2(dcm10, dcm00)* 180/math.pi
-
-return yaw</function>
-   <linked_source>/drone_state/data[6]</linked_source>
-   <additional_sources>
-    <v1>/drone_state/data[7]</v1>
-    <v2>/drone_state/data[8]</v2>
-    <v3>/drone_state/data[9]</v3>
-   </additional_sources>
-  </snippet>
- </customMathEquations>
+ <customMathEquations/>
  <snippets/>
  <!-- - - - - - - - - - - - - - - -->
 </root>

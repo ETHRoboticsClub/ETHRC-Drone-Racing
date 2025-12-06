@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.timer import Rate
-from rclpy.node import Node, Timer, Publisher
+from rclpy.node import Node, Timer, Publisher, Subscription
 from rclpy.action import ActionServer,CancelResponse, GoalResponse
 from rclpy.action.server import ServerGoalHandle as GoalHandle
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
@@ -14,7 +14,7 @@ from nav2_msgs.action import FollowWaypoints
 from geometry_msgs.msg import PoseStamped, Pose
 
 # drone
-from drone_control.mavsdk_client import MavSDKClient, AttitudeRate, PositionNedYaw
+from drone_control.mavsdk_client import AttitudeRate, PositionNedYaw
 from mpc.drone_mpc_controller import DroneMpcController
 
 # general
@@ -31,21 +31,18 @@ class thresholds:
 
 class DroneController(Node):
 
-    mav_sdk_client : MavSDKClient
     controller : DroneMpcController
 
     # parameters
     control_rate: float
-    state_update_rate: float
     thresholds_ : thresholds = thresholds()
     trajectory_max_desired_velocity_linear: float
     trajectory_max_desired_velocity_angular: float
     
     # ros related
     controller_rate: Rate
-    control_timer: Timer
-    state_update_timer: Timer
-    state_publisher: Publisher
+    state_subscriber: Subscription
+    attitude_command_publisher: Publisher
     current_target_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
@@ -63,7 +60,6 @@ class DroneController(Node):
     def __init__(self):
         super().__init__('drone_controller_node')
 
-        self.mav_sdk_client = MavSDKClient()
         self.controller = DroneMpcController()
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
@@ -74,8 +70,10 @@ class DroneController(Node):
         self.timer_cb_group = MutuallyExclusiveCallbackGroup()
 
         # parameters
+        self.declare_parameter('state_topic','drone_state_sim')
+        self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
+        self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate',100.0)
-        self.declare_parameter('state_update_rate',200.0)
         self.declare_parameter('threshold.positon',0.1)
         self.declare_parameter('threshold.velocity',0.02)
         self.declare_parameter('threshold.angular_velocity',0.02)
@@ -83,15 +81,19 @@ class DroneController(Node):
         self.declare_parameter('trajectory_max_desired_velocity.linear',1)
         self.declare_parameter('trajectory_max_desired_velocity.angular',1)
 
+        state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
+        position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
-        self.state_update_rate = self.get_parameter('state_update_rate').get_parameter_value().double_value
         self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
         self.thresholds_.velocity = self.get_parameter('threshold.velocity').get_parameter_value().double_value
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
 
         #TODO: maybe change to joint_states (Michalis)
-        self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state', 10)
+        self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)
+        self.attitude_command_publisher = self.create_publisher(Float64MultiArray,attitude_command_topic, 10)
+        self.position_command_publisher = self.create_publisher(Float64MultiArray,position_command_topic, 10)
         self.current_target_publisher = self.create_publisher(PoseStamped, 
                                                               '/drone_current_target', 
                                                               QoSProfile(
@@ -114,28 +116,14 @@ class DroneController(Node):
             cancel_callback=self.trajectory_goal_cancel_callback,
             execute_callback=self.trajectory_goal_execute_callback)
 
+    def drone_state_cb(self, msg: Float64MultiArray):
+        with self.state_lock:
+            self.state = np.array(msg.data)
+
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
-        # TODO: improve this logic (Michalis)
-        mav_sdk_init_future = self.mav_sdk_client.run_async(self.mav_sdk_client.initialize())
-        controller_init_future = self.mav_sdk_client.run_async(self.controller.initialize())
-
-        #TODO: handle initialization failures 
-        mav_sdk_init_future.result() 
-        controller_init_future.result() 
-
-        # start timers after connecting to mavsdk
-        self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.timer_cb_group)
-        self.get_logger().info("Controller node initialized")
-        
-    def _state_timer_callback(self):
-        """This function publishes the drone system to be available in the ros ecosystem"""
-        with self.state_lock:
-            # print(self.mav_sdk_client.get_latest_state())
-            self.state =  self.mav_sdk_client.get_latest_state()
-        msg = Float64MultiArray()
-        msg.data = self.state.tolist()
-        self.state_publisher.publish(msg)    
+        self.controller.initialize()
+        self.get_logger().info("Controller node initialized")  
 
     def waypoint_reached(self, ):
         with self.state_lock:
@@ -182,11 +170,9 @@ class DroneController(Node):
         # Convert to degrees for easier understanding
         yaw_deg = np.degrees(yaw_rad)
         # -----------
-        
-        pos_cmd = PositionNedYaw(current_state[0],current_state[1],current_state[2],yaw_deg) 
-
-        self.get_logger().info(f'Sending Position Command at North={pos_cmd.north_m:.2}, East={pos_cmd.east_m},Down={pos_cmd.down_m} with Yaw={pos_cmd.yaw_deg}')
-        self.mav_sdk_client.send_Position_cmd(pos_cmd)
+        cmd_msg = Float64MultiArray()
+        cmd_msg.data = [current_state[0],current_state[1],current_state[2],yaw_deg]
+        self.position_command_publisher.publish(cmd_msg)
 
     def pose_goal_accept_callback(self, goal : FollowWaypoints.Goal ):
         '''
@@ -232,13 +218,16 @@ class DroneController(Node):
 
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
+        cmd_msg = Float64MultiArray()
         
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
                 current_state = self.state.copy()
             attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
-            self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd) 
-            
+
+            cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
+            self.attitude_command_publisher.publish(cmd_msg)
+
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
             self.controller_rate.sleep() 
@@ -316,6 +305,7 @@ class DroneController(Node):
 
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
+        cmd_msg = Float64MultiArray()
         
         time_expired = 0.0
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
@@ -325,7 +315,9 @@ class DroneController(Node):
             traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
             self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached. 
             attitude_cmd : AttitudeRate  = self.controller.trajectory_controller_update(current_state,traj_desired)
-            self.mav_sdk_client.send_AttitudeRate_cmd(attitude_cmd) 
+
+            cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
+            self.attitude_command_publisher.publish(cmd_msg)
             
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better

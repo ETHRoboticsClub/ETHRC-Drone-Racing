@@ -52,7 +52,7 @@ class DroneMpcController():
             print(f"  Max thrust: {self.max_thrust:.2f} N")
             print(f"{'='*60}\n")
 
-    async def initialize(self):
+    def initialize(self):
         """
         Initialize Class
         Constructor should return fast, so async operations are moved here. 
