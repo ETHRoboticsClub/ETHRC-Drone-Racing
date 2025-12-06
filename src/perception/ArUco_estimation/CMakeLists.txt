@@ -26,6 +26,7 @@ include_directories(include ${OpenCV_INCLUDE_DIRS})
 add_executable(aruco_pose_estimation_node
   src/aruco_pose_estimation_node.cpp
   src/pose_estimation_utils.cpp
+  src/visualization_helper.cpp
 )
 target_link_libraries(aruco_pose_estimation_node ${OpenCV_LIBS})
 
@@ -49,7 +50,7 @@ install(TARGETS aruco_pose_estimation_node
 )
 
 # Install config/launch directories
-install(DIRECTORY config launch
+install(DIRECTORY config launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
 

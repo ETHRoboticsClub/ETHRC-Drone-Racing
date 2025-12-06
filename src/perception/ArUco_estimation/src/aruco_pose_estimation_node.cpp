@@ -1,30 +1,9 @@
 #include "aruco_pose_estimation/aruco_pose_estimation_node.hpp"
 
-namespace {
-// ArUco detector constants
-constexpr int CORNER_REFINEMENT_WIN_SIZE = 0; //to expensive for drone use
-constexpr int CORNER_REFINEMENT_MAX_ITERATIONS = 0;
-constexpr double CORNER_REFINEMENT_MIN_ACCURACY = 0;
-constexpr int ADAPTIVE_THRESH_WIN_SIZE_MIN = 7;
-constexpr int ADAPTIVE_THRESH_WIN_SIZE_MAX = 23;
-constexpr int ADAPTIVE_THRESH_WIN_SIZE_STEP = 10; //default
-constexpr double MIN_MARKER_PERIMETER_RATE = 0.04;
-constexpr double MAX_MARKER_PERIMETER_RATE = 4.0;
-constexpr double POLYGONAL_APPROX_ACCURACY_RATE = 0.09;
-constexpr double MIN_MARKER_DISTANCE_RATE = 0.1;
-
-// Visualization constants
-constexpr double TRAIL_MARKER_INTERVAL_SEC = 0.1;
-constexpr double TRAIL_MARKER_SIZE = 0.08;
-constexpr double DEBUG_TEXT_SCALE = 0.6;
-constexpr int DEBUG_TEXT_THICKNESS = 2;
-constexpr int DEBUG_TEXT_LINE_HEIGHT = 30;
-}  // namespace
-
 namespace aruco_pose_estimation {
 
 ArucoPoseEstimationNode::ArucoPoseEstimationNode()
-    : Node("aruco_pose_estimation_node"), is_initialized_(false), trail_marker_id_(0), has_previous_pose_(false)
+    : Node("aruco_pose_estimation_node"), is_initialized_(false), has_previous_pose_(false)
     {
         // Parameters
         camera_topic_ = this->declare_parameter("camera_topic", "/cam0/image_raw");
@@ -36,24 +15,38 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         publish_debug_image_ = this->declare_parameter("publish_debug_image", true);
         min_markers_for_init_ = this->declare_parameter("min_markers_for_init", 1);
 
-        // ArUco detector parameters
-        corner_refinement_win_size_ = this->declare_parameter("corner_refinement_win_size", CORNER_REFINEMENT_WIN_SIZE);
-        corner_refinement_max_iterations_ = this->declare_parameter("corner_refinement_max_iterations", CORNER_REFINEMENT_MAX_ITERATIONS);
-        corner_refinement_min_accuracy_ = this->declare_parameter("corner_refinement_min_accuracy", CORNER_REFINEMENT_MIN_ACCURACY);
-        adaptive_thresh_win_size_min_ = this->declare_parameter("adaptive_thresh_win_size_min", ADAPTIVE_THRESH_WIN_SIZE_MIN);
-        adaptive_thresh_win_size_max_ = this->declare_parameter("adaptive_thresh_win_size_max", ADAPTIVE_THRESH_WIN_SIZE_MAX);
-        adaptive_thresh_win_size_step_ = this->declare_parameter("adaptive_thresh_win_size_step", ADAPTIVE_THRESH_WIN_SIZE_STEP);
-        min_marker_perimeter_rate_ = this->declare_parameter("min_marker_perimeter_rate", MIN_MARKER_PERIMETER_RATE);
-        max_marker_perimeter_rate_ = this->declare_parameter("max_marker_perimeter_rate", MAX_MARKER_PERIMETER_RATE);
-        polygonal_approx_accuracy_rate_ = this->declare_parameter("polygonal_approx_accuracy_rate", POLYGONAL_APPROX_ACCURACY_RATE);
-        min_marker_distance_rate_ = this->declare_parameter("min_marker_distance_rate", MIN_MARKER_DISTANCE_RATE);
+        // ArUco detector parameters (nested under aruco_detector)
+        corner_refinement_win_size_ = this->declare_parameter("aruco_detector.corner_refinement_win_size", 0);
+        corner_refinement_max_iterations_ = this->declare_parameter("aruco_detector.corner_refinement_max_iterations", 0);
+        corner_refinement_min_accuracy_ = this->declare_parameter("aruco_detector.corner_refinement_min_accuracy", 0.0);
+        adaptive_thresh_win_size_min_ = this->declare_parameter("aruco_detector.adaptive_thresh_win_size_min", 7);
+        adaptive_thresh_win_size_max_ = this->declare_parameter("aruco_detector.adaptive_thresh_win_size_max", 23);
+        adaptive_thresh_win_size_step_ = this->declare_parameter("aruco_detector.adaptive_thresh_win_size_step", 10);
+        min_marker_perimeter_rate_ = this->declare_parameter("aruco_detector.min_marker_perimeter_rate", 0.04);
+        max_marker_perimeter_rate_ = this->declare_parameter("aruco_detector.max_marker_perimeter_rate", 4.0);
+        polygonal_approx_accuracy_rate_ = this->declare_parameter("aruco_detector.polygonal_approx_accuracy_rate", 0.09);
+        min_marker_distance_rate_ = this->declare_parameter("aruco_detector.min_marker_distance_rate", 0.1);
 
-        // Smoothing parameters
-        use_smoothing_ = this->declare_parameter("use_smoothing", true);
-        position_smoothing_alpha_ = this->declare_parameter("position_smoothing_alpha", 0.3);
-        orientation_smoothing_alpha_ = this->declare_parameter("orientation_smoothing_alpha", 0.3);
+        // Smoothing parameters (nested under pose_estimation)
+        use_smoothing_ = this->declare_parameter("pose_estimation.use_smoothing", true);
+        position_smoothing_alpha_ = this->declare_parameter("pose_estimation.position_smoothing_alpha", 0.3);
+        orientation_smoothing_alpha_ = this->declare_parameter("pose_estimation.orientation_smoothing_alpha", 0.3);
 
-        // Initialize TF2 buffer and listener
+        // Lucas-Kanade tracking parameters (nested under optical_flow)
+        use_optical_flow_ = this->declare_parameter("optical_flow.enabled", true);
+        max_tracking_age_ = this->declare_parameter("optical_flow.max_tracking_age", 10);
+        redetect_interval_ = this->declare_parameter("optical_flow.redetect_interval", 30);
+        frames_since_detection_ = 0;
+        
+        // LK algorithm parameters (nested under optical_flow)
+        int lk_win_size = this->declare_parameter("optical_flow.window_size", 21);
+        lk_win_size_ = cv::Size(lk_win_size, lk_win_size);
+        lk_max_level_ = this->declare_parameter("optical_flow.max_pyramid_level", 3);
+        int max_iterations = this->declare_parameter("optical_flow.max_iterations", 30);
+        double epsilon = this->declare_parameter("optical_flow.epsilon", 0.01);
+        lk_term_criteria_ = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, max_iterations, epsilon);
+
+        // Initialize TF2 buffer and listener first
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
@@ -65,18 +58,20 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         initializeArucoDetector();
         createPublishersAndSubscribers();
 
-        last_trail_time_ = this->now();
+        // Visualization configuration (must be after publishers are created, nested under visualization)
+        VisualizationConfig vis_config;
+        vis_config.trail_marker_interval_sec = this->declare_parameter("visualization.trail_marker_interval_sec", 0.1);
+        vis_config.trail_marker_size = this->declare_parameter("visualization.trail_marker_size", 0.08);
+        vis_config.debug_text_scale = this->declare_parameter("visualization.debug_text_scale", 0.6);
+        vis_config.debug_text_thickness = this->declare_parameter("visualization.debug_text_thickness", 2);
+        vis_config.debug_text_line_height = this->declare_parameter("visualization.debug_text_line_height", 30);
+        vis_config.show_rejected_candidates = this->declare_parameter("visualization.show_rejected_candidates", true);
+        vis_config.show_corner_points = this->declare_parameter("visualization.show_corner_points", true);
+        vis_config.show_detector_params = this->declare_parameter("visualization.show_detector_params", true);
+        vis_config.show_marker_ids = this->declare_parameter("visualization.show_marker_ids", true);
+        
+        visualization_helper_ = std::make_shared<VisualizationHelper>(vis_config);
 
-        // Lucas-Kanade tracking parameters
-        use_optical_flow_ = this->declare_parameter("use_optical_flow", true);
-        max_tracking_age_ = this->declare_parameter("max_tracking_age", 10);
-        redetect_interval_ = this->declare_parameter("redetect_interval", 30);
-        
-        // LK algorithm parameters
-        lk_win_size_ = cv::Size(21, 21);
-        lk_max_level_ = 3;
-        lk_term_criteria_ = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, 30, 0.01);
-        
         RCLCPP_INFO(this->get_logger(), "ArUco Pose Estimation Node initialized");
         RCLCPP_INFO(this->get_logger(), "Camera topic: %s", camera_topic_.c_str());
         RCLCPP_INFO(this->get_logger(), "Marker map: %zu markers loaded", marker_map_.getMarkerCount());
@@ -347,88 +342,86 @@ tf2::Quaternion ArucoPoseEstimationNode::smoothOrientation(const tf2::Quaternion
     return smoothed;
 }
 
-void ArucoPoseEstimationNode::addDiagnosticKeyValue(diagnostic_msgs::msg::DiagnosticStatus& status,
-                               const std::string& key, const std::string& value)
+void ArucoPoseEstimationNode::publishPoses(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
+                      const rclcpp::Time& timestamp)
 {
-    diagnostic_msgs::msg::KeyValue kv;
-    kv.key = key;
-    kv.value = value;
-    status.values.push_back(kv);
+    // Apply smoothing to camera pose if enabled
+    cv::Vec3d smoothed_camera_position = camera_position;
+    tf2::Quaternion smoothed_camera_quat = camera_quat;
+    
+    if (use_smoothing_ && has_previous_pose_) {
+        smoothed_camera_position = smoothPosition(camera_position, prev_camera_position_, position_smoothing_alpha_);
+        smoothed_camera_quat = smoothOrientation(camera_quat, prev_camera_quat_, orientation_smoothing_alpha_);
+    }
+    
+    // Store current pose for next iteration
+    prev_camera_position_ = smoothed_camera_position;
+    prev_camera_quat_ = smoothed_camera_quat;
+    has_previous_pose_ = true;
+
+    // Publish smoothed camera pose
+    geometry_msgs::msg::PoseStamped camera_pose_msg;
+    camera_pose_msg.header.stamp = timestamp;
+    camera_pose_msg.header.frame_id = world_frame_;
+    camera_pose_msg.pose.position.x = smoothed_camera_position[0];
+    camera_pose_msg.pose.position.y = smoothed_camera_position[1];
+    camera_pose_msg.pose.position.z = smoothed_camera_position[2];
+    camera_pose_msg.pose.orientation.x = smoothed_camera_quat.x();
+    camera_pose_msg.pose.orientation.y = smoothed_camera_quat.y();
+    camera_pose_msg.pose.orientation.z = smoothed_camera_quat.z();
+    camera_pose_msg.pose.orientation.w = smoothed_camera_quat.w();
+    camera_pose_pub_->publish(camera_pose_msg);
+
+    cv::Vec3d drone_position;
+    tf2::Quaternion drone_quat;
+    if (!transformCameraToDrone(smoothed_camera_position, smoothed_camera_quat, drone_position, drone_quat)) {
+        return;  // Transform failed, skip publishing drone pose
+    }
+
+    geometry_msgs::msg::PoseWithCovarianceStamped drone_pose_msg;
+    drone_pose_msg.header.stamp = timestamp;
+    drone_pose_msg.header.frame_id = world_frame_;
+    drone_pose_msg.pose.pose.position.x = drone_position[0];
+    drone_pose_msg.pose.pose.position.y = drone_position[1];
+    drone_pose_msg.pose.pose.position.z = drone_position[2];
+    drone_pose_msg.pose.pose.orientation.x = drone_quat.x();
+    drone_pose_msg.pose.pose.orientation.y = drone_quat.y();
+    drone_pose_msg.pose.pose.orientation.z = drone_quat.z();
+    drone_pose_msg.pose.pose.orientation.w = drone_quat.w();
+    drone_pose_pub_->publish(drone_pose_msg);
+
+    // Publish trail marker periodically
+    static rclcpp::Time last_trail_time = rclcpp::Time(0, 0, RCL_ROS_TIME);
+    double trail_interval = visualization_helper_->getConfig().trail_marker_interval_sec;
+    if ((timestamp - last_trail_time).seconds() >= trail_interval) {
+        visualization_helper_->publishTrailMarker(drone_position, timestamp, world_frame_, marker_pub_);
+        last_trail_time = timestamp;
+    }
 }
 
-void ArucoPoseEstimationNode::publishDiagnostics(const rclcpp::Time& timestamp, int markers_detected,
-                           int markers_used, const std::vector<int>& marker_ids,
-                           bool pose_valid, double processing_time_ms,
-                           const cv::Vec3d& drone_position, const tf2::Quaternion& drone_quat)
+void ArucoPoseEstimationNode::publishTFTransforms(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
+                             const rclcpp::Time& timestamp)
 {
-    diagnostic_msgs::msg::DiagnosticArray diag_array;
-        diag_array.header.stamp = timestamp;
+    cv::Vec3d drone_position;
+    tf2::Quaternion drone_quat;
+    if (!transformCameraToDrone(camera_position, camera_quat, drone_position, drone_quat)) {
+        return;
+    }
 
-        diagnostic_msgs::msg::DiagnosticStatus diag_status;
-        diag_status.name = "aruco_pose_estimation";
-        diag_status.hardware_id = "camera";
-
-        if (!pose_valid || markers_used == 0) {
-            diag_status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
-            diag_status.message = "No valid pose estimate";
-        } else {
-            diag_status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
-            diag_status.message = "Pose estimation OK";
-        }
-
-        addDiagnosticKeyValue(diag_status, "markers_detected", std::to_string(markers_detected));
-        addDiagnosticKeyValue(diag_status, "markers_used", std::to_string(markers_used));
-
-        std::string ids_str;
-        for (size_t i = 0; i < marker_ids.size(); ++i) {
-            ids_str += std::to_string(marker_ids[i]);
-            if (i < marker_ids.size() - 1) ids_str += ",";
-        }
-        addDiagnosticKeyValue(diag_status, "marker_ids", ids_str);
-        addDiagnosticKeyValue(diag_status, "processing_time_ms", std::to_string(processing_time_ms));
-        addDiagnosticKeyValue(diag_status, "is_initialized", is_initialized_ ? "true" : "false");
-
-        diag_array.status.push_back(diag_status);
-        diagnostics_pub_->publish(diag_array);
-
-        // Print nice formatted output to console
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(3);
-        ss << "[" << timestamp.seconds() << "s] ";
-        ss << "Pos: [" << drone_position[0] << ", " << drone_position[1] << ", " << drone_position[2] << "] ";
-        ss << "Orient: [" << drone_quat.x() << ", " << drone_quat.y() << ", " << drone_quat.z() << ", " << drone_quat.w() << "] ";
-        ss << "Markers: " << markers_used << "/" << markers_detected << "/" << marker_map_.getMarkerCount();
-
-        RCLCPP_INFO(this->get_logger(), "%s", ss.str().c_str());
-}
-
-void ArucoPoseEstimationNode::publishTrailMarker(const cv::Vec3d& position, const rclcpp::Time& timestamp)
-{
-    auto trail_marker = std::make_unique<visualization_msgs::msg::Marker>();
-        trail_marker->header.frame_id = world_frame_;
-        trail_marker->header.stamp = timestamp;
-        trail_marker->ns = "path_trail";
-        trail_marker->id = trail_marker_id_++;
-        trail_marker->type = visualization_msgs::msg::Marker::SPHERE;
-        trail_marker->action = visualization_msgs::msg::Marker::ADD;
-
-        trail_marker->pose.position.x = position[0];
-        trail_marker->pose.position.y = position[1];
-        trail_marker->pose.position.z = position[2];
-        trail_marker->pose.orientation.w = 1.0;
-
-        trail_marker->color.r = 0.0;
-        trail_marker->color.g = 1.0;
-        trail_marker->color.b = 0.0;
-        trail_marker->color.a = 1.0;
-
-        trail_marker->scale.x = TRAIL_MARKER_SIZE;
-        trail_marker->scale.y = TRAIL_MARKER_SIZE;
-        trail_marker->scale.z = TRAIL_MARKER_SIZE;
-
-        trail_marker->lifetime = rclcpp::Duration(0, 0);
-
-        marker_pub_->publish(std::move(trail_marker));
+    // Only publish world -> base_link transform
+    // The base_link -> camera_link transform should come from your URDF or a static transform publisher
+    geometry_msgs::msg::TransformStamped drone_transform;
+    drone_transform.header.stamp = timestamp;
+    drone_transform.header.frame_id = world_frame_;
+    drone_transform.child_frame_id = base_link_frame_;
+    drone_transform.transform.translation.x = drone_position[0];
+    drone_transform.transform.translation.y = drone_position[1];
+    drone_transform.transform.translation.z = drone_position[2];
+    drone_transform.transform.rotation.x = drone_quat.x();
+    drone_transform.transform.rotation.y = drone_quat.y();
+    drone_transform.transform.rotation.z = drone_quat.z();
+    drone_transform.transform.rotation.w = drone_quat.w();
+    tf_broadcaster_->sendTransform(drone_transform);
 }
 
 cv::Mat ArucoPoseEstimationNode::convertRosImageToCV(const sensor_msgs::msg::Image::SharedPtr& msg)
@@ -458,195 +451,34 @@ bool ArucoPoseEstimationNode::estimateAndValidatePose(const std::vector<int>& ma
                                   std::vector<int>& used_markers)
 {
     std::vector<cv::Point3f> object_points;
-        std::vector<cv::Point2f> image_points;
+    std::vector<cv::Point2f> image_points;
 
-        // Estimate pose using the marker map
-        if (!marker_map_.estimateCameraPose(marker_ids, marker_corners, camera_matrix_, dist_coeffs_,
-                                            camera_position, camera_orientation, used_markers,
-                                            &object_points, &image_points)) {
-            return false;
-        }
-
-        if (!is_initialized_) {
-            if (static_cast<int>(used_markers.size()) >= min_markers_for_init_) {
-                is_initialized_ = true;
-                RCLCPP_INFO(this->get_logger(), "Pose initialized! Markers: %zu",
-                           used_markers.size());
-                return true;
-            }
-            return false;
-        }
-
-        return true;
-}
-
-
-void ArucoPoseEstimationNode::publishPoses(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
-                      const rclcpp::Time& timestamp)
-{
-    // Apply smoothing to camera pose if enabled
-    cv::Vec3d smoothed_camera_position = camera_position;
-    tf2::Quaternion smoothed_camera_quat = camera_quat;
-    
-    if (use_smoothing_ && has_previous_pose_) {
-        smoothed_camera_position = smoothPosition(camera_position, prev_camera_position_, position_smoothing_alpha_);
-        smoothed_camera_quat = smoothOrientation(camera_quat, prev_camera_quat_, orientation_smoothing_alpha_);
-    }
-    
-    // Store current pose for next iteration
-    prev_camera_position_ = smoothed_camera_position;
-    prev_camera_quat_ = smoothed_camera_quat;
-    has_previous_pose_ = true;
-
-    // Publish smoothed camera pose
-    geometry_msgs::msg::PoseStamped camera_pose_msg;
-        camera_pose_msg.header.stamp = timestamp;
-        camera_pose_msg.header.frame_id = world_frame_;
-        camera_pose_msg.pose.position.x = smoothed_camera_position[0];
-        camera_pose_msg.pose.position.y = smoothed_camera_position[1];
-        camera_pose_msg.pose.position.z = smoothed_camera_position[2];
-        camera_pose_msg.pose.orientation.x = smoothed_camera_quat.x();
-        camera_pose_msg.pose.orientation.y = smoothed_camera_quat.y();
-        camera_pose_msg.pose.orientation.z = smoothed_camera_quat.z();
-        camera_pose_msg.pose.orientation.w = smoothed_camera_quat.w();
-        camera_pose_pub_->publish(camera_pose_msg);
-
-        cv::Vec3d drone_position;
-        tf2::Quaternion drone_quat;
-        if (!transformCameraToDrone(smoothed_camera_position, smoothed_camera_quat, drone_position, drone_quat)) {
-            return;  // Transform failed, skip publishing drone pose
-        }
-
-        geometry_msgs::msg::PoseWithCovarianceStamped drone_pose_msg;
-        drone_pose_msg.header.stamp = timestamp;
-        drone_pose_msg.header.frame_id = world_frame_;
-        drone_pose_msg.pose.pose.position.x = drone_position[0];
-        drone_pose_msg.pose.pose.position.y = drone_position[1];
-        drone_pose_msg.pose.pose.position.z = drone_position[2];
-        drone_pose_msg.pose.pose.orientation.x = drone_quat.x();
-        drone_pose_msg.pose.pose.orientation.y = drone_quat.y();
-        drone_pose_msg.pose.pose.orientation.z = drone_quat.z();
-        drone_pose_msg.pose.pose.orientation.w = drone_quat.w();
-        drone_pose_pub_->publish(drone_pose_msg);
-
-        rclcpp::Time current_time = this->now();
-        if ((current_time - last_trail_time_).seconds() >= TRAIL_MARKER_INTERVAL_SEC) {
-            publishTrailMarker(drone_position, timestamp);
-            last_trail_time_ = current_time;
-        }
-}
-
-void ArucoPoseEstimationNode::publishTFTransforms(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
-                             const rclcpp::Time& timestamp)
-{
-    cv::Vec3d drone_position;
-    tf2::Quaternion drone_quat;
-    if (!transformCameraToDrone(camera_position, camera_quat, drone_position, drone_quat)) {
-        return;
+    // Estimate pose using the marker map
+    if (!marker_map_.estimateCameraPose(marker_ids, marker_corners, camera_matrix_, dist_coeffs_,
+                                        camera_position, camera_orientation, used_markers,
+                                        &object_points, &image_points)) {
+        return false;
     }
 
-    // Only publish world -> base_link transform
-    // The base_link -> camera_link transform should come from your URDF or a static transform publisher
-    geometry_msgs::msg::TransformStamped drone_transform;
-    drone_transform.header.stamp = timestamp;
-    drone_transform.header.frame_id = world_frame_;
-    drone_transform.child_frame_id = base_link_frame_;
-    drone_transform.transform.translation.x = drone_position[0];
-    drone_transform.transform.translation.y = drone_position[1];
-    drone_transform.transform.translation.z = drone_position[2];
-    drone_transform.transform.rotation.x = drone_quat.x();
-    drone_transform.transform.rotation.y = drone_quat.y();
-    drone_transform.transform.rotation.z = drone_quat.z();
-    drone_transform.transform.rotation.w = drone_quat.w();
-    tf_broadcaster_->sendTransform(drone_transform);
-}
-
-void ArucoPoseEstimationNode::publishDebugImage(cv::Mat& frame, const std::vector<std::vector<cv::Point2f>>& marker_corners,
-                           const std::vector<int>& marker_ids, const std::vector<int>& used_markers,
-                           const cv::Vec3d& camera_position, const cv::Vec3d& camera_orientation,
-                           const rclcpp::Time& timestamp)
-{
-    if (!publish_debug_image_) return;
-
-        // Draw detected markers with IDs
-        cv::aruco::drawDetectedMarkers(frame, marker_corners, marker_ids);
-
-        // Draw corners for detected markers (individual corner points)
-        for (const auto& corners : marker_corners) {
-            for (size_t i = 0; i < corners.size(); ++i) {
-                // Draw each corner with different colors
-                cv::Scalar color;
-                switch(i) {
-                    case 0: color = cv::Scalar(255, 0, 0); break;    // Blue - top-left
-                    case 1: color = cv::Scalar(0, 255, 0); break;    // Green - top-right
-                    case 2: color = cv::Scalar(0, 0, 255); break;    // Red - bottom-right
-                    case 3: color = cv::Scalar(255, 255, 0); break;  // Cyan - bottom-left
-                    default: color = cv::Scalar(255, 255, 255); break;
-                }
-                cv::circle(frame, corners[i], 5, color, -1);
-            }
+    if (!is_initialized_) {
+        if (static_cast<int>(used_markers.size()) >= min_markers_for_init_) {
+            is_initialized_ = true;
+            RCLCPP_INFO(this->get_logger(), "Pose initialized! Markers: %zu",
+                       used_markers.size());
+            return true;
         }
+        return false;
+    }
 
-        // Draw rejected candidates in yellow/orange
-        for (const auto& rejected : rejected_candidates_) {
-            std::vector<cv::Point> polygon;
-            for (const auto& point : rejected) {
-                polygon.push_back(cv::Point(static_cast<int>(point.x), static_cast<int>(point.y)));
-            }
-            cv::polylines(frame, polygon, true, cv::Scalar(0, 165, 255), 2); // Orange
-        }
-
-        cv::Vec3d drone_position;
-        tf2::Quaternion drone_quat;
-        tf2::Quaternion camera_quat = pose_estimation_utils::cvRotationVecToQuaternion(camera_orientation);
-
-        std::stringstream ss;
-        ss << std::fixed << std::setprecision(3);
-
-        if (transformCameraToDrone(camera_position, camera_quat, drone_position, drone_quat)) {
-            ss << "Drone Pos: [" << drone_position[0] << ", " << drone_position[1] << ", " << drone_position[2] << "] m";
-        } else {
-            ss << "Drone Pos: [TF unavailable]";
-        }
-        cv::putText(frame, ss.str(), cv::Point(10, DEBUG_TEXT_LINE_HEIGHT),
-                   cv::FONT_HERSHEY_SIMPLEX, DEBUG_TEXT_SCALE, cv::Scalar(0, 255, 0), DEBUG_TEXT_THICKNESS);
-
-        ss.str("");
-        ss << "Markers: " << used_markers.size() << "/" << marker_ids.size() << " | Rejected: " << rejected_candidates_.size();
-        cv::putText(frame, ss.str(), cv::Point(10, DEBUG_TEXT_LINE_HEIGHT * 2),
-                   cv::FONT_HERSHEY_SIMPLEX, DEBUG_TEXT_SCALE, cv::Scalar(0, 255, 0), DEBUG_TEXT_THICKNESS);
-
-        ss.str("");
-        ss << "Status: " << (is_initialized_ ? "TRACKING" : "INITIALIZING");
-        cv::putText(frame, ss.str(), cv::Point(10, DEBUG_TEXT_LINE_HEIGHT * 3),
-                   cv::FONT_HERSHEY_SIMPLEX, DEBUG_TEXT_SCALE, cv::Scalar(0, 255, 0), DEBUG_TEXT_THICKNESS);
-
-        // Display detector parameters
-        ss.str("");
-        ss << "Params: WinSize=" << detector_params_->cornerRefinementWinSize
-           << " AdaptThresh=" << detector_params_->adaptiveThreshWinSizeMin << "-" << detector_params_->adaptiveThreshWinSizeMax;
-        cv::putText(frame, ss.str(), cv::Point(10, DEBUG_TEXT_LINE_HEIGHT * 4),
-                   cv::FONT_HERSHEY_SIMPLEX, DEBUG_TEXT_SCALE, cv::Scalar(0, 255, 0), DEBUG_TEXT_THICKNESS);
-
-        ss.str("");
-        ss << "       MinPerim=" << detector_params_->minMarkerPerimeterRate
-           << " MaxPerim=" << detector_params_->maxMarkerPerimeterRate
-           << " PolyApprox=" << detector_params_->polygonalApproxAccuracyRate;
-        cv::putText(frame, ss.str(), cv::Point(10, DEBUG_TEXT_LINE_HEIGHT * 5),
-                   cv::FONT_HERSHEY_SIMPLEX, DEBUG_TEXT_SCALE, cv::Scalar(0, 255, 0), DEBUG_TEXT_THICKNESS);
-
-        sensor_msgs::msg::Image::SharedPtr debug_msg = cv_bridge::CvImage(
-            std_msgs::msg::Header(), sensor_msgs::image_encodings::BGR8, frame).toImageMsg();
-        debug_msg->header.stamp = timestamp;
-        debug_image_pub_->publish(*debug_msg);
+    return true;
 }
 
 void ArucoPoseEstimationNode::imageCallback(const sensor_msgs::msg::Image::SharedPtr msg)
 {
     auto start_time = std::chrono::high_resolution_clock::now();
 
-        cv::Mat frame = convertRosImageToCV(msg);
-        if (frame.empty()) return;
+    cv::Mat frame = convertRosImageToCV(msg);
+    if (frame.empty()) return;
 
     // Convert to grayscale for optical flow
     cv::Mat gray;
@@ -684,34 +516,49 @@ void ArucoPoseEstimationNode::imageCallback(const sensor_msgs::msg::Image::Share
     // Store current frame for next iteration
     prev_gray_ = gray.clone();
 
-        if (marker_ids.empty()) return;
+    if (marker_ids.empty()) return;
 
-        cv::Vec3d camera_position, camera_orientation;
-        std::vector<int> used_markers;
-        if (!estimateAndValidatePose(marker_ids, marker_corners, camera_position, camera_orientation,
-                                       used_markers)) {
-            return;
+    cv::Vec3d camera_position, camera_orientation;
+    std::vector<int> used_markers;
+    if (!estimateAndValidatePose(marker_ids, marker_corners, camera_position, camera_orientation,
+                                   used_markers)) {
+        return;
+    }
+
+    tf2::Quaternion camera_quat = pose_estimation_utils::cvRotationVecToQuaternion(camera_orientation);
+
+    publishPoses(camera_position, camera_quat, msg->header.stamp);
+    publishTFTransforms(camera_position, camera_quat, msg->header.stamp);
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    double processing_time_ms = duration.count() / 1000.0;
+
+    // Get drone pose for diagnostics
+    cv::Vec3d drone_position;
+    tf2::Quaternion drone_quat;
+    if (transformCameraToDrone(camera_position, camera_quat, drone_position, drone_quat)) {
+        if (visualization_helper_ && diagnostics_pub_) {
+            auto logger_ptr = std::make_shared<rclcpp::Logger>(this->get_logger());
+            visualization_helper_->publishDiagnostics(
+                msg->header.stamp, marker_ids.size(), used_markers.size(),
+                used_markers, true, processing_time_ms, drone_position, drone_quat,
+                marker_map_.getMarkerCount(), is_initialized_,
+                diagnostics_pub_, logger_ptr);
         }
+    }
 
-        tf2::Quaternion camera_quat = pose_estimation_utils::cvRotationVecToQuaternion(camera_orientation);
-
-        publishPoses(camera_position, camera_quat, msg->header.stamp);
-        publishTFTransforms(camera_position, camera_quat, msg->header.stamp);
-
-        auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-        double processing_time_ms = duration.count() / 1000.0;
-
-        // Get drone pose for diagnostics
-        cv::Vec3d drone_position;
-        tf2::Quaternion drone_quat;
-        if (transformCameraToDrone(camera_position, camera_quat, drone_position, drone_quat)) {
-            publishDiagnostics(msg->header.stamp, marker_ids.size(), used_markers.size(),
-                              used_markers, true, processing_time_ms, drone_position, drone_quat);
-        }
-
-        publishDebugImage(frame, marker_corners, marker_ids, used_markers,
-                         camera_position, camera_orientation, msg->header.stamp);
+    // Draw and publish debug image
+    if (publish_debug_image_ && visualization_helper_ && debug_image_pub_) {
+        visualization_helper_->drawDebugImage(
+            frame, marker_corners, marker_ids, used_markers, rejected_candidates_,
+            camera_position, camera_quat, is_initialized_, detector_params_,
+            [this](const cv::Vec3d& cam_pos, const tf2::Quaternion& cam_quat,
+                   cv::Vec3d& drone_pos, tf2::Quaternion& drone_quat) -> bool {
+                return this->transformCameraToDrone(cam_pos, cam_quat, drone_pos, drone_quat);
+            });
+        visualization_helper_->publishDebugImage(frame, msg->header.stamp, debug_image_pub_);
+    }
 }
 
 } // namespace aruco_pose_estimation

@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -24,6 +25,7 @@
 #include <sstream>
 #include <iomanip>
 #include "aruco_pose_estimation/pose_estimation_utils.hpp"
+#include "aruco_pose_estimation/visualization_helper.hpp"
 
 namespace aruco_pose_estimation {
 
@@ -46,24 +48,11 @@ private:
     cv::Vec3d smoothPosition(const cv::Vec3d& new_position, const cv::Vec3d& prev_position, double alpha);
     tf2::Quaternion smoothOrientation(const tf2::Quaternion& new_quat, const tf2::Quaternion& prev_quat, double alpha);
 
-    // Diagnostic
-    void addDiagnosticKeyValue(diagnostic_msgs::msg::DiagnosticStatus& status,
-                               const std::string& key, const std::string& value);
-
     // Publishing
-    void publishDiagnostics(const rclcpp::Time& timestamp, int markers_detected,
-                           int markers_used, const std::vector<int>& marker_ids,
-                           bool pose_valid, double processing_time_ms,
-                           const cv::Vec3d& drone_position, const tf2::Quaternion& drone_quat);
-    void publishTrailMarker(const cv::Vec3d& position, const rclcpp::Time& timestamp);
     void publishPoses(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
                       const rclcpp::Time& timestamp);
     void publishTFTransforms(const cv::Vec3d& camera_position, const tf2::Quaternion& camera_quat,
                              const rclcpp::Time& timestamp);
-    void publishDebugImage(cv::Mat& frame, const std::vector<std::vector<cv::Point2f>>& marker_corners,
-                           const std::vector<int>& marker_ids, const std::vector<int>& used_markers,
-                           const cv::Vec3d& camera_position, const cv::Vec3d& camera_orientation,
-                           const rclcpp::Time& timestamp);
 
     // Image processing
     cv::Mat convertRosImageToCV(const sensor_msgs::msg::Image::SharedPtr& msg);
@@ -92,7 +81,6 @@ private:
     bool is_initialized_;
 
     int min_markers_for_init_;
-    int trail_marker_id_;
 
     // ArUco detector parameter values
     int corner_refinement_win_size_;
@@ -107,8 +95,8 @@ private:
     double min_marker_distance_rate_;
 
     //Runtime state
-    rclcpp::Time last_trail_time_;
     std::vector<std::vector<cv::Point2f>> rejected_candidates_;
+    rclcpp::Time last_trail_time_;
 
     // Smoothing parameters and state
     bool use_smoothing_;
@@ -131,6 +119,9 @@ private:
     cv::Size lk_win_size_;
     int lk_max_level_;
     cv::TermCriteria lk_term_criteria_;
+
+    // Visualization helper
+    std::shared_ptr<VisualizationHelper> visualization_helper_;
     
     // Methods
     void trackCornersWithLK(const cv::Mat& gray, 
