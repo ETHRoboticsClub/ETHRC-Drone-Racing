@@ -62,7 +62,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # versions compatible with system/compiled extensions. In particular we
 # pin NumPy < 2 to avoid ABI conflicts with SciPy and other C extensions
 # which were built against NumPy 1.x.
-RUN python3 -m pip install --upgrade pip setuptools packaging wheel
+RUN python3 -m pip install --upgrade pip packaging wheel
+RUN python3 -m pip install --upgrade pip setuptools==79.0.1
 RUN python3 -m pip install --no-cache-dir \
     numpy==1.24.4 scipy==1.10.1 matplotlib pandas tqdm pyyaml pyserial ipython pre-commit mavsdk
 # ---- ACADOS C++ Dependencies ----
@@ -177,6 +178,13 @@ RUN udevadm control --reload-rules || true && udevadm trigger || true
 # --- Fix NumPy / SciPy compatibility ---
 RUN pip install --upgrade --force-reinstall \
     numpy==1.24.4 scipy==1.10.1
+
+
+# usefull ros packages:
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-nav2-msgs \
+    ros-humble-plotjuggler-ros \
+    && rm -rf /var/lib/apt/lists/*
 
     
 # Add custom user
