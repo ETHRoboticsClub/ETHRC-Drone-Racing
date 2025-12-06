@@ -51,15 +51,15 @@ ros2 run drone_control send_trajectory_goal goal_only
 1. MavSDK node **MWP**
     - state in ros_topic **done**
     - controls sub **done**
-    - [important] Imu and other data (e.g. battery specifically)
-    - Debugging
     - Connecting **done**
-    - [important] Actions for landing-taking off && arm/disarm
+    - Actions for landing-taking off && arm/disarm **done**
+    - Imu and other data (e.g. battery specifically) **WIP**
+    - Debugging
 2. Controller node  **done** 
     - Publish Controls **done**
     - Subscribe to state (Perception and Sim) **done**
-    - Debugging
     - Trajectory && Goal actions **done**
+    - Debugging
 3. GS package
     - Subscribe to odometry (sim/perception)
     - Subscribe to Controls input
@@ -72,39 +72,22 @@ ros2 run drone_control send_trajectory_goal goal_only
     - Debugging
     - other sim
 
-# TODO:
-2. Add battery topic
-3. Actions for landing && taking off
 
-# TO DO
-1. [important] Add actions for setting position and trajectory goals **done**
-    - Position **done**
-    - Trajectory **done** 
-2. [important] Add trajectory tracking **done**
+# TO DO controls wise
 3. [important] Smooth Cancel Actions - Emergency stop
     - Current is unsafe
-4. [important] Add Visualization & Telemetry **WIP**
-    - Plotjuggler config **done**
+4. [important] Add Visualization & Telemetry **WIP** (perception integration)
+    - Plotjuggler **done**
     - Robot TF
     - Rviz  
-    - Add plotjuggler & nav2_msgs in docker
-    - Add mpc information (e.g. iterations-solve time)
-5. [important] Add useful services
-    - Lifting off
-    - Landing
-    - Disarming & arming
-6. [important] Ensure MPC is solved in specified time 
+6. [important] Ensure MPC is solved in specified time (debug messages)
     - Use ros2 rate **done**
     - Informed Initialization **already done**
     - Statistics on solve time
-7. [important] Fix Bug
-    - if controller is started without a first command soon, it turns off
-8. Quality of life
+7. Quality of life
     - Trajectory Tracking Improvement
     - Trajectory Smoother Reference
-    - Avoid exporting pythonpath **done**
-    - Better Life structure
-    - Improve asyncio event loop logic
+    - Better file structure
     - Handle Failures in initialization
     - Load already compiled mpc model in mpc 
     - Add Mattias RT - Visualization for post processing

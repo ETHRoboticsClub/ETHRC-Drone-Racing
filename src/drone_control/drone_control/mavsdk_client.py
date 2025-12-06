@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from mavsdk import System
 from mavsdk.offboard import AttitudeRate, PositionNedYaw
+from mavsdk.telemetry import Battery
 
 import time
 import numpy as np
@@ -34,15 +35,18 @@ class MavSDKClient(Node):
     drone: System
     state: DroneState
     state_lock : threading.Lock
+    batt_state : Battery
 
     #states
     armed: bool = False
 
     #params
     state_update_rate: float = 200.0
+    secondary_state_rate: float = 2.0
 
     #ROS-Related
     state_update_timer: Timer
+    secondary_state_timer: Timer
     state_publisher: Publisher
     attitude_cmd_subscriber: Subscription
     pos_cmd_subscriber: Subscription
@@ -59,8 +63,8 @@ class MavSDKClient(Node):
         self.state_lock = threading.Lock()
 
         # cb groups
-        self.service_cb_group = MutuallyExclusiveCallbackGroup()
-        self.timer_cb_group = MutuallyExclusiveCallbackGroup()
+        self.secondary_cb_group = MutuallyExclusiveCallbackGroup()
+        self.state_timer_cb_group = MutuallyExclusiveCallbackGroup()
 
         # parameters
         self.declare_parameter('state_update_rate',200.0)
@@ -103,7 +107,8 @@ class MavSDKClient(Node):
 
         self.start_telemetry()
 
-        self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.timer_cb_group)
+        self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.state_timer_cb_group)
+        self.secondary_state_timer = self.create_timer(1.0/self.secondary_state_rate, self._secondary_timer_callback,self.secondary_cb_group)
 
         #TODO: handle failures
         #ros related (need to be initialized after drone connection)
@@ -111,10 +116,19 @@ class MavSDKClient(Node):
         self.attitude_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.attitudeRate_cmd_cb,10)
         self.pos_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_position_cmd',self.position_cmd_cb,10)
         
-        self.arming_server = self.create_service(SetBool, '/arm_drone', self.arm_drone_cb,callback_group=self.service_cb_group)
-        self.takeoff_server = self.create_service(SetBool, '/takeoff_drone', self.takeoff_drone_cb,callback_group=self.service_cb_group)
+        self.arming_server = self.create_service(SetBool, '/arm_drone', self.arm_drone_cb,callback_group=self.secondary_cb_group)
+        self.takeoff_server = self.create_service(SetBool, '/takeoff_drone', self.takeoff_drone_cb,callback_group=self.secondary_cb_group)
         
         self._logger.info("Initialized")
+
+    def _secondary_timer_callback(self):
+        """This function publishes the secondary and debugging info for the gui"""
+        #1. Battery
+        batt_v = float(self.batt_state.voltage_v or 0.0)
+        batt_pct = float(self.batt_state.remaining_percent * 100.0) if self.batt_state.remaining_percent is not None else 0.0
+        #TODO: add a publisher, (Hassan)
+
+
 
     def _state_timer_callback(self):
         """This function publishes the drone system to be available in the ros ecosystem"""
@@ -176,6 +190,11 @@ class MavSDKClient(Node):
         self.run_async(self._position_listener())
         self.run_async(self._attitude_listener())
         self.run_async(self._odometry_listener())
+        self.run_async(self._battery_listener())
+
+    async def _battery_listener(self):
+        async for bat in self.drone.telemetry.battery():
+            self.batt_state = bat
 
     async def _position_listener(self):
         """Expressed in Earth Frame NED frame"""
