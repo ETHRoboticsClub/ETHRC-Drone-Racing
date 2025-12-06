@@ -55,7 +55,7 @@ docker exec -it erc-aeronautics bash
 
 ### Step 4 - Build the whole pipeline 
 ```bash
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release 
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --executor sequential
 ```
 
 ### Run the simulation in the container
