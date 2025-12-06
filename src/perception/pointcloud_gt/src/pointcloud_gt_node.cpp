@@ -15,7 +15,7 @@ public:
 
         // Subscribe to odometry
         odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-            "/model/x500_cam_0/odometry",
+            "/odometry",
             10,
             std::bind(&PointCloudGT::odomCallback, this, std::placeholders::_1));
 
@@ -25,7 +25,7 @@ public:
             10);
 
         RCLCPP_INFO(this->get_logger(), "PointCloud_GT node started");
-        RCLCPP_INFO(this->get_logger(), "Subscribing to: /model/x500_cam_0/odometry");
+        RCLCPP_INFO(this->get_logger(), "Subscribing to: /odometry");
         RCLCPP_INFO(this->get_logger(), "Publishing to: /PointCloud_GT");
         RCLCPP_INFO(this->get_logger(), "World frame: %s", world_frame_.c_str());
     }
