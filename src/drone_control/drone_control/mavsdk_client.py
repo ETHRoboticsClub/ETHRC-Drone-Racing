@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.node import Node, Timer, Publisher, Subscription
+from rclpy.node import Node, Timer, Publisher, Subscription, Service
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 
 from std_msgs.msg import Float64MultiArray
+from std_srvs.srv import SetBool
 
-from rclpy.timer import Rate
-from rclpy.action import ActionServer,CancelResponse, GoalResponse
 
 
 import asyncio
@@ -36,6 +35,9 @@ class MavSDKClient(Node):
     state: DroneState
     state_lock : threading.Lock
 
+    #states
+    armed: bool = False
+
     #params
     state_update_rate: float = 200.0
 
@@ -44,6 +46,8 @@ class MavSDKClient(Node):
     state_publisher: Publisher
     attitude_cmd_subscriber: Subscription
     pos_cmd_subscriber: Subscription
+    takeoff_server: Service
+    arming_server: Service
 
     asyncio_loop : asyncio.BaseEventLoop # start an event loop to avoid conflicts with ros async callbacks
     event_loop_thread : threading.Thread
@@ -55,17 +59,12 @@ class MavSDKClient(Node):
         self.state_lock = threading.Lock()
 
         # cb groups
-        self.action_cb_group = MutuallyExclusiveCallbackGroup()
+        self.service_cb_group = MutuallyExclusiveCallbackGroup()
         self.timer_cb_group = MutuallyExclusiveCallbackGroup()
 
         # parameters
         self.declare_parameter('state_update_rate',200.0)
         self.state_update_rate = self.get_parameter('state_update_rate').get_parameter_value().double_value
-
-        #ros related
-        self.state_publisher = self.create_publisher(Float64MultiArray, 'drone_state_sim', 10)
-        self.attitude_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.attitudeRate_cmd_cb,10)
-        self.pos_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_position_cmd',self.position_cmd_cb,10)
 
         #asyncio logic #TODO: verify and discuss
         #start a background thread that manages the asyncio loop, so we asyncronously
@@ -80,29 +79,41 @@ class MavSDKClient(Node):
         Constructor should return fast, so async operations are moved here. 
 
         Current implementation returns a future while waiting for connections. So other process can occur while waiting for full connection
+        #TODO: handle errors
         """
         await self.drone.connect(system_address="udp://:14540")
         drone_connected = await self._wait_for_connection(timeout_s=15.0)
         if not drone_connected:
-            print("Connection failed")
+            self.get_logger().info("Connection failed")
             return
         drone_armed = await self._wait_until_armable()
         if not drone_armed:
-            print("Vehicle not armable")
+            self.get_logger().info("Vehicle not armable")
             return
         
-        print("[MAV SDK]: Arming...")
+        self.get_logger().info("[MAV SDK]: Arming...")
         await self.drone.action.arm()
+        self.armed = True
 
         # [REQUIRED]Set initial setpoint before starting offboard
         await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
         
-        print("[MAV SDK]: Starting offboard...")
+        self.get_logger().info("[MAV SDK]: Starting offboard...")
         await self.drone.offboard.start() 
 
         self.start_telemetry()
 
         self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.timer_cb_group)
+
+        #TODO: handle failures
+        #ros related (need to be initialized after drone connection)
+        self.state_publisher = self.create_publisher(Float64MultiArray, 'drone_state_sim', 10)
+        self.attitude_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.attitudeRate_cmd_cb,10)
+        self.pos_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_position_cmd',self.position_cmd_cb,10)
+        
+        self.arming_server = self.create_service(SetBool, '/arm_drone', self.arm_drone_cb,callback_group=self.service_cb_group)
+        self.takeoff_server = self.create_service(SetBool, '/takeoff_drone', self.takeoff_drone_cb,callback_group=self.service_cb_group)
+        
         self._logger.info("Initialized")
 
     def _state_timer_callback(self):
@@ -188,32 +199,109 @@ class MavSDKClient(Node):
                 self.state.w = np.array([odo.angular_velocity_body.roll_rad_s,
                                         odo.angular_velocity_body.pitch_rad_s,
                                          odo.angular_velocity_body.yaw_rad_s])
-   
+       
+    def takeoff_drone_cb(self, request: SetBool.Request, response: SetBool.Response):
+        req = request.data
+        if (not self.armed) and (req):
+            self.get_logger().error('Currently in disarmed state. Cannot takeoff')
+            response.success = False
+            response.message = 'Currently in disarmed state. Cannot takeoff'
+            return response
+
+        try:
+            if req:
+                future = self.run_async(self.takeoff())
+                future.result(timeout=10.0)
+                response.success = True
+                response.message = 'Successful Takeoff'
+                self.get_logger().info('Successful Takeoff')
+            else:
+                future = self.run_async(self.land())
+                future.result(timeout=10.0)
+                response.success = True
+                response.message = 'Successful Landing'
+                self.get_logger().info('Successful Landing')
+        except Exception as e:
+            response.success = False
+            if req:
+                response.message = f'Take-off failed: {str(e)}'
+            else:
+                response.message = f'Landing failed: {str(e)}'
+
+        return response
+  
+    async def takeoff(self, altitude_m: float = 1.0):
+        """Takeoff to specified altitude (positive value)."""
+        self.get_logger().info(f"[MAV SDK]: Taking off to {altitude_m}m...")
+        await self.drone.action.set_takeoff_altitude(altitude_m)
+        await self.drone.action.takeoff()
+    
+    async def land(self):
+        """Land the drone."""
+        self.get_logger().info("[MAV SDK]: Landing...")
+        await self.drone.action.land()
+    
+    def arm_drone_cb(self, request: SetBool.Request, response: SetBool.Response):
+        req = request.data
+        try:
+            if req:
+                future = self.run_async(self.arm())
+                future.result(timeout=10.0)
+                response.success = True
+                response.message = 'Arm command sent successfully'
+                self.armed = True
+                self.get_logger().info('Drone armed')
+            else:
+                future = self.run_async(self.disarm())
+                future.result(timeout=5.0)
+                response.success = True
+                response.message = 'Disarm command sent successfully'
+                self.armed = False
+                self.get_logger().info('Drone disarmed')
+        except Exception as e:
+            response.success = False
+            if req:
+                response.message = f'Arming failed: {str(e)}'
+            else:
+                response.message = f'Disarming failed: {str(e)}'
+
+        return response
+
+    async def disarm(self):
+        """Disarm the drone."""
+        self.get_logger().info("[MAV SDK]: Disarming...")
+        await self.drone.action.disarm()
+    
+    async def arm(self):
+        """Arm the drone."""
+        self.get_logger().info("[MAV SDK]: Arming...")
+        await self.drone.action.arm()
+
     async def _wait_for_connection(self,timeout_s: float = 10.0):
         """Wait for MAVSDK connection."""
-        print("[MAV SDK]: Waiting connection...")
+        self.get_logger().info("[MAV SDK]: Waiting connection...")
         t0 = time.time()
         async for state in self.drone.core.connection_state():
             if state.is_connected:
-                print("Connected to vehicle")
+                self.get_logger().info("Connected to vehicle")
                 return True
             if time.time() - t0 > timeout_s:
-                print("Connection timeout")
+                self.get_logger().info("Connection timeout")
                 return False
             await asyncio.sleep(0.1)
 
     async def _wait_until_armable(self, timeout_s: float = 30.0):
         """Wait until vehicle health indicates armable state."""
-        print("[MAV SDK]: Waiting for vehicle to be armable...")
+        self.get_logger().info("[MAV SDK]: Waiting for vehicle to be armable...")
         t0 = time.time()
         async for health in self.drone.telemetry.health():
-            print(f"Health: global={health.is_global_position_ok}, "
+            self.get_logger().info(f"Health: global={health.is_global_position_ok}, "
                 f"local={health.is_local_position_ok}, "
                 f"is_armable={health.is_armable}")
             if health.is_armable:
                 return True
             if time.time() - t0 > timeout_s:
-                print("Timed out waiting for armable")
+                self.get_logger().info("Timed out waiting for armable")
                 return False
             await asyncio.sleep(0.5)
         return False
