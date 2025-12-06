@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+import rclpy
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.node import Node, Timer, Publisher, Subscription
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+
+from std_msgs.msg import Float64MultiArray
+
+from rclpy.timer import Rate
+from rclpy.action import ActionServer,CancelResponse, GoalResponse
+
+
 import asyncio
 import threading
 from dataclasses import dataclass
@@ -20,19 +31,43 @@ class DroneState():
     def as_ndarray(self):
         return np.concatenate((self.p,self.v,self.q,self.w))
 
-class MavSDKClient():
+class MavSDKClient(Node):
     drone: System
     state: DroneState
     state_lock : threading.Lock
+
+    #params
+    state_update_rate: float = 200.0
+
+    #ROS-Related
+    state_update_timer: Timer
+    state_publisher: Publisher
+    cmd_subscriber: Subscription
 
     asyncio_loop : asyncio.BaseEventLoop # start an event loop to avoid conflicts with ros async callbacks
     event_loop_thread : threading.Thread
 
     def __init__(self):
+        super().__init__('mavsdk_client_node')
         self.drone = System()
         self.state = DroneState()
         self.state_lock = threading.Lock()
 
+        # cb groups
+        self.action_cb_group = MutuallyExclusiveCallbackGroup()
+        self.timer_cb_group = MutuallyExclusiveCallbackGroup()
+
+        # parameters
+        self.declare_parameter('state_update_rate',200.0)
+        self.state_update_rate = self.get_parameter('state_update_rate').get_parameter_value().double_value
+
+        #ros related
+        self.state_publisher = self.create_publisher(Float64MultiArray, '/drone_state_sim', 10)
+        self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.send_AttitudeRate_cmd_ros,10)
+
+        #asyncio logic #TODO: verify and discuss
+        #start a background thread that manages the asyncio loop, so we asyncronously
+        #read states.
         self.asyncio_loop = asyncio.new_event_loop()
         self.event_loop_thread = threading.Thread(target=self._run_event_loop, daemon=True)
         self.event_loop_thread.start()
@@ -57,14 +92,31 @@ class MavSDKClient():
         print("[MAV SDK]: Arming...")
         await self.drone.action.arm()
 
-        # Set initial setpoint before starting offboard
-        # Start with hover attitude rate command
+        # [REQUIRED]Set initial setpoint before starting offboard
         await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
         
         print("[MAV SDK]: Starting offboard...")
         await self.drone.offboard.start() 
 
         self.start_telemetry()
+
+        self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.timer_cb_group)
+        self._logger.info("Initialized")
+
+    def _state_timer_callback(self):
+        """This function publishes the drone system to be available in the ros ecosystem"""
+        # temp : np.ndarray =  self.get_latest_state_safe()
+        msg = Float64MultiArray()
+        msg.data = self.get_latest_state_safe().tolist()
+        self.state_publisher.publish(msg)
+        
+    def send_AttitudeRate_cmd_ros(self,msg :Float64MultiArray ):
+        if len(msg.data) == 4:
+            roll_r  = msg.data[0]
+            pitch_r = msg.data[1]
+            yaw_r   = msg.data[2]
+            thrust  = msg.data[3]
+            self.send_AttitudeRate_cmd(AttitudeRate(roll_r,pitch_r,yaw_r,thrust))
 
     def send_AttitudeRate_cmd(self, cmd : AttitudeRate):
         #TODO: verify that it is best way (Michalis)
@@ -74,12 +126,25 @@ class MavSDKClient():
         self.run_async(self.drone.offboard.set_position_ned(cmd))
 
     def run_async(self, coroutine):
-        """Schedule async coroutines safely from another thread"""
+        """ 
+        Convenience function that schedule async coroutines safely from another thread.
+        It is usefull, since in current implementation, we launch a thread that is responsible
+        for the event loop of asyncio
+
+        USE: ros callbacks should use this if interacting with mavsdk, since they cannot directly await.
+        """
         return asyncio.run_coroutine_threadsafe(coroutine, self.asyncio_loop)
     
-    def get_latest_state(self):
+    def _run_event_loop(self):
         """
-        get latest state.
+        Function for running the asyncio event loop
+        """
+        asyncio.set_event_loop(self.asyncio_loop)
+        self.asyncio_loop.run_forever()
+    
+    def get_latest_state_safe(self):
+        """
+        get latest state in a safe manner.
         """
         with self.state_lock:
             return self.state.as_ndarray()
@@ -90,10 +155,6 @@ class MavSDKClient():
         self.run_async(self._position_listener())
         self.run_async(self._attitude_listener())
         self.run_async(self._odometry_listener())
-
-    def _run_event_loop(self):
-        asyncio.set_event_loop(self.asyncio_loop)
-        self.asyncio_loop.run_forever()
 
     async def _position_listener(self):
         """Expressed in Earth Frame NED frame"""
@@ -152,18 +213,21 @@ class MavSDKClient():
      # TODO: disarm
 
 
-# Testing MAVSDK client
-
 def main(args=None):
+    rclpy.init(args=args)
+
     mav_sdk_client = MavSDKClient()
     init_future = mav_sdk_client.run_async(mav_sdk_client.initialize())
     init_future.result() # wait for initialization
 
+    executor = MultiThreadedExecutor()
+    executor.add_node(mav_sdk_client)
 
-    while True:
-        state =  mav_sdk_client.get_latest_state()
-        print(f"State is {state}")
-        
-
-if __name__ == '__main__':
-    main()
+    try:
+        executor.spin()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        executor.shutdown()
+        mav_sdk_client.destroy_node()
+        rclpy.shutdown()
