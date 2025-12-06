@@ -4,8 +4,6 @@
     <param from="$(find-pkg-share ekf)/config/rl_ekf.yaml"/>
 
     <!-- 
-    <remap from="vision/pose" to="VISION_TOPIC"/>
-    <remap from="vision/pose" to="VIO_TOPIC"/> 
     <remap from="cmd_vel" to="CMD_TOPIC"/>
     -->
 

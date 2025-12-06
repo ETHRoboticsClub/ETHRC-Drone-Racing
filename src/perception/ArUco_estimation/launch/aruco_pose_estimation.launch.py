@@ -10,7 +10,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         # --- Arguments (Defaults) ---
-        DeclareLaunchArgument('camera_topic', default_value='/drone/camera/image'),
+        DeclareLaunchArgument('camera_topic', default_value='/cam0/image_raw'),
         DeclareLaunchArgument('world_frame', default_value='world'),
         DeclareLaunchArgument('camera_frame', default_value='front_camera_optical_link'),
         DeclareLaunchArgument('base_link_frame', default_value='base_link'),

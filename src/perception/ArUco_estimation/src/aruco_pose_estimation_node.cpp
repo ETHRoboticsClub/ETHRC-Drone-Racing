@@ -27,7 +27,7 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
     : Node("aruco_pose_estimation_node"), is_initialized_(false), trail_marker_id_(0), has_previous_pose_(false)
     {
         // Parameters
-        camera_topic_ = this->declare_parameter("camera_topic", "/camera/image_raw");
+        camera_topic_ = this->declare_parameter("camera_topic", "/cam0/image_raw");
         marker_map_file_ = this->declare_parameter("marker_map_file", "");
         camera_calibration_file_ = this->declare_parameter("camera_calibration_file", "");
         world_frame_ = this->declare_parameter("world_frame", "world");
