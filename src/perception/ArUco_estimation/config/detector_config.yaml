@@ -80,3 +80,13 @@
       show_corner_points: true         # Draw individual corner points
       show_detector_params: true       # Display detector parameters on image
       show_marker_ids: true            # Draw marker IDs on detected markers
+
+    # ============================================================================
+    # Motion Blur Simulation
+    # ============================================================================
+    motion_blur:
+      enabled: false
+      kernel_size: 10         # Size of the blur kernel (odd integer)
+      major_axis: 22          # Major axis of the ellipse
+      minor_axis: 1           # Minor axis of the ellipse
+      angle: 15.0             # Angle of the ellipse in degrees

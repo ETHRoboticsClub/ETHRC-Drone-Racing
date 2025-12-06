@@ -28,7 +28,7 @@ ros2 launch ekf rl_ekf.launch.xml
 
 - This starts `robot_localization`’s `ekf_node` named `ekf_filter_node`.
 - Parameters are loaded from `config/rl_ekf.yaml` in this package.
-- Fused odometry is published on `/ekf/odometry` (remap from `odometry/filtered`).
+- Fused odometry is published on `/ekf/odometry` (remap from `odometry/filtered`) as type `nav_msgs/Odometry`.
 
 ## Configuration
 
@@ -38,3 +38,5 @@ Tweak `config/rl_ekf.yaml` to fit the setup (frames, frequency, and input topics
 - `/vision/pose` as an absolute pose fix
 
 We use command inputs on `cmd_vel` (currently remapped to `control/command`) to estimate the acceleration and optimize the estimate.
+
+Acceleration topic: `/accel/filtered` as type `geometry_msgs/AccelWithCovarianceStamped`.

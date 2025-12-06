@@ -19,3 +19,10 @@ bridges:
     gz_type: "gz.msgs.IMU"
     remap_to: "/imu0"
     enabled: true
+
+  - name: groundtruth
+    gz_topic: "/model/x500_cam_0/odometry"
+    ros2_type: "nav_msgs/msg/Odometry" 
+    gz_type: "gz.msgs.Odometry" 
+    remap_to: "/odometry" 
+    enabled: true
