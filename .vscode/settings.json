@@ -85,5 +85,6 @@
         "hash_set": "cpp",
         "core": "cpp",
         "scoped_allocator": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/home/oliomap/Desktop/ETH/ETHRC/ETHRC-Drone-Racing/px4/PX4-Autopilot"
 }

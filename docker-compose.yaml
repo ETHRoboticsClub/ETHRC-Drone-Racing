@@ -7,16 +7,37 @@ services:
       args:
         BASE_IMAGE: osrf/ros:humble-desktop
         WORKSPACE: ${PWD}
-        USERNAME: ${USERNAME:-drone_dev}
-        # USER_UID: 1000
-        # USER_GID: 1000
+        USERNAME: ${CONTAINER_USERNAME:-drone_dev}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
 
     network_mode: host
     tty: true
-    working_dir: /home/${USERNAME:-drone_dev}/ros_ws/
+    working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
 
     ports:
       - "11345:11345"
+
+    volumes:
+      # X11 socket for GUI applications
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Mount source code
+      - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
+      # Mount workspace build/install directories for persistence
+      - ./.colcon/ros2_ws/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
+      - ./.colcon/ros2_ws/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
+      - ./.colcon/ros2_ws/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
+      # Mount px4 directory for PX4 Autopilot inside ros_ws
+      - ./px4:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/px4:rw
+      # Mount sim directory for Gazebo models
+      - ./sim:/home/${CONTAINER_USERNAME:-drone_dev}/sim:rw
+      # Mount .git 
+      - ./.git:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/.git
+      # Mount scripts directory
+      - ./scripts:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/scripts:rw
+      # # Mount other useful directories
+      # - ./bags_ros2:/home/${CONTAINER_USERNAME:-drone_dev}/bags_ros2:ro
+      # - ./results:/home/${CONTAINER_USERNAME:-drone_dev}/results:rw
 
     environment:
       # --- ROS Configuration ---
@@ -24,13 +45,19 @@ services:
       RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
 
       # --- Gazebo Resource Paths ---
-      GZ_SIM_RESOURCE_PATH: ${GZ_SIM_RESOURCE_PATH:-/home/${USERNAME:-drone_dev}/sim/gazebo/models:/home/${USERNAME:-drone_dev}/sim/gazebo/worlds}
-      IGN_GAZEBO_RESOURCE_PATH: ${IGN_GAZEBO_RESOURCE_PATH:-/home/${USERNAME:-drone_dev}/sim/gazebo/models:/home/${USERNAME:-drone_dev}/sim/gazebo/worlds}
+      GZ_SIM_RESOURCE_PATH: ${GZ_SIM_RESOURCE_PATH:-/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/models:/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/worlds}
+      IGN_GAZEBO_RESOURCE_PATH: ${IGN_GAZEBO_RESOURCE_PATH:-/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/models:/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/worlds}
 
       # --- Display (X11 / Wayland) ---
       DISPLAY: ${DISPLAY}
       XAUTHORITY: ${XAUTHORITY}
+      # Disable MIT-SHM for Qt applications
       QT_X11_NO_MITSHM: "1"
+      # Disable MIT-SHM for GTK applications (prevents BadAccess errors)
+      # Use software rendering to avoid MIT-SHM issues
+      GDK_SYNCHRONIZE: "1"
+      # Disable accessibility bus (removes warning messages)
+      NO_AT_BRIDGE: "1"
       XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
       PULSE_SERVER: ${PULSE_SERVER}
 
@@ -41,4 +68,21 @@ services:
     # runtime: nvidia
     # gpus: all
 
-
+  # ov_ros1:
+  #   build:
+  #     context: .
+  #     dockerfile: docker/Dockerfile.ros1
+  #   container_name: erc-ov-ros1
+  #   network_mode: host
+  #   environment:
+  #     - DISPLAY=${DISPLAY}
+  #     - QT_X11_NO_MITSHM=1
+  #     - ROS_MASTER_URI=http://127.0.0.1:11311
+  #   volumes:
+  #     - /tmp/.X11-unix:/tmp/.X11-unix:ro
+  #     # Mount the whole repo to access EuRoC config and bags
+  #     - ./:/ws:rw
+  #     # A persistent catkin_ws outside the image is optional; you can also build in-container
+  #     - ./.colcon/ros1_catkin_ws:/catkin_ws
+  #   working_dir: /catkin_ws
+  #   tty: true

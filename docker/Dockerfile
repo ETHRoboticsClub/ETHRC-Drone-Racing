@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata locales sudo bash-completion ca-certificates curl wget git gnupg2 lsb-release \
     build-essential cmake ninja-build ccache gdb valgrind pkg-config \
     python3-pip python3-venv python3-dev swig \
+    ros-humble-robot-localization \
     && rm -rf /var/lib/apt/lists/*
 RUN locale-gen en_US.UTF-8 && update-ca-certificates
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
@@ -251,3 +252,5 @@ RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME
               echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
 
 CMD ["/bin/bash"]
+
+
