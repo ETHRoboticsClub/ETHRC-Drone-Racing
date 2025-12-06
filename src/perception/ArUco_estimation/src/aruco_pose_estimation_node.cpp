@@ -169,7 +169,7 @@ void ArucoPoseEstimationNode::createPublishersAndSubscribers()
         std::bind(&ArucoPoseEstimationNode::imageCallback, this, std::placeholders::_1));
 
     camera_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/aruco/camera_pose", 10);
-    drone_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("/aruco/drone_pose", 10);
+    drone_pose_pub_ = this->create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>("/aruco/drone_pose", 10);
     marker_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("/aruco/visualization_markers", 10);
     diagnostics_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/aruco/diagnostics", 10);
 
@@ -517,16 +517,16 @@ void ArucoPoseEstimationNode::publishPoses(const cv::Vec3d& camera_position, con
             return;  // Transform failed, skip publishing drone pose
         }
 
-        geometry_msgs::msg::PoseStamped drone_pose_msg;
+        geometry_msgs::msg::PoseWithCovarianceStamped drone_pose_msg;
         drone_pose_msg.header.stamp = timestamp;
         drone_pose_msg.header.frame_id = world_frame_;
-        drone_pose_msg.pose.position.x = drone_position[0];
-        drone_pose_msg.pose.position.y = drone_position[1];
-        drone_pose_msg.pose.position.z = drone_position[2];
-        drone_pose_msg.pose.orientation.x = drone_quat.x();
-        drone_pose_msg.pose.orientation.y = drone_quat.y();
-        drone_pose_msg.pose.orientation.z = drone_quat.z();
-        drone_pose_msg.pose.orientation.w = drone_quat.w();
+        drone_pose_msg.pose.pose.position.x = drone_position[0];
+        drone_pose_msg.pose.pose.position.y = drone_position[1];
+        drone_pose_msg.pose.pose.position.z = drone_position[2];
+        drone_pose_msg.pose.pose.orientation.x = drone_quat.x();
+        drone_pose_msg.pose.pose.orientation.y = drone_quat.y();
+        drone_pose_msg.pose.pose.orientation.z = drone_quat.z();
+        drone_pose_msg.pose.pose.orientation.w = drone_quat.w();
         drone_pose_pub_->publish(drone_pose_msg);
 
         rclcpp::Time current_time = this->now();
