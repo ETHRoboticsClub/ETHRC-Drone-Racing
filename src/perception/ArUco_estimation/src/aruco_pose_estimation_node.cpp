@@ -46,6 +46,13 @@ ArucoPoseEstimationNode::ArucoPoseEstimationNode()
         double epsilon = this->declare_parameter("optical_flow.epsilon", 0.01);
         lk_term_criteria_ = cv::TermCriteria(cv::TermCriteria::COUNT | cv::TermCriteria::EPS, max_iterations, epsilon);
 
+        // Motion blur parameters (nested under motion_blur)
+        motion_blur_enabled_ = this->declare_parameter("motion_blur.enabled", true);
+        motion_blur_kernel_size_ = this->declare_parameter("motion_blur.kernel_size", 20);
+        motion_blur_major_axis_ = this->declare_parameter("motion_blur.major_axis", 22);
+        motion_blur_minor_axis_ = this->declare_parameter("motion_blur.minor_axis", 1);
+        motion_blur_angle_ = this->declare_parameter("motion_blur.angle", 15.0);
+
         // Initialize TF2 buffer and listener first
         tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
@@ -480,6 +487,25 @@ void ArucoPoseEstimationNode::imageCallback(const sensor_msgs::msg::Image::Share
     cv::Mat frame = convertRosImageToCV(msg);
     if (frame.empty()) return;
 
+    // Simulate motion blur
+    if (motion_blur_enabled_) {
+        int kernel_size = motion_blur_kernel_size_;
+        cv::Mat kernel = cv::Mat::zeros(kernel_size, kernel_size, CV_32F);
+        cv::Point center(kernel_size / 2, kernel_size / 2);
+        cv::Size axes(motion_blur_major_axis_, motion_blur_minor_axis_); // Major axis 22, minor axis 1 (thin ellipse)
+        double angle = motion_blur_angle_;
+        
+        cv::ellipse(kernel, center, axes, angle, 0, 360, cv::Scalar(1.0), -1);
+        
+        // Normalize kernel
+        double sum = cv::sum(kernel)[0];
+        if (sum > 0) {
+            kernel /= sum;
+        }
+        
+        cv::filter2D(frame, frame, -1, kernel);
+    }
+
     // Convert to grayscale for optical flow
     cv::Mat gray;
     cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
@@ -516,7 +542,20 @@ void ArucoPoseEstimationNode::imageCallback(const sensor_msgs::msg::Image::Share
     // Store current frame for next iteration
     prev_gray_ = gray.clone();
 
-    if (marker_ids.empty()) return;
+    if (marker_ids.empty()) {
+        // Always publish a debug image, even if no markers are detected
+        if (publish_debug_image_ && visualization_helper_ && debug_image_pub_) {
+            // Optionally annotate the image to indicate no markers were found
+            visualization_helper_->drawDebugImage(
+                frame, marker_corners, marker_ids, {}, rejected_candidates_,
+                cv::Vec3d(), tf2::Quaternion(), is_initialized_, detector_params_,
+                [this](const cv::Vec3d&, const tf2::Quaternion&, cv::Vec3d&, tf2::Quaternion&) -> bool {
+                    return false;
+                });
+            visualization_helper_->publishDebugImage(frame, msg->header.stamp, debug_image_pub_);
+        }
+        return;
+    }
 
     cv::Vec3d camera_position, camera_orientation;
     std::vector<int> used_markers;

@@ -120,6 +120,13 @@ private:
     int lk_max_level_;
     cv::TermCriteria lk_term_criteria_;
 
+    // Motion blur parameters
+    bool motion_blur_enabled_;
+    int motion_blur_kernel_size_;
+    int motion_blur_major_axis_;
+    int motion_blur_minor_axis_;
+    double motion_blur_angle_;
+
     // Visualization helper
     std::shared_ptr<VisualizationHelper> visualization_helper_;
     
