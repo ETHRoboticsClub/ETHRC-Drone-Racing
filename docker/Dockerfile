@@ -2,6 +2,8 @@ ARG BASE_IMAGE=ros:humble-desktop-full
 FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV MKDOCS_PORT=8000
+
 SHELL ["/bin/bash", "-c"]
 
 # ---- Base tools & locales ----
@@ -165,7 +167,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # PX4-specific Python tools
 RUN pip3 install --no-cache-dir \
     pyulog pyserial empy toml jinja2 pandas \
-    jsonschema pyros-genmsg kconfiglib
+    jsonschema pyros-genmsg kconfiglib \
+    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs mkdocs-material pymdown-extensions
 
 
 # ---- udev rules for FMU/USB bridges ----
@@ -228,7 +231,6 @@ RUN PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info[0]}.{sys.
 
 USER $USERNAME
 
-
 WORKDIR /home/$USERNAME
 # ---- ROS 2 workspace (/ros_ws) ----
 RUN mkdir -p /home/$USERNAME/ros_ws/src
@@ -238,9 +240,11 @@ RUN mkdir -p /home/$USERNAME/ros_ws/log
 # ENV COLCON_DEFAULTS_FILE=/home/$USERNAME/ros_ws/colcon.defaults
 # RUN bash -lc 'printf "{\\n  \\"build-base\\": \\"build\\",\\n  \\"install-base\\": \\"install\\",\\n  \\"test-result-base\\": \\"test_results\\"\\n}\\n" > ${COLCON_DEFAULTS_FILE}'
 
-# copy src and launch files into workspace
+# copy src and launch files into workspace [Please add those directories in docker-compose.yaml if they can change - Dime]
 COPY --chown=$USERNAME:$USERNAME src /home/$USERNAME/ros_ws/src 
 COPY --chown=$USERNAME:$USERNAME launch /home/$USERNAME/ros_ws/launch
+# COPY --chown=$USERNAME:$USERNAME docs /home/$USERNAME/docs
+
 WORKDIR /home/$USERNAME/ros_ws
 # Build workspace (non-fatal if user mounts their own workspace at runtime)
 RUN bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build \
@@ -252,5 +256,5 @@ RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME
               echo "[ -f /home/${USERNAME}/ros_ws/install/setup.bash ] && source /home/${USERNAME}/ros_ws/install/setup.bash" >> /home/$USERNAME/.bashrc && \
               echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
 
-CMD ["/bin/bash"]
-
+ENV USERNAME=${USERNAME}
+CMD ["/bin/bash", "-c", "mkdocs serve -f /home/${USERNAME}/docs/mkdocs.yml -a 0.0.0.0:${MKDOCS_PORT} & exec /bin/bash"]
