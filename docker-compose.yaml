@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      network: host
       args:
         BASE_IMAGE: osrf/ros:humble-desktop
         WORKSPACE: ${PWD}
