@@ -188,7 +188,7 @@ class DroneWaypointGoalClient(Node):
 
         self.get_logger().info(f"!!! CANCEL TRIGGERED: Sending cancellation request after {self._cancel_delay_sec:.2f} seconds !!!")
         
-        self._action_client.cancel_goal_async(self._goal_handle)
+        self._action_client._cancel_goal_async(self._goal_handle)
         
         # The get_result_callback handles the final CANCELED status.
 

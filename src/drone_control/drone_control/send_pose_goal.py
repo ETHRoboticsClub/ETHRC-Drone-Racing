@@ -11,7 +11,7 @@ import argparse
 import math
 
 # Define the delay for cancellation in seconds
-CANCEL_DELAY_SEC = 0.4
+CANCEL_DELAY_SEC = 1.0
 
 class DronePoseGoalClient(Node):
     def __init__(self):

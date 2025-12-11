@@ -52,6 +52,8 @@ class DroneController(Node):
     current_goal_state: np.ndarray  = np.zeros(13) 
     pose_goals : list[PoseStamped] = []
     active_goal : bool = False
+    hovering_active: bool = False
+    stop_hover = threading.Event() 
 
     # Misc
     state_lock : threading.Lock
@@ -150,15 +152,18 @@ class DroneController(Node):
             return False
         
         return True 
-    
-    def hover_at_currrent_position(self):
-        # TODO: improve this -> maybe use the MPC to stop smoothly 
-        with self.state_lock:
-            current_state = self.state.copy()
-        qw = current_state[6]
-        qx = current_state[7]
-        qy = current_state[8]
-        qz = current_state[9]
+            
+    def hover_at_currrent_position(self, hover_state : np.ndarray | None = None):
+        self.hovering_active = True
+        if hover_state is None:
+            with self.state_lock:
+                hover_state = self.state.copy()
+
+        #1. Get projection in yaw, to stabilize
+        qw = hover_state[6]
+        qx = hover_state[7]
+        qy = hover_state[8]
+        qz = hover_state[9]
 
         # Numerator and Denominator for atan2
         numerator = 2 * (qw * qz + qx * qy)
@@ -167,12 +172,33 @@ class DroneController(Node):
         # Calculate yaw in radians
         yaw_rad = np.arctan2(numerator, denominator)
 
-        # Convert to degrees for easier understanding
-        yaw_deg = np.degrees(yaw_rad)
-        # -----------
+        hover_state[6] = np.cos(yaw_rad/2)
+        hover_state[7] = 0.0
+        hover_state[8] = 0.0
+        hover_state[9] = np.sin(yaw_rad/2)
+        #2. set velocities to zero:
+        hover_state[3:6] = 0.0
+        hover_state[10:13] = 0.0
+        #3. set current goal state
+        self.current_goal_state = hover_state
+        #----------------
+
         cmd_msg = Float64MultiArray()
-        cmd_msg.data = [current_state[0],current_state[1],current_state[2],yaw_deg]
-        self.position_command_publisher.publish(cmd_msg)
+        
+        while rclpy.ok() and (not self.stop_hover.is_set()):
+            with self.state_lock:
+                current_state = self.state.copy()
+            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
+
+            cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
+            self.attitude_command_publisher.publish(cmd_msg)
+
+            # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
+            # a timer implementation may be better
+            self.controller_rate.sleep() 
+        self.stop_hover.clear()  # reset flag so you can start hovering again later
+        self.hovering_active = False
+
 
     def pose_goal_accept_callback(self, goal : FollowWaypoints.Goal ):
         '''
@@ -219,6 +245,8 @@ class DroneController(Node):
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
         cmd_msg = Float64MultiArray()
+        if self.hovering_active:
+            self.stop_hover.set()
         
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
@@ -231,8 +259,10 @@ class DroneController(Node):
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
             self.controller_rate.sleep() 
-        self.get_logger().info('[Position Goal] Reached Target')
-        self.hover_at_currrent_position()
+        self.get_logger().info('[Position Goal] Exiting Pose Loop')
+        # self.hover_at_currrent_position()
+        t = threading.Thread(target=self.hover_at_currrent_position)
+        t.start()
         self.get_logger().info('[Position Goal] Hovering at Target')
 
         if goal_handle.is_cancel_requested:
@@ -306,6 +336,9 @@ class DroneController(Node):
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
         cmd_msg = Float64MultiArray()
+
+        if self.hovering_active:
+            self.stop_hover.set()
         
         time_expired = 0.0
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
@@ -323,8 +356,10 @@ class DroneController(Node):
             # a timer implementation may be better
             time_expired += 1.0/self.control_rate 
             self.controller_rate.sleep() 
-        self.get_logger().info('[Trajectory Goal] Reached Target')
-        self.hover_at_currrent_position()
+        self.get_logger().info('[Position Goal] Exiting Pose Loop')
+        # self.hover_at_currrent_position()
+        t = threading.Thread(target=self.hover_at_currrent_position)
+        t.start()
         self.get_logger().info('[Trajectory Goal] Hovering at Target')
 
         if goal_handle.is_cancel_requested:

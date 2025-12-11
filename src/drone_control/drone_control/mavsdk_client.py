@@ -123,9 +123,10 @@ class MavSDKClient(Node):
 
     def _secondary_timer_callback(self):
         """This function publishes the secondary and debugging info for the gui"""
+        pass
         #1. Battery
-        batt_v = float(self.batt_state.voltage_v or 0.0)
-        batt_pct = float(self.batt_state.remaining_percent * 100.0) if self.batt_state.remaining_percent is not None else 0.0
+        # batt_v = float(self.batt_state.voltage_v or 0.0)
+        # batt_pct = float(self.batt_state.remaining_percent * 100.0) if self.batt_state.remaining_percent is not None else 0.0
         #TODO: add a publisher, (Hassan)
 
 
