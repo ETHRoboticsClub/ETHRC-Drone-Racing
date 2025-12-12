@@ -2,11 +2,11 @@
 ---
 # ArUco Marker Map Configuration
 # Extracted from: px4/PX4-Autopilot/Tools/simulation/gz/worlds/aruco.sdf
-# Dictionary: DICT_5X5_100
+# Dictionary: DICT_5X5_1000
 # Coordinate Frame: World (Gazebo ENU)
 # All positions in meters, orientations in radians (roll, pitch, yaw)
 
-marker_dict: "DICT_5X5_100"
+marker_dict: "DICT_5X5_1000"
 reference_frame: "world"
 marker_size: 0.5 
 
@@ -14,7 +14,7 @@ markers:
   # Marker 0: On Wall 1 inner surface facing -Y (toward spawn)
   # SDF pose: 1.5 0.83 0.5 1.5708 0 0
   - id: 4
-    size: 0.5
+    size: 0.5 
     pose:
       position: [0.5, 0.01, 0.5]
       orientation: [-1.5708, 0.0, 0.0]
