@@ -7,6 +7,7 @@ from rclpy.action import ActionServer,CancelResponse, GoalResponse
 from rclpy.action.server import ServerGoalHandle as GoalHandle
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy
+import time
 
 # msgs
 from std_msgs.msg import Float64MultiArray
@@ -127,14 +128,14 @@ class DroneController(Node):
         self.controller.initialize()
         self.get_logger().info("Controller node initialized")  
 
-    def waypoint_reached(self, ):
+    def waypoint_reached(self ):
         with self.state_lock:
             current_state = self.state.copy()
         self.current_goal_state
 
         pos_error = np.linalg.norm(current_state[0:3] - self.current_goal_state[0:3] )
         vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6] )
-        orientation_error = 3.0 
+        orientation_error = 2.0 * np.arccos( np.dot(self.current_goal_state[6:10] , current_state[6:10]) ) 
         ang_vel_error = np.linalg.norm(current_state[10:13] - self.current_goal_state[10:13] )
 
 
@@ -144,14 +145,20 @@ class DroneController(Node):
         if vel_error > self.thresholds_.velocity:
             return False
         
-        #TODO: implement orientation threshold
-        # if orientation_error > self.thresholds_.orientation:
-            # return False
+        if orientation_error > self.thresholds_.orientation:
+            return False
         
         if ang_vel_error > self.thresholds_.angular_velocity:
             return False
         
         return True 
+    
+    def ensure_not_hovering(self):
+        if self.hovering_active:
+            self.stop_hover.set()
+            while self.hovering_active:
+                time.sleep(5e-4)
+
             
     def hover_at_currrent_position(self, hover_state : np.ndarray | None = None):
         self.hovering_active = True
@@ -180,7 +187,7 @@ class DroneController(Node):
         hover_state[3:6] = 0.0
         hover_state[10:13] = 0.0
         #3. set current goal state
-        self.current_goal_state = hover_state
+        current_goal_state = hover_state
         #----------------
 
         cmd_msg = Float64MultiArray()
@@ -188,7 +195,7 @@ class DroneController(Node):
         while rclpy.ok() and (not self.stop_hover.is_set()):
             with self.state_lock:
                 current_state = self.state.copy()
-            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
+            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,current_goal_state)
 
             cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
             self.attitude_command_publisher.publish(cmd_msg)
@@ -245,8 +252,7 @@ class DroneController(Node):
         result = FollowWaypoints.Result() 
         result.missed_waypoints = []
         cmd_msg = Float64MultiArray()
-        if self.hovering_active:
-            self.stop_hover.set()
+        self.ensure_not_hovering()
         
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
@@ -264,12 +270,12 @@ class DroneController(Node):
         t = threading.Thread(target=self.hover_at_currrent_position)
         t.start()
         self.get_logger().info('[Position Goal] Hovering at Target')
-
+        
         if goal_handle.is_cancel_requested:
-            goal_handle.canceled()
-            self.get_logger().info('[Position Goal] Request cancelled')
             if not self.waypoint_reached():
                 result.missed_waypoints = [0] # waypoint id, since it is a list
+                goal_handle.canceled()
+                self.get_logger().info('[Trajectory Goal] Request cancelled')
                 self.terminate_action()
                 return result
                     
@@ -337,14 +343,12 @@ class DroneController(Node):
         result.missed_waypoints = []
         cmd_msg = Float64MultiArray()
 
-        if self.hovering_active:
-            self.stop_hover.set()
+        self.ensure_not_hovering()
         
         time_expired = 0.0
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
                 current_state = self.state.copy()
-            
             traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
             self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached. 
             attitude_cmd : AttitudeRate  = self.controller.trajectory_controller_update(current_state,traj_desired)
@@ -363,10 +367,10 @@ class DroneController(Node):
         self.get_logger().info('[Trajectory Goal] Hovering at Target')
 
         if goal_handle.is_cancel_requested:
-            goal_handle.canceled()
-            self.get_logger().info('[Trajectory Goal] Request cancelled')
             if not self.waypoint_reached():
-                result.missed_waypoints = [0] # waypoint id, since it is a list
+                result.missed_waypoints = [0] #TODO: fix waypoint id, since it is a list
+                goal_handle.canceled()
+                self.get_logger().info('[Trajectory Goal] Request cancelled')
                 self.terminate_action()
                 return result
                     
