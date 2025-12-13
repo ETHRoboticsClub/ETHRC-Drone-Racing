@@ -93,10 +93,10 @@ CPPFLAGS+= -I$(INCLUDE_PATH)/hpipm/include
 
 
 # define the c-compiler flags for make's implicit rules
-CFLAGS = -fPIC -std=c99   -O2#-fno-diagnostics-show-line-numbers -g
+CFLAGS = -fPIC -std=c99   -O2
 
 # # Debugging
-# CFLAGS += -g3
+# CFLAGS += -g3 -fno-diagnostics-show-line-numbers -g
 
 # linker flags
 LDFLAGS+= -L$(LIB_PATH)

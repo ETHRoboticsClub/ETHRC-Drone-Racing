@@ -1,5 +1,9 @@
 # Project Guidelines
 
+**Page Owner:** [Leads of the Aeronautics Division](https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/)
+
+---
+
 This document outlines the guidelines for contributing to the ETHRC Drone Racing project, including documentation standards and development workflow.
 
 ## Documentation Guidelines
@@ -8,7 +12,7 @@ We use [MkDocs](https://www.mkdocs.org/) with the [Material for MkDocs](https://
 
 ### Editing Documentation
 
-Documentation source files are located in `docs/docs/`. They are written in Markdown.
+Documentation source files are located in `docs/docs/`. They are written in Markdown, [this is a really useful guide by Google](https://google.github.io/styleguide/docguide/style.html#headings).
 
 - **Headers**: Use `#` for page titles and `##` for section headers.
 - **Code Blocks**: Use triple backticks (\`\`\`) for code blocks. Specify the language for syntax highlighting (e.g., \`\`\`bash).
