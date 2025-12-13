@@ -22,22 +22,12 @@ def generate_launch_description():
     controller_params = PathJoinSubstitution(
         [FindPackageShare('drone_control'), "config", "drone_controller_config.yaml"]
     )   
-    mavsdk_client_params = PathJoinSubstitution(
-        [FindPackageShare('drone_control'), "config", "mavsdk_client_config.yaml"]
-    )   
 
     return LaunchDescription([
         SetEnvironmentVariable( # important, since we need to find the other packages
             name='PYTHONPATH',
             value=new_pythonpath_value
         ), 
-        Node(
-            package="drone_control",
-            executable="mavsdk_client",
-            name="mavsdk_client",
-            parameters=[mavsdk_client_params],
-            output="screen",
-        ),
         Node(
             package="drone_control",
             executable="drone_controller_node",
