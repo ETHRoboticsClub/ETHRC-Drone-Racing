@@ -151,19 +151,6 @@ The optimizer enforces:
 
 ---
 
-### Solver Configuration
-
-The solver is configured with:
-- SQP nonlinear solver
-- Partial condensing QP solver
-- Gauss–Newton Hessian approximation
-- Explicit Runge–Kutta integration
-- Regularization and relaxed tolerances for robustness
-
-Warm-starting is used when previous solutions are available.
-
----
-
 ### MPC Solve Step
 
 At each control step:
@@ -188,7 +175,6 @@ The controller:
 - Receives the current state estimate
 - Receives a goal position or reference trajectory
 - Calls the optimizer
-- Converts MPC outputs to MAVSDK commands
 
 ---
 
