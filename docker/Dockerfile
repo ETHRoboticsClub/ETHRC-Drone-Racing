@@ -157,9 +157,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # PX4-specific Python tools
 RUN pip3 install --no-cache-dir \
-    pyulog pyserial empy toml jinja2 pandas \
-    jsonschema pyros-genmsg kconfiglib
-
+    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs mkdocs-material pymdown-extensions
 
 # ---- udev rules for FMU/USB bridges ----
 RUN install -d -m 0755 /etc/udev/rules.d && \
@@ -247,8 +245,10 @@ RUN bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build \
     --cmake-args "-DCMAKE_BUILD_TYPE=RelWithDebInfo"' || true
 
 # Auto-source ROS + overlay
-RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc && \
-              echo "[ -f /home/${USERNAME}/ros_ws/install/setup.bash ] && source /home/${USERNAME}/ros_ws/install/setup.bash" >> /home/$USERNAME/.bashrc && \
-              echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
+RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /etc/bash.bashrc && \
+    echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /etc/bash.bashrc && \
+    echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /etc/bash.bashrc'
 
-CMD ["/bin/bash"]
+
+# Start doc server in background, then drop into bash
+CMD ["/bin/bash", "-c", "mkdocs serve -f /ws/docs/mkdocs.yml -a 0.0.0.0:8000 & exec /bin/bash"]
