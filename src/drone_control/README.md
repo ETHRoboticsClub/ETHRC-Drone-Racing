@@ -74,8 +74,8 @@ ros2 run drone_control send_trajectory_goal goal_only
 
 
 # TO DO controls wise
-3. [important] Smooth Cancel Actions - Emergency stop
-    - Current is unsafe
+3. [important] Smooth Cancel Actions - Emergency stop **done**
+    - Current is unsafe 
 4. [important] Add Visualization & Telemetry **WIP** (perception integration)
     - Plotjuggler **done**
     - Robot TF

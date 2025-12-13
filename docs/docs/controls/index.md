@@ -116,3 +116,6 @@ For detailed information on each controller and their interfaces, please refer t
 - [RL](rl.md)
 - [DRONE_CONTROL](drone_control.md)
 - [MAVSDK](mavsdk.md)
+
+**Troubleshooting**: 
+For troubleshooting of common problems, check [General Control Troubleshooting](troubleshooting.md)
