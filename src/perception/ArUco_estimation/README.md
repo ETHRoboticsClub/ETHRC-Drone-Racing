@@ -1,5 +1,11 @@
 # ArUco Pose Estimation
 
+**Page Owner:** [Xander Yap](https://github.com/xandaaaa) & [Jules Schmutz](https://github.com/juliomathis)
+
+## Overview
+
+We provide an ArUco marker [DICT_5x5_1000] detection system serving as an initial gate detection pipeline and as a fallback ground truth method. The markers have to be physically placed in the environment, subsequently ground truth location and the size of the markers have to be parsed into the system.
+
 ## Input Topics
 
 The ArUco pose estimation system subscribes to the following ROS2 topics:
@@ -37,4 +43,23 @@ The ArUco pose estimations system publishes the following ROS 2 topics (under na
     - **Type**: `diagnostic_msgs::msg::DiagnosticArray`
     - **Description**: Publishes the values in the terminal
 
+## Brief explanation
+
+This section provides a short walkthrough and explanation of the detection system:
+
+1. **Configuration:** as mentioned in the overview, parse the marker **ID**, **pose**, and **size** into a YAML file in `config/`.
+
+2. **Detection:** we utilize the marker detection library from OpenCV and enhance the performance with Lucas-Kanade optical flow and a smoothening factor.
+
+3. **Visual Update:** the borders of the detected markers will be highlighted.
+
+4. **Output:** The estimated pose is published as a 6-DoF transform consisting of:
+   - Position: *(x, y, z)*
+   - Orientation: quaternion *(x, y, z, w)*
+
+## Launch ArUco Marker Estimation in Gazebo Simulation
+
+```
+ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py
+```
 
