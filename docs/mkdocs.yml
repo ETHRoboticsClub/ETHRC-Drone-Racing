@@ -68,6 +68,7 @@ nav:
   - Perception:
     - Overview: perception/index.md
     - VIO: perception/vio.md
+    - ArUco: perception/ArUco.md
   - Controls: controls/index.md
   - Hardware: hardware/index.md
   - Groundstation: groundstation/index.md

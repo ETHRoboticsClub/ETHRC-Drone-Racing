@@ -13,3 +13,4 @@ This section contains documentation for the perception modules used in the ETHRC
 ## Modules
 
 - [VIO](vio.md)
+- [ArUco](ArUco.md)

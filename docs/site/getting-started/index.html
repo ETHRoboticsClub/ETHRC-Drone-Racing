@@ -92,7 +92,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="ETHRC Drone Racing" class="md-header__button md-logo" aria-label="ETHRC Drone Racing" data-md-component="logo">
       
-  <img src="../images/ETHRC-Aeronautics_transparent.png" alt="logo">
+  <img src="../images/ETHRC_Aero_favicon_black.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -275,6 +275,83 @@
   
 
       
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../perception/" class="md-tabs__link">
+          
+  
+  
+  Perception
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../controls/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Controls
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../hardware/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Hardware
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../groundstation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Groundstation
+
+      </a>
+    </li>
+  
+
+      
     </ul>
   </div>
 </nav>
@@ -299,7 +376,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="ETHRC Drone Racing" class="md-nav__button md-logo" aria-label="ETHRC Drone Racing" data-md-component="logo">
       
-  <img src="../images/ETHRC-Aeronautics_transparent.png" alt="logo">
+  <img src="../images/ETHRC_Aero_favicon_black.png" alt="logo">
 
     </a>
     ETHRC Drone Racing
@@ -398,15 +475,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prerequisites
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       Quick Start
@@ -417,18 +485,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-0-set-up-ssh-for-github" class="md-nav__link">
+  <a href="#step-0-one-time-set-up-ssh-for-github-if-youve-never-done-this" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 0: Set up SSH for GitHub
+      Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-1-clone-the-repository" class="md-nav__link">
+  <a href="#step-1-clone-with-px4-submodule" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Clone the Repository
+      Step 1 — Clone (with PX4 submodule)
     </span>
   </a>
   
@@ -437,25 +505,43 @@
           <li class="md-nav__item">
   <a href="#step-2-build-the-docker-image" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Build the Docker Image
+      Step 2 — Build the Docker image
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-3-start-services" class="md-nav__link">
+  <a href="#step-2b-prepare-host-ros-2-buildlog-directories" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Start Services
+      Step 2b — Prepare host ROS 2 build/log directories
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-4-run-simulation" class="md-nav__link">
+  <a href="#step-3-start-services-enable-gui-start-container-open-shell" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 4: Run Simulation
+      Step 3 — Start services (enable GUI, start container, open shell)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-build-the-whole-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4 - Build the whole pipeline
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-the-simulation-in-the-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      Run the simulation in the container
     </span>
   </a>
   
@@ -463,6 +549,24 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-custom-worlds" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Custom Worlds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#command-the-drone-to-fly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Command the drone to fly
+    </span>
+  </a>
   
 </li>
       
@@ -487,6 +591,191 @@
   
   <span class="md-ellipsis">
     Guidelines
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Perception
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Perception
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perception/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perception/vio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VIO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perception/ArUco/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ArUco
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Controls
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hardware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Hardware
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../groundstation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Groundstation
     
   </span>
   
@@ -523,15 +812,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prerequisites
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#quick-start" class="md-nav__link">
     <span class="md-ellipsis">
       Quick Start
@@ -542,18 +822,18 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#step-0-set-up-ssh-for-github" class="md-nav__link">
+  <a href="#step-0-one-time-set-up-ssh-for-github-if-youve-never-done-this" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 0: Set up SSH for GitHub
+      Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-1-clone-the-repository" class="md-nav__link">
+  <a href="#step-1-clone-with-px4-submodule" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 1: Clone the Repository
+      Step 1 — Clone (with PX4 submodule)
     </span>
   </a>
   
@@ -562,25 +842,43 @@
           <li class="md-nav__item">
   <a href="#step-2-build-the-docker-image" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 2: Build the Docker Image
+      Step 2 — Build the Docker image
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-3-start-services" class="md-nav__link">
+  <a href="#step-2b-prepare-host-ros-2-buildlog-directories" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 3: Start Services
+      Step 2b — Prepare host ROS 2 build/log directories
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#step-4-run-simulation" class="md-nav__link">
+  <a href="#step-3-start-services-enable-gui-start-container-open-shell" class="md-nav__link">
     <span class="md-ellipsis">
-      Step 4: Run Simulation
+      Step 3 — Start services (enable GUI, start container, open shell)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-4-build-the-whole-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Step 4 - Build the whole pipeline
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-the-simulation-in-the-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      Run the simulation in the container
     </span>
   </a>
   
@@ -588,6 +886,24 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#adding-custom-worlds" class="md-nav__link">
+    <span class="md-ellipsis">
+      Adding Custom Worlds
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#command-the-drone-to-fly" class="md-nav__link">
+    <span class="md-ellipsis">
+      Command the drone to fly
+    </span>
+  </a>
   
 </li>
       
@@ -616,43 +932,66 @@
 
 
 <h1 id="getting-started">Getting Started</h1>
-<p>This guide will help you set up the ETHRC Drone Racing environment using Docker.</p>
-<h2 id="prerequisites">Prerequisites</h2>
-<ul>
-<li><strong>Host OS:</strong> Ubuntu/Linux recommended.</li>
-<li><strong>Software:</strong> Docker Engine + Docker Compose v2 in Rootless mode. (<a href="https://docs.docker.com/engine/install/">Installation guide</a>)</li>
-</ul>
+<p><strong>Page Owner:</strong> <a href="https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/">Leads of the Aeronautics Division</a></p>
+<hr />
+<p>This repo gives us a ready-to-use drone racing environment in Docker.
+Why Docker? → So everyone works in the same environment, avoiding “it works on my machine” issues.</p>
+<p>It bundles:</p>
+<p>ROS 2 Humble → our robotics framework</p>
+<p>Gazebo (gz) → 3D simulator for drones</p>
+<p>PX4 SITL → autopilot software in simulation</p>
+<p>MAVROS / MAVSDK → talk between PX4 and ROS</p>
+<p>Workspace /ws → where we put our ROS 2 packages</p>
+<blockquote>
+<p><strong>Host OS:</strong> Ubuntu/Linux recommended<br />
+<strong>Requires:</strong> Docker Engine + Compose v2</p>
+</blockquote>
+<hr />
 <h2 id="quick-start">Quick Start</h2>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>After step 3, the container will be running in the background. You can stop it with <code>docker compose down</code>.</p>
-</div>
-<h3 id="step-0-set-up-ssh-for-github">Step 0: Set up SSH for GitHub</h3>
-<p>We need SSH so <code>git clone</code> works smoothly without typing passwords. If you haven't done this, follow <a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh">GitHub's guide</a>.</p>
-<h3 id="step-1-clone-the-repository">Step 1: Clone the Repository</h3>
-<p>Clone the repository with submodules to include PX4:</p>
+<p>Note: after step 3, the container will be running in the background. You can stop it with <code>docker compose down</code>.
+You can access the documentation at <a href="http://localhost:8000">http://localhost:8000</a>.</p>
+<h3 id="step-0-one-time-set-up-ssh-for-github-if-youve-never-done-this">Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)</h3>
+<p>We need SSH so git clone works smoothly without typing passwords.
+Follow GitHub’s guide: <a href="https://docs.github.com/en/authentication/connecting-to-github-with-ssh">Follow Github's guide here</a></p>
+<h3 id="step-1-clone-with-px4-submodule">Step 1 — Clone (with PX4 submodule)</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>--recurse-submodules<span class="w"> </span>git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>ETHRC-Drone-Racing
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>git<span class="w"> </span>submodule<span class="w"> </span>update<span class="w"> </span>--init<span class="w"> </span>--recursive
 </code></pre></div>
-<h3 id="step-2-build-the-docker-image">Step 2: Build the Docker Image</h3>
-<p>Build the development environment:</p>
+<h3 id="step-2-build-the-docker-image">Step 2 — Build the Docker image</h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>build
 </code></pre></div>
-<h3 id="step-3-start-services">Step 3: Start Services</h3>
-<p>Enable GUI access, start the container, and open a shell:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Allow container GUI apps to open windows on your desktop (X11)</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>xhost<span class="w"> </span>+local:root
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Start the container (detached) and open a shell inside</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>erc-aeronautics<span class="w"> </span>bash
+<h3 id="step-2b-prepare-host-ros-2-buildlog-directories">Step 2b — Prepare host ROS 2 build/log directories</h3>
+<p>Run once (or after permission issues) on the host to create <code>.colcon/ros2_ws/{build,install,log}</code> with your user owning them:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./scripts/prepare_colcon_volumes.sh
+</code></pre></div></p>
+<h3 id="step-3-start-services-enable-gui-start-container-open-shell">Step 3 — Start services (enable GUI, start container, open shell)</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Allow container GUI apps to open windows on your desktop (X11)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>xhost<span class="w"> </span>+local:root
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># Start the container (detached) and open a shell inside</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>erc-aeronautics<span class="w"> </span>bash
 </code></pre></div>
-<h3 id="step-4-run-simulation">Step 4: Run Simulation</h3>
-<p>Inside the container, run the default simulation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Default x500 in the default world</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">cd</span><span class="w"> </span>/ws/px4/PX4-Autopilot
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>make<span class="w"> </span>px4_sitl<span class="w"> </span>gz_x500
+<h3 id="step-4-build-the-whole-pipeline">Step 4 - Build the whole pipeline</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>colcon<span class="w"> </span>build<span class="w"> </span>--cmake-args<span class="w"> </span>-DCMAKE_BUILD_TYPE<span class="o">=</span>Release<span class="w"> </span>--executor<span class="w"> </span>sequential
 </code></pre></div>
+<h3 id="run-the-simulation-in-the-container">Run the simulation in the container</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Default x500 in the default world</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">source</span><span class="w"> </span>install/setup.bash
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nb">cd</span><span class="w"> </span>/ws/px4/PX4-Autopilot
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>make<span class="w"> </span>clean
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>make<span class="w"> </span>px4_sitl<span class="w"> </span>gz_x500_cam<span class="w"> </span>
+</code></pre></div>
+<h2 id="adding-custom-worlds">Adding Custom Worlds</h2>
+<p>Place worlds here:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>px4/PX4-Autopilot/Tools/simulation/gz/worlds/
+</code></pre></div></p>
+<p>Set which world is loaded in:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>px4/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/4022_gz_x500_cam
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">PX4_GZ_WORLD</span><span class="o">=</span>&lt;world_name&gt;
+</code></pre></div></p>
+<h2 id="command-the-drone-to-fly">Command the drone to fly</h2>
+<p>Use Mavsdk API (offboard or action library) or Qgroundcontrol</p>
 
 
 
