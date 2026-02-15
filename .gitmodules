@@ -1,3 +1,6 @@
 [submodule "px4/PX4-Autopilot"]
 	path = px4/PX4-Autopilot
 	url = https://github.com/PX4/PX4-Autopilot.git
+[submodule "aeronautics-utility"]
+	path = aeronautics-utility
+	url = https://github.com/ETHRoboticsClub/aeronautics-utility
