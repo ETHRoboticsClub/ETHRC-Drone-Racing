@@ -58,4 +58,4 @@ make px4_sitl gz_x500
 ```
 
 ## Agents
-Coding agents should read the files in aeronautics-utility/agents and follow the coding conventions.
+Coding agents should read the files in aeronautics-utility/agents and follow the coding conventions. Additionally the AI should digest our documentation found under docs/docs, especially the development guidelines.

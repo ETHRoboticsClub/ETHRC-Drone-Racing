@@ -46,6 +46,14 @@ We follow a standard feature-branch workflow:
 3.  **Push and PR**: Push your branch to GitHub and open a Pull Request (PR) against `main`.
 4.  **Review and Merge**: After review, merge the PR. Delete the branch after merging.
 
+### Agent Development (AI Assistants)
+
+If you are an AI assistant (e.g., Antigravity, Claude, Codex) helping with development:
+
+- **Read the guidelines**: First, read the guidelines in this document and the detailed guides in `/aeronautics-utility/agents` (as specified in the `README.md`).
+- **Understand the code**: Do not perform blind edits. Ensure you understand the surrounding code logic. If you are unsure, explain your reasoning or ask the user for clarification.
+- **Manageable Commits**: Break up the development into smaller, focused commits. Avoid overwhelmingly large commits (e.g., thousands of lines) that are difficult to review.
+
 ### Docker Environment
 
 The project relies heavily on Docker to ensure a consistent environment.
