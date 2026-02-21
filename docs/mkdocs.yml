@@ -68,6 +68,7 @@ nav:
   - Perception:
     - Overview: perception/index.md
     - VIO: perception/vio.md
+    - Vicon: perception/vicon.md
     - ArUco: perception/ArUco.md
     - EKF: perception/EKF.md
   - Controls:
