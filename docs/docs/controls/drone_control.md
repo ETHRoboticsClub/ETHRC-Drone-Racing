@@ -16,7 +16,7 @@ To achieve this, the node has 2 state flags: `active_goal` that indicates if the
 
 **Note**: Currently the controller only supports MPC for hovering, pose and trajectory goals, and needs modifications to support other controllers. The action interface is intented for task-specific controllers, the code needs to be improved for that. 
 
-All the parameters are configured in [drone_controller_config.yaml](../../../src/drone_control/config/drone_controller_config.yaml)
+All the parameters are configured in [drone_controller_config.yaml](https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing/blob/main/src/drone_control/config/drone_controller_config.yaml)
 
 ## Action Interfaces
 
@@ -114,7 +114,7 @@ This is used to visualize the active pose target in rviz and telemetry
     ```
 
     **Trajectory goals:**
-    1. Modify the [yaml_file](../../../src/drone_control/config/waypoints_config.yaml)
+    1. Modify the [yaml_file](https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing/blob/main/src/drone_control/config/waypoints_config.yaml)
     2. Run
     ```sh
     ros2 run drone_control send_trajectory_goal goal_only

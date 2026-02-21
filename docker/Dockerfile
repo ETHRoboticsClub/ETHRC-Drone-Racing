@@ -169,7 +169,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --no-cache-dir \
     pyulog pyserial empy toml jinja2 pandas \
     jsonschema pyros-genmsg kconfiglib \
-    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs mkdocs-material pymdown-extensions
+    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk \
+    "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
 
 # ---- udev rules for FMU/USB bridges ----
 RUN install -d -m 0755 /etc/udev/rules.d && \
