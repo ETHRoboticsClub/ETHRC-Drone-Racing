@@ -257,7 +257,12 @@ WORKDIR /home/$USERNAME/ros_ws
 # Build workspace (non-fatal if user mounts their own workspace at runtime)
 RUN bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build \
     --symlink-install \
-    --cmake-args "-DCMAKE_BUILD_TYPE=RelWithDebInfo"' || true
+    --cmake-args "-DCMAKE_BUILD_TYPE=RelWithDebInfo"' || \
+    (echo "======================================================================" && \
+    echo "WARNING: ROS 2 workspace build failed!" && \
+    echo "The image will still be created to allow development with host mounts." && \
+    echo "Check the errors above if you intend to run the baked-in code." && \
+    echo "======================================================================")
 
 
 ENV USERNAME=${USERNAME}

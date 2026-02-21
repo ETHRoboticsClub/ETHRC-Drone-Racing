@@ -1,0 +1,42 @@
+name: Build Verification
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+      - 'merge/*'
+      - 'fix/*'
+  pull_request:
+    branches:
+      - main
+      - 'feature/*'
+      - 'merge/*'
+      - 'fix/*'
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Initialize Submodules (Excluding Private)
+        run: |
+          # Manually initialize only the submodules we need and have access to
+          git submodule update --init --recursive px4/PX4-Autopilot
+          git submodule update --init --recursive src/perception/VIO/open_vins
+
+      - name: Build Docker Image
+        run: |
+          # Use docker-compose to build the image.
+          # We don't use -d here as we only want to verify the build.
+          docker compose build --no-cache
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Clean up any dangling images or stopped containers to save disk space
+          docker system prune -f
