@@ -38,5 +38,9 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          # Clean up any dangling images or stopped containers to save disk space
+          # Remove the specific image built in this run to save space
+          docker rmi ethrc-drone-racing-dev:latest || true
+          
+          # Prune dangling data and the BuildKit build cache specifically
           docker system prune -f
+          docker builder prune -a -f
