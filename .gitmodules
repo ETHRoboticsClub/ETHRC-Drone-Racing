@@ -7,3 +7,6 @@
 [submodule "src/open_vins"]
 	path = src/perception/VIO/open_vins
 	url = https://github.com/ETHRoboticsClub/open_vins_RETH.git
+[submodule "src/ros2-vicon-receiver"]
+	path = src/ros2-vicon-receiver
+	url = https://github.com/OPT4SMART/ros2-vicon-receiver.git
