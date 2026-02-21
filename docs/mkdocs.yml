@@ -6,7 +6,7 @@ edit_uri: edit/main/docs/docs/
 
 theme:
   name: material
-  logo: images/ETHRC-Aeronautics_transparent.png
+  logo: images/ETHRC_Aero_favicon_black.png
   favicon: images/ETHRC_Aero_favicon_black.png
   font:
     text: Inter
@@ -65,5 +65,12 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Guidelines: guidelines.md
+  - Perception:
+    - Overview: perception/index.md
+    - VIO: perception/vio.md
+    - ArUco: perception/ArUco.md
+  - Controls: controls/index.md
+  - Hardware: hardware/index.md
+  - Groundstation: groundstation/index.md
 
 

@@ -4,3 +4,6 @@
 [submodule "aeronautics-utility"]
 	path = aeronautics-utility
 	url = git@github.com:ETHRoboticsClub/aeronautics-utility.git
+[submodule "src/open_vins"]
+	path = src/perception/VIO/open_vins
+	url = https://github.com/ETHRoboticsClub/open_vins_RETH.git

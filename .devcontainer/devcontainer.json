@@ -2,11 +2,30 @@
   "name": "ERC Aeronautics Dev",
   "dockerComposeFile": "../docker-compose.yaml",
   "service": "dev",
-  "workspaceFolder": "/ws",
-  "remoteUser": "root",
-  "runServices": ["dev"],
+  "workspaceFolder": "/home/${localEnv:USERNAME}/ros_ws",
+  "remoteUser": "${localEnv:USERNAME}",
   "shutdownAction": "stopCompose",
+  "remoteEnv": {
+    // ==== ROS Related ====
+    "ROS_DOMAIN_ID": "1", // Any number in the range of 0 and 101; 0 by default
+    "RMW_IMPLEMENTATION": "rmw_cyclonedds_cpp",
+    "IGN_GAZEBO_RESOURCE_PATH": "${IGN_GAZEBO_RESOURCE_PATH:-/home/${localEnv:USERNAME}/sim/gazebo/models:/home/${localEnv:USERNAME}/sim/gazebo/worlds}",
+    "GZ_SIM_RESOURCE_PATH": "${GZ_SIM_RESOURCE_PATH:-/home/${localEnv:USERNAME}/sim/gazebo/models:/home/${localEnv:USERNAME}/sim/gazebo/worlds}",
 
+    // ==== Display Related: Xorg ====
+    "XAUTHORITY": "${localEnv:XAUTHORITY}", // Points to the X11 authentication file that grants display access.
+    "DISPLAY": "${localEnv:DISPLAY}", // Tells X11 apps where to render their GUI (e.g. :0 for local desktop).
+    "QT_X11_NO_MITSHM": "1", // disable the MIT-SHM (shared memory) X11 extension, slower rendering, but no errors
+
+    // ==== Display Related: Wayland ====
+    // "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+    "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}", // Path for temporary per-user runtime files (e.g. Wayland sockets, D-Bus). Needed to be found in rviz even in x11
+    // "QT_QPA_PLATFORM": "wayland", // uncomment to force Wayland
+
+    // ==== Other Driver Related ====
+    "PULSE_SERVER": "${localEnv:PULSE_SERVER}", // Audio
+    // "LIBGL_ALWAYS_SOFTWARE": "1" // Opengl bypass GPU (no gpu access to container, maybe for WSL2). Slower
+  },
   "customizations": {
     "vscode": {
       "extensions": [
@@ -15,7 +34,14 @@
         "ms-azuretools.vscode-docker",
         "twxs.cmake",
         "redhat.vscode-yaml"
-      ]
+      ],
+      "settings": {
+        // 🧠 Add ROS 2 include path globally for IntelliSense
+        "C_Cpp.default.includePath": [
+          "${workspaceFolder}/**",
+          "/opt/ros/humble/**"
+        ]
+      }
     }
   }
 }
