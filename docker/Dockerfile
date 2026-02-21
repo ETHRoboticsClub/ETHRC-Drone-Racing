@@ -200,6 +200,7 @@ ARG USERNAME=drone_dev
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
 ENV ROS_DISTRO=humble
+ENV WORKSPACE=/home/${USERNAME}/ros_ws
 
 # Find and replace any user with matching UID
 RUN set -eux; \
@@ -227,7 +228,8 @@ RUN  echo "if [ -f /opt/ros/${ROS_DISTRO}/setup.bash ]; then source /opt/ros/${R
     && echo "if [ -f /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash ]; then source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash; fi" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f /usr/share/vcs2l-completion/vcs.bash ]; then source /usr/share/vcs2l-completion/vcs.bash; fi" >> /home/$USERNAME/.bashrc \
     # Set up auto-source of workspace for user
-    && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc
+    && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc \
+    && echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc
 
 # Set up python symlinks for vscode paths
 RUN PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')") \
@@ -256,11 +258,6 @@ RUN bash -c 'source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build \
     --symlink-install \
     --cmake-args "-DCMAKE_BUILD_TYPE=RelWithDebInfo"' || true
 
-# Auto-source ROS + overlay
-RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc && \
-    RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /home/$USERNAME/.bashrc && \
-    echo "[ -f /home/${USERNAME}/ros_ws/install/setup.bash ] && source /home/${USERNAME}/ros_ws/install/setup.bash" >> /home/$USERNAME/.bashrc && \
-    echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc'
 
 ENV USERNAME=${USERNAME}
 CMD ["/bin/bash", "-c", "mkdocs serve -f /home/${USERNAME}/docs/mkdocs.yml -a 0.0.0.0:${MKDOCS_PORT} & exec /bin/bash"]

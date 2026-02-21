@@ -69,7 +69,14 @@ nav:
     - Overview: perception/index.md
     - VIO: perception/vio.md
     - ArUco: perception/ArUco.md
-  - Controls: controls/index.md
+    - EKF: perception/EKF.md
+  - Controls:
+    - Overview: controls/index.md
+    - Drone Control: controls/drone_control.md
+    - MAVSDK: controls/mavsdk.md
+    - MPC: controls/mpc.md
+    - RL: controls/rl.md
+    - Troubleshooting: controls/troubleshooting.md
   - Hardware: hardware/index.md
   - Groundstation: groundstation/index.md
 

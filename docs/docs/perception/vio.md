@@ -95,9 +95,9 @@ The VIO pipeline works as follows:
 ```
 ros2 launch ov_msckf subscribe.launch.py config:=gazebo_sim use_stereo:=false config_path:=/home/drone_dev/ros_ws/src/open_vins/config/gazebo_sim/estimator_config.yaml use_stereo:=false max_cameras:=1
 ```
-Important to enforce the use stereo and max cameras parameter otherwise it give segemntation fault error
+Important to enforce the use stereo and max cameras parameter otherwise it give segmentation fault error
 
-## Debug Segemntation Error
+## Debug Segmentation Error
 In case of segmentation error to be able to debug add the following line in the `ov_msckf/launch/subscribe.launch.py` file:
 
 ```
@@ -120,4 +120,4 @@ In case of segmentation error to be able to debug add the following line in the 
     )
 ```
 
-This way we are going to enable gdb, which give us the possibility of trace back which function call lead to the segemntatiton fault
+This way we are going to enable gdb, which give us the possibility of trace back which function call lead to the segmentation fault

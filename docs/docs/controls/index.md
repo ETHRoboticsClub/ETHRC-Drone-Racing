@@ -8,9 +8,6 @@ Welcome to the Controls team documentation.
 
 ## Overview
 
-<<<<<<< HEAD
-This section contains documentation for the control algorithms and flight stack configuration.
-=======
 This section contains documentation for the control algorithms and the overall flight stack configuration.  
 It describes how control, estimation, and communication components are structured in the codebase and how they interact during flight.
 
@@ -120,6 +117,6 @@ For detailed information on each controller and their interfaces, please refer t
 - [DRONE_CONTROL](drone_control.md)
 - [MAVSDK](mavsdk.md)
 
+
 **Troubleshooting**: 
 For troubleshooting of common problems, check [General Control Troubleshooting](troubleshooting.md)
->>>>>>> origin/feature/controls
