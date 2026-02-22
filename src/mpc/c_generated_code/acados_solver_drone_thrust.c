@@ -352,6 +352,8 @@ void drone_thrust_acados_create_setup_functions(drone_thrust_solver_capsule* cap
             MAP_CASADI_FNC(expl_vde_forw[i], drone_thrust_expl_vde_forw);
         }
 
+        
+
         capsule->expl_ode_fun = (external_function_external_param_casadi *) malloc(sizeof(external_function_external_param_casadi)*N);
         for (int i = 0; i < N; i++) {
             MAP_CASADI_FNC(expl_ode_fun[i], drone_thrust_expl_ode_fun);
@@ -491,6 +493,7 @@ void drone_thrust_acados_setup_nlp_in(drone_thrust_solver_capsule* capsule, cons
     for (int i = 0; i < N; i++)
     {
         ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "expl_vde_forw", &capsule->expl_vde_forw[i]);
+        
         ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "expl_ode_fun", &capsule->expl_ode_fun[i]);
         ocp_nlp_dynamics_model_set_external_param_fun(nlp_config, nlp_dims, nlp_in, i, "expl_vde_adj", &capsule->expl_vde_adj[i]);
     }
@@ -1124,11 +1127,13 @@ int drone_thrust_acados_free(drone_thrust_solver_capsule* capsule)
     for (int i = 0; i < N; i++)
     {
         external_function_external_param_casadi_free(&capsule->expl_vde_forw[i]);
+        
         external_function_external_param_casadi_free(&capsule->expl_ode_fun[i]);
         external_function_external_param_casadi_free(&capsule->expl_vde_adj[i]);
     }
     free(capsule->expl_vde_adj);
     free(capsule->expl_vde_forw);
+    
     free(capsule->expl_ode_fun);
 
     // cost

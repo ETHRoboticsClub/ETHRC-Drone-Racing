@@ -29,10 +29,12 @@ You can access the documentation at [http://localhost:8000](http://localhost:800
 We need SSH so git clone works smoothly without typing passwords.
 Follow GitHub’s guide: [Follow Github's guide here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
 
-### Step 1 — Clone (with PX4 submodule)
+### Step 1 — Clone (with Submodules)
+Ensure you clone with all submodules (PX4, OpenVINS, etc.) to avoid build errors.
 ```bash
 git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
 cd ETHRC-Drone-Racing
+# If you already cloned without submodules:
 git submodule update --init --recursive
 ```
 
@@ -44,7 +46,7 @@ docker compose build
 ### Step 2b — Prepare host ROS 2 build/log directories
 Run once (or after permission issues) on the host to create `.colcon/ros2_ws/{build,install,log}` with your user owning them:
 ```bash
-./scripts/prepare_colcon_volumes.sh
+sudo ./scripts/prepare_colcon_volumes.sh
 ```
 
 ### Step 3 — Start services (enable GUI, start container, open shell)
@@ -58,20 +60,47 @@ docker exec -it erc-aeronautics bash
 
 ### Step 4 - Build the whole pipeline 
 ```bash
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --executor sequential
+colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 ```
 
-### Run the simulation in the container
+---
+
+## Visualization & Monitoring
+
+To "see" what the system is doing, you can use the following tools:
+
+### 1. Gazebo (The Simulator)
+Launch the simulation to see the drone in the 3D world:
 ```bash
-# Default x500 in the default world
 source install/setup.bash
 cd /ws/px4/PX4-Autopilot
-make clean
 make px4_sitl gz_x500_cam 
 ```
 
+### 2. RViz (The Monitoring Tool)
+Launch the perception stack with RViz visualization:
+```bash
+source install/setup.bash
+# Launch ArUco estimation with RViz enabled
+ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py rviz:=true
+```
+
+### 3. Full Perception Stack
+Orchestrate VIO, ArUco, and EKF nodes:
+```bash
+source install/setup.bash
+ros2 launch launch/perception.launch.py
+```
+
+---
+
+## Recent Fixes (Feb 2026)
+- **Submode Initialization**: Recursive submodules (`open_vins`, `vicon-receiver`) are now mandatory for a full build.
+- **MPC API Update**: Fixed `acados_template` compatibility issues in `drone_opt.py` to support newer versions of the library.
+- **MAVSDK Migration**: Updated drone controller node to use the standard `mavsdk.offboard` types.
+
 ## Agents
-Coding agents should read the files in aeronautics-utility/agents and follow the coding conventions. Additionally the AI should digest our documentation found under docs/docs, especially the development guidelines.
+Coding agents should read the files in `aeronautics-utility/agents` and follow the coding conventions. Additionally, the AI should digest our documentation found under `docs/docs`, especially the development guidelines.
 
 ## Adding Custom Worlds
 

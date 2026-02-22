@@ -16,6 +16,7 @@
   <depend>std_srvs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav2_msgs</depend>
+  <depend>my_mavsdk</depend>
 
   <export>
     <build_type>ament_python</build_type>

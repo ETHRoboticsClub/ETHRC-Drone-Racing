@@ -103,6 +103,9 @@ This allows direct integration into an ACADOS OCP.
 
 This file defines and solves the nonlinear OCP using **ACADOS**.
 
+> [!NOTE]
+> **API Compatibility**: The implementation in `drone_opt.py` is compatible with both legacy and newer versions of `acados_template`. It automatically detects if paths should be set via environment variables or manual properties.
+
 ### Horizon Setup
 
 - Prediction horizon: `T`

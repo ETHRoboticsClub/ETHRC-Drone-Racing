@@ -8,11 +8,12 @@
 
 This node implements the drone controller that receives the **estimated system state** and executes pose or trajectory goals via ROS 2 actions.
 
-**Important**: The node is intented to be controller agnostic, so:
-1. multiple controllers can utilize the same interfaces
-2. multiple controllers can handle different goals (e.g. LQR for hovering, MPC/RL for trajectory tracking, PID for landing etc)
+> [!NOTE]
+> The node is intended to be controller agnostic, allowing:
+> 1. Multiple controllers to utilize the same interfaces.
+> 2. Specialized controllers to handle different goals (e.g., LQR for hovering, MPC/RL for trajectory tracking).
 
-To achieve this, the node has 2 state flags: `active_goal` that indicates if the action server serves an action, and `hovering_active` that indicates if the controller has entered a hovering state, where it stabilizes the current state. When executing a particular goal, the controller stops hovering and uses the controller associated with the particular action. 
+To achieve this, the node uses two state flags: `active_goal` (indicates an active action) and `hovering_active` (indicates stable hovering state).
 
 **Note**: Currently the controller only supports MPC for hovering, pose and trajectory goals, and needs modifications to support other controllers. The action interface is intented for task-specific controllers, the code needs to be improved for that. 
 
@@ -59,7 +60,9 @@ This controller node subscribes to the following ROS 2 topics:
 
 ---
 
-## Command Topics
+These command topics are consumed by the MAVSDK client, which forwards them to the drone.
+
+## Command Path: ROS 2 → MAVSDK → Drone
 
 The controller node publishes the following ROS 2 topics:
 

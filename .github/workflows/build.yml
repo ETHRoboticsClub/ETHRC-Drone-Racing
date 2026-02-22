@@ -27,7 +27,7 @@ jobs:
         run: |
           # Manually initialize only the submodules we need and have access to
           git submodule update --init --recursive px4/PX4-Autopilot
-          git submodule update --init --recursive src/perception/VIO/open_vins
+          git submodule update --init --recursive src/perception/VIO/open_vins+
 
       - name: Build Docker Image
         run: |

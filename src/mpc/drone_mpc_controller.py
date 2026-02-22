@@ -73,19 +73,19 @@ class DroneMpcController():
         # TODO: Handle mpc failure more explicitely
         try:
             #TODO: bound solution time, ensure RT
-            u0 = self.opt.compute_control_once(self.x_current, goal_trajectory, is_trajectory=True)
+            u0_raw, _, _, _ = self.opt.compute_control_once(self.x_current, goal_trajectory, is_trajectory=True)
 
             if DEBUG_INFO_PRINTS:
-                self._debug_print(u0)
+                self._debug_print(u0_raw)
 
         except Exception as e:
             print(f"[MPC Controller] ERROR: Optimizer failed: {e}")
             return AttitudeRate(0.0, 0.0, 0.0, self.thrust_norm_hover)
         
-        thrust_N = float(u0[0][0])
-        wx_cmd = float(u0[0][1])  # roll rate
-        wy_cmd = float(u0[0][2])  # pitch rate
-        wz_cmd = float(u0[0][3])  # yaw rate
+        thrust_N = float(u0_raw[0])
+        wx_cmd = float(u0_raw[1])  # roll rate
+        wy_cmd = float(u0_raw[2])  # pitch rate
+        wz_cmd = float(u0_raw[3])  # yaw rate
 
         return self.attitude_cmd_from_mpc_cmd(thrust_N,wx_cmd,wy_cmd,wz_cmd)
 
@@ -99,19 +99,19 @@ class DroneMpcController():
         # TODO: Handle mpc failure more explicitely
         try:
             #TODO: bound solution time, ensure RT
-            u0 = self.opt.compute_control_once(self.x_current, self.goal_postion)
+            u0_raw, _, _, _ = self.opt.compute_control_once(self.x_current, self.goal_postion)
 
             if DEBUG_INFO_PRINTS:
-                self._debug_print(u0)
+                self._debug_print(u0_raw)
 
         except Exception as e:
             print(f"[MPC Controller] ERROR: Optimizer failed: {e}")
             return AttitudeRate(0.0, 0.0, 0.0, self.thrust_norm_hover)
         
-        thrust_N = float(u0[0][0])
-        wx_cmd = float(u0[0][1])  # roll rate
-        wy_cmd = float(u0[0][2])  # pitch rate
-        wz_cmd = float(u0[0][3])  # yaw rate
+        thrust_N = float(u0_raw[0])
+        wx_cmd = float(u0_raw[1])  # roll rate
+        wy_cmd = float(u0_raw[2])  # pitch rate
+        wz_cmd = float(u0_raw[3])  # yaw rate
 
         return self.attitude_cmd_from_mpc_cmd(thrust_N,wx_cmd,wy_cmd,wz_cmd)
     
@@ -138,12 +138,12 @@ class DroneMpcController():
         """Convert thrust in Newtons to normalized [0,1] for MAVSDK."""
         return float(np.clip(thrust_N / self.max_thrust, 0.0, 1.0))
     
-    def _debug_print(self,u0):
+    def _debug_print(self, u0: np.ndarray):
         self.mpc_iter += 1
 
         if self.mpc_iter % 10 == 0: 
             print(f"[MPC iter {self.mpc_iter}] "
                     f"pos=({self.x_current[0]:.2f},{self.x_current[1]:.2f},{self.x_current[2]:.2f}) "
                     f"goal=({self.goal_postion[0]:.2f},{self.goal_postion[1]:.2f},{self.goal_postion[2]:.2f})")
-            print(f"  u=[T={u0[0]:.2f}N, "
-                    f"wx={u0[1]:.3f}, wy={u0[2]:.3f}, wz={u0[3]:.3f}]")
+            print(f"  u=[T={float(u0[0]):.2f}N, "
+                    f"wx={float(u0[1]):.3f}, wy={float(u0[2]):.3f}, wz={float(u0[3]):.3f}]")

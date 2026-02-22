@@ -4,7 +4,7 @@
 
 ---
 
-Welcome to the Perception team documentation.
+Welcome to the Perception team documentation. This section covers the algorithms and modules responsible for state estimation and environment sensing.
 
 ## Overview
 
