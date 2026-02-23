@@ -80,7 +80,7 @@ docker compose up mpc -d
 Attach to the running container and build the workspace.
 
 ```bash
-docker exec -it erc-aeronautics bash
+docker compose exec dev bash
 
 # Inside the container:
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
@@ -122,7 +122,7 @@ To launch the default simulation environment:
     ```
 2.  **Launch PX4 SITL with Gazebo**:
     ```bash
-    cd /ws/px4/PX4-Autopilot
+    cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
     make px4_sitl gz_x500_cam 
     ```
 
@@ -161,6 +161,14 @@ If the build fails due to missing source files in `src/perception/VIO` or `src/r
 ```bash
 git submodule update --init --recursive
 ```
+
+### Package Not Found After Docker Compose Up
+If `ros2 launch` fails with "Package not found", the host's empty `.colcon/install` volume is masking the container's build. Rebuild inside the container:
+```bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+source install/setup.bash
+```
+
 
 ---
 

@@ -21,6 +21,7 @@ services:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       # Mount source code
       - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
+      - ./launch:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/launch:rw
       # Mount workspace build/install directories for persistence
       - ./.colcon/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
       - ./.colcon/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw

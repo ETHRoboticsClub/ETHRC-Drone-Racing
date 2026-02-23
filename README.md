@@ -65,6 +65,7 @@ docker compose exec dev bash
 ```
 
 ### Step 4 - Build the whole pipeline 
+> **Important:** After `docker compose up`, the host bind-mounted `.colcon/` directories are empty and mask the Docker-built packages. You must build inside the container:
 ```bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
@@ -106,7 +107,11 @@ ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py rviz:=true
 Orchestrate VIO, ArUco, and EKF nodes:
 ```bash
 source install/setup.bash
-ros2 launch launch/perception.launch.py
+ros2 launch ./launch/perception.launch.py
+```
+
+> [!TIP]
+> Use `./launch/perception.launch.py` (with the dot-slash) so `ros2 launch` treats it as a file path rather than a package name.
 ```
 
 ---

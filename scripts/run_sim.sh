@@ -4,24 +4,14 @@
 # PX4 SITL + Gazebo Launcher for Custom Drone Model
 # -------------------------------------------------------------
 
-# WS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-# MODEL_DIR="$WS_ROOT/sim/gazebo/models"
-# PX4_DIR="$WS_ROOT/px4"
-# MODEL_NAME="drone" 
+# Navigate to PX4 directory (correct path inside the container)
+cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
 
+echo ""
+echo "====================================================="
+echo "Launching PX4 SITL with x500_cam model"
+echo "====================================================="
+echo ""
 
-# # Add model path to Gazebo resources
-# export GZ_SIM_RESOURCE_PATH="$GZ_SIM_RESOURCE_PATH:$MODEL_DIR"
-
-# export PX4_SIM_MODEL=$MODEL_NAME
-
-# echo ""
-# echo "====================================================="
-# echo "Launching PX4 SITL with Model: $MODEL_NAME"
-# echo "Model Search Path: $MODEL_DIR"
-# echo "====================================================="
-# echo ""
-
-# Launch PX4 SITL
-cd src/px4/PX4-Autopilot
-make px4_sitl gz_drone
+# Launch PX4 SITL with camera-equipped drone
+make px4_sitl gz_x500_cam

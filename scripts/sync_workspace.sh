@@ -5,27 +5,17 @@
 # issue when a host's empty .colcon directory masks the container's built-in build.
 
 WORKSPACE_DIR="/home/drone_dev/ros_ws"
-HOST_VOL_DIR="$WORKSPACE_DIR/.colcon/ros2_ws"
 
 echo "Checking workspace synchronization..."
 
-if [ ! -d "$WORKSPACE_DIR/install" ]; then
-    echo "ERROR: Internal /install directory not found!"
-    exit 1
+if [ ! -d "$WORKSPACE_DIR/install" ] || [ "$(ls -A $WORKSPACE_DIR/install 2>/dev/null)" == "" ]; then
+    echo "WARNING: $WORKSPACE_DIR/install is empty!"
+    echo "This is expected on first startup with volume mounts."
+    echo "Please build the workspace:"
+    echo "  colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo"
+    echo "  source install/setup.bash"
+    exit 0
 fi
 
-# Check if we are currently masked by a volume
-if [ -d "$HOST_VOL_DIR/install" ] && [ "$(ls -A $HOST_VOL_DIR/install 2>/dev/null)" == "" ]; then
-    echo "WARNING: Host volume $HOST_VOL_DIR/install is empty and masking the container build!"
-    echo "Syncing container build to volume..."
-    
-    mkdir -p $HOST_VOL_DIR/build $HOST_VOL_DIR/install $HOST_VOL_DIR/log
-    
-    # We use cp -a to preserve permissions and symlinks (crucial for --symlink-install)
-    cp -rp $WORKSPACE_DIR/build/* $HOST_VOL_DIR/build/ 2>/dev/null
-    cp -rp $WORKSPACE_DIR/install/* $HOST_VOL_DIR/install/ 2>/dev/null
-    
-    echo "Sync complete. You may need to 'source install/setup.bash' again."
-else
-    echo "Workspace appears healthy or already synced."
-fi
+echo "Workspace appears healthy. install/ contains packages."
+echo "Run 'source install/setup.bash' to activate the workspace."

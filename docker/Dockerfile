@@ -131,8 +131,10 @@ FROM perception-deps AS perception
 USER drone_dev
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
+COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver gazebo_ros_bridges
 
 # =========================================================
 # STAGE 6: mpc
@@ -143,8 +145,9 @@ USER drone_dev
 COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
 COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
 COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk mpc
 
 # =========================================================
 # STAGE 7: rl

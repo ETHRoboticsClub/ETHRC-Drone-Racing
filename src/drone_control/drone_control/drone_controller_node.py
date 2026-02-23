@@ -77,7 +77,7 @@ class DroneController(Node):
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate',100.0)
-        self.declare_parameter('threshold.positon',0.1)
+        self.declare_parameter('threshold.position',0.1)
         self.declare_parameter('threshold.velocity',0.02)
         self.declare_parameter('threshold.angular_velocity',0.02)
         self.declare_parameter('threshold.orientation',0.1)
@@ -88,7 +88,7 @@ class DroneController(Node):
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
-        self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
+        self.thresholds_.position = self.get_parameter('threshold.position').get_parameter_value().double_value
         self.thresholds_.velocity = self.get_parameter('threshold.velocity').get_parameter_value().double_value
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
