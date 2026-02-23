@@ -21,14 +21,24 @@ $ kill 62707 # copy the PID
 ```
 
 # Run the node
-This runs the mpc controller && the plotjuggler visualization
+This runs the MPC controller node:
 ```sh
-ros2 launch drone_control drone_controller.launch.py 
+ros2 launch drone_control drone_controller.launch.py
+```
+
+### Launch Arguments
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `plotjuggler` | `false` | Launch PlotJuggler visualization alongside the controller |
+
+Example with PlotJuggler:
+```sh
+ros2 launch drone_control drone_controller.launch.py plotjuggler:=true
 ```
 
 You need to run the simulation first:
 ```sh
-cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500_cam
 ```
 
 You can test the action client with (this is a placeholder node, since this functionalities will be implemented using GUI):

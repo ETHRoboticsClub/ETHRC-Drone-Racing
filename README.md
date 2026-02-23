@@ -1,142 +1,105 @@
-# ETHRC-Drone-Racing
+# <p align="center"><img src="docs/docs/images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics" width="600"/></p>
 
-This repo gives us a ready-to-use drone racing environment in Docker.
-Why Docker? → So everyone works in the same environment, avoiding “it works on my machine” issues.
+<p align="center">
+  <b>Pushing the boundaries of Autonomous Drone Racing with ROS 2, PX4, and Cutting-edge Perception.</b>
+</p>
 
-It bundles:
-
-ROS 2 Humble → our robotics framework
-
-Gazebo (gz) → 3D simulator for drones
-
-PX4 SITL → autopilot software in simulation
-
-MAVROS / MAVSDK → talk between PX4 and ROS
-
-Workspace /ws → where we put our ROS 2 packages
-
-> **Host OS:** Ubuntu/Linux recommended  
-> **Requires:** Docker Engine + Compose v2
+<p align="center">
+  <img src="https://img.shields.io/badge/ROS2-Humble-blue?style=flat-square&logo=ros" alt="ROS2 Humble"/>
+  <img src="https://img.shields.io/badge/Simulator-Gazebo-orange?style=flat-square&logo=gazebo" alt="Gazebo"/>
+  <img src="https://img.shields.io/badge/Autopilot-PX4-blue?style=flat-square" alt="PX4"/>
+  <img src="https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker" alt="Docker"/>
+</p>
 
 ---
 
-## Quick Start
+## 🚀 The Mission
 
-Note: after step 3, the container will be running in the background. You can stop it with `docker compose down`.
-You can access the documentation at [http://localhost:8000](http://localhost:8000).
+Welcome to the **ETHRC Drone Racing** project. We are building the next generation of autonomous racing drones capable of navigating complex, high-speed environments with surgical precision. This repository provides a complete, containerized development environment—from high-fidelity simulation to real-world hardware deployment.
 
-### Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)
-We need SSH so git clone works smoothly without typing passwords.
-Follow GitHub’s guide: [Follow Github's guide here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
+![Drone in Action](docs/docs/images/drone_action_front.webp)
 
-### Step 1 — Clone (with Submodules)
-Ensure you clone with all submodules (PX4, OpenVINS, etc.) to avoid build errors.
+---
+
+## 🛠 Project Pillars
+
+| **Perception** | **Control** | **Simulation** |
+| :--- | :--- | :--- |
+| **State Estimation:** VIO (OpenVINS) + EKF for robust localization. | **High-Speed Tracking:** MPC and RL-based controllers for agile flight. | **Digital Twin:** Gazebo Harmonic for realistic physics and sensor noise. |
+| **Object Detection:** Real-time gate and ArUco marker tracking. | **Planning:** Minimal-time trajectory generation through race gates. | **SITL:** PX4 Software-In-The-Loop for autopilot parity. |
+
+---
+
+## 📸 Real-World Hardware & Lab
+
+We don't just simulate; we fly. Our hardware stack is designed for extreme performance and modularity.
+
+<p align="center">
+  <img src="docs/docs/images/drone_hardware_closeup.webp" width="45%" />
+  <img src="docs/docs/images/drone_lab_arena.webp" width="45%" />
+</p>
+
+<p align="center">
+  <video src="docs/docs/images/drone_wip.mp4" width="100%" autoplay muted loop controls></video>
+  <br>
+  <i><b>Autonomous RL Training Simulation</b>: Drones learning optimal racing lines in IsaacLab.</i>
+</p>
+
+---
+
+## ⚡ Quick Start
+
+Get your environment up and running in minutes.
+
+### 1. Clone & Initialize
 ```bash
 git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
 cd ETHRC-Drone-Racing
-# If you already cloned without submodules:
-git submodule update --init --recursive
 ```
 
-### Step 2 — Build the Docker image
-We use multi-stage builds to optimize the environment for different teams.
-
+### 2. Launch Environment
+We use Docker to ensure "it works on everyone's machine."
 ```bash
-# Default: build everything
-docker compose build dev
-
-# Specialized builds: docs, perception, mpc, rl
-docker compose build mpc
-```
-
-### Step 2b — Prepare host ROS 2 build/log directories
-Run once (or after permission issues) on the host to create `.colcon/ros2_ws/{build,install,log}` with your user owning them:
-```bash
+# Prepare host volumes
 sudo ./scripts/prepare_colcon_volumes.sh
-```
 
-### Step 3 — Start services (enable GUI, start container, open shell)
-```bash
-# Allow container GUI apps to open windows on your desktop (X11)
+# Start the development container
 xhost +local:root
-# Start your target container (e.g., dev, mpc, rl, docs)
 docker compose up dev -d
 docker compose exec dev bash
 ```
 
-### Step 4 - Build the whole pipeline 
-> **Important:** After `docker compose up`, the host bind-mounted `.colcon/` directories are empty and mask the Docker-built packages. You must build inside the container:
+### 3. Build & Fly
+Inside the container:
 ```bash
+# Build the workspace
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+source install/setup.bash
+
+# Launch Simulation & Controller
+ros2 launch drone_control drone_controller.launch.py
 ```
 
 ---
 
-## Command the Drone (Takeoff)
+## 🏗 System Architecture
 
-Once the simulator and controller are running, open a new shell in the container and run:
+Our system is composed of several high-performance subsystems working in harmony. The perception pipeline feeds high-frequency state updates to the MPC controller, ensuring agile and precise flight.
 
-```bash
-# Command a takeoff to 2 meters
-ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z 2.0 -yaw 90
-```
+![System Architecture](docs/docs/images/Interfaces.drawio.png)
 
 ---
 
-## Visualization & Monitoring
+## 🤝 Join the Race
 
-To "see" what the system is doing, you can use the following tools:
+Are you passionate about robotics, computer vision, or control theory? We are always looking for motivated engineers to join the ETHRC Aeronautics division.
 
-### 1. Gazebo (The Simulator)
-Launch the simulation to see the drone in the 3D world:
-```bash
-source install/setup.bash
-cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
-make px4_sitl gz_x500_cam 
-```
-
-### 2. RViz (The Monitoring Tool)
-Launch the perception stack with RViz visualization:
-```bash
-source install/setup.bash
-# Launch ArUco estimation with RViz enabled
-ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py rviz:=true
-```
-
-### 3. Full Perception Stack
-Orchestrate VIO, ArUco, and EKF nodes:
-```bash
-source install/setup.bash
-ros2 launch ./launch/perception.launch.py
-```
-
-> [!TIP]
-> Use `./launch/perception.launch.py` (with the dot-slash) so `ros2 launch` treats it as a file path rather than a package name.
-```
+- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs`)
+- 📝 **Guidelines:** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
+- 💬 **Get Involved:** Reach out to the team on Discord or Open an Issue!
 
 ---
 
-## Recent Fixes (Feb 2026)
-- **Multi-Stage Build**: Separated `perception`, `mpc`, `rl`, and `docs` targets for faster builds.
-- **MPC Runtime Fix**: Resolved a Python formatting error in `drone_mpc_controller.py`.
-- **Acados API Update**: Fixed compatibility issues in `drone_opt.py`.
-- **Submode Initialization**: Recursive submodules are now mandatory for a full build.
-
-## Agents
-Coding agents should read the files in `aeronautics-utility/agents` and follow the coding conventions. Additionally, the AI should digest our documentation found under `docs/docs`, especially the development guidelines.
-
-## Adding Custom Worlds
-
-Place worlds here:
-```bash
-px4/PX4-Autopilot/Tools/simulation/gz/worlds/
-```
-
-Set which world is loaded in:
-```bash
-px4/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/4022_gz_x500_cam
-PX4_GZ_WORLD=<world_name>
-```
-
-## Command the drone to fly
-Use Mavsdk API (offboard or action library) or Qgroundcontrol 
+<p align="center">
+  Proudly developed by the <b>ETH Robotics Club - Aeronautics Division</b>
+</p>

@@ -12,11 +12,25 @@
 
 Welcome to the ETHRC Drone Racing project documentation! This repository provides a complete development environment for drone racing research and development.
 
+<p align="center">
+  <a href="images/drone_wip.mp4">
+    <img src="images/simulation_thumbnail.png" alt="Autonomous RL Training Simulation" width="80%"/>
+  </a>
+  <br>
+  <i>Check out our <b>Autonomous RL Training Simulation</b> (click above to play)</i>
+</p>
+
 Everyone in the project is free to commit changes to the docs and we really encourage you to do so!
 If you are unsure whether the information belongs here or on our Notion page, then feel free to ask.
-Otherwise the answer to the question ***"If the repo goes public, would this be relevant to them?"*** should guide your decision. Generally anything technical (implementation details, technical decisions etc.) belong here.
+Relevant technical details (implementation, designs, etc.) should live here.
 
-Please note that some pages have a responsible person but you can do a pull request for changes any time.
+## 🏗 System Architecture
+
+The project integrates high-fidelity simulation with advanced sensing and control for autonomous racing.
+
+<p align="center">
+  <img src="images/Interfaces.drawio.png" width="90%" alt="System Architecture" />
+</p>
 
 ## What's New? (Feb 2026)
 

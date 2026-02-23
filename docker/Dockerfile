@@ -65,6 +65,10 @@ RUN  echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc \
     && echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc
 
+# PX4 build dependencies — sourced from the PX4 submodule itself
+COPY px4/PX4-Autopilot/Tools/setup/requirements.txt /tmp/px4_requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/px4_requirements.txt && rm /tmp/px4_requirements.txt
+
 # =========================================================
 # STAGE 2: docs
 # Minimal stage for MkDocs only
@@ -162,12 +166,20 @@ RUN pip3 install --no-cache-dir torch torchvision torchaudio stable-baselines3 s
 # =========================================================         
 FROM rl AS full
 USER root
+# Install perception system dependencies (not inherited from mpc-deps→base chain)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libopencv-dev python3-opencv \
+    libeigen3-dev libyaml-cpp-dev libboost-all-dev \
+    libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
+    ros-humble-robot-localization \
+    && rm -rf /var/lib/apt/lists/*
 # Copy perception builds from the perception stage
 COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install                
 COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build
 # Also ensure perception source is present
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
+COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 # Add docs to full image too
 COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
