@@ -14,7 +14,7 @@ Welcome to the ETHRC Drone Racing project documentation! This repository provide
 
 <p align="center">
   <a href="images/drone_wip.mp4">
-    <img src="images/simulation_thumbnail.png" alt="Autonomous RL Training Simulation" width="80%"/>
+    <img src="images/rl_wip.gif" alt="Autonomous RL Training Simulation" width="80%"/>
   </a>
   <br>
   <i>Check out our <b>Autonomous RL Training Simulation</b> (click above to play)</i>

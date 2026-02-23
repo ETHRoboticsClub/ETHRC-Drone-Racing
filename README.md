@@ -36,12 +36,12 @@ We don't just simulate; we fly. Our hardware stack is designed for extreme perfo
 
 <p align="center">
   <img src="docs/docs/images/drone_hardware_closeup.webp" width="45%" />
-  <img src="docs/docs/images/drone_lab_arena.webp" width="45%" />
+  <!-- <img src="docs/docs/images/drone_lab_arena.webp" width="45%" /> -->
 </p>
 
 <p align="center">
-  <video src="docs/docs/images/drone_wip.mp4" width="100%" autoplay muted loop controls></video>
-  <br>
+  <img src="docs/docs/images/rl_wip.gif" width="45%" />
+
   <i><b>Autonomous RL Training Simulation</b>: Drones learning optimal racing lines in IsaacLab.</i>
 </p>
 
