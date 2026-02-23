@@ -39,25 +39,76 @@ git submodule update --init --recursive
 ```
 
 ### Step 2: Build and Prepare
-Build the Docker image and prepare the host volumes for ROS 2.
+Build the Docker image and prepare the host volumes for ROS 2. We use multi-stage builds to provide specialized environments for different teams.
+
 ```bash
-docker compose build
+# To build the FULL development environment (Default)
+docker compose build dev
+
+# To build only for the Perception team
+docker compose build perception
+
+# To build only for the MPC / Control team
+docker compose build mpc
+
+# To build only for the RL team
+docker compose build rl
+
+# To build ONLY the documentation
+docker compose build docs
+```
+
+Ensure host volumes are prepared:
+```bash
 ./scripts/prepare_colcon_volumes.sh
 ```
 
 ### Step 3: Start Services
-Allow GUI applications and start the container.
+Allow GUI applications and start your preferred container target.
+
 ```bash
 xhost +local:root
-docker compose up -d
-docker exec -it erc-aeronautics bash
+
+# Start the full environment
+docker compose up dev -d
+
+# OR start a specific team environment
+docker compose up mpc -d
 ```
 
-### Step 4: Build Workspace
-Inside the container terminal, build the entire ROS 2 pipeline.
+### Step 4: Access and Build
+Attach to the running container and build the workspace.
+
 ```bash
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --executor sequential
+docker exec -it erc-aeronautics bash
+
+# Inside the container:
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
+
+---
+
+---
+
+## Flying the Drone
+
+Once the simulation and controller are running, you can command the drone using our standard goal-sending utilities.
+
+### Step 1: Launch the Controller
+In a container terminal, start the MPC controller:
+```bash
+ros2 launch drone_control drone_controller.launch.py
+```
+
+### Step 2: Send a Pose Goal (Takeoff)
+In a **separate** container terminal, use the `send_pose_goal` script to command a takeoff to 2 meters:
+```bash
+# General Format: ros2 run drone_control send_pose_goal <mode> -x <x> -y <y> -z <z> -yaw <degrees>
+ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z 2.0 -yaw 90
+```
+
+### Step 3: Monitor in PlotJuggler
+The controller launch automatically opens PlotJuggler. Look for the `/drone_state_sim` and `/drone_current_target` topics to verify the drone is tracking the reference accurately.
 
 ---
 

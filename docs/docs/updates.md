@@ -9,10 +9,27 @@ This page summarizes the critical stability improvements and architectural updat
 ### MPC & Acados Compatibility
 - **Fixed**: Resolved a breaking `AttributeError` in `drone_opt.py` caused by read-only properties in newer versions of `acados_template`.
 - **Solution**: Migrated to environment-based path detection, making the MPC controller compatible with a wider range of Acados installations.
+- **Runtime Fix**: Resolved a Python formatting error (`unsupported format string`) in `drone_mpc_controller.py` that occurred when sending goal commands.
 
 ### MAVSDK Migration
 - **Standardization**: Refactored the drone controller to use standard `mavsdk.offboard` types (`AttitudeRate`, `PositionNedYaw`).
-- **Modularity**: Moved the core MAVSDK client into its own ROS 2 package (`my_mavsdk`) to separate communication logic from control algorithms.
+- **Modularity**: Moved the core MAVSDK client into its own ROS 2 package (`my_mavsdk`).
+
+---
+
+## 🐋 Docker & CI Refactoring
+
+### Multi-Stage Build Pipeline
+- **Optimized**: Transitioned the monolithic Dockerfile to a **multi-stage build architecture**.
+- **Team-Specific Targets**: Introduced dedicated build targets for different development needs:
+    - `target: docs`: Ultra-lightweight image for documentation tasks.
+    - `target: perception`: Bundles all VIO, ArUco, and EKF dependencies.
+    - `target: mpc`: Contains the full control stack (Acados, MAVSDK).
+    - `target: rl`: Includes `mpc` stack plus Machine Learning libraries (Torch, StableBaselines3).
+    - `target: full`: The production-ready image containing all system components.
+
+### CI Build Verification
+- **Fixed**: Corrected submodule initialization paths and added `ros2-vicon-receiver` to the automated build verification pipeline.
 
 ---
 

@@ -39,8 +39,14 @@ git submodule update --init --recursive
 ```
 
 ### Step 2 — Build the Docker image
+We use multi-stage builds to optimize the environment for different teams.
+
 ```bash
-docker compose build
+# Default: build everything
+docker compose build dev
+
+# Specialized builds: docs, perception, mpc, rl
+docker compose build mpc
 ```
 
 ### Step 2b — Prepare host ROS 2 build/log directories
@@ -53,14 +59,25 @@ sudo ./scripts/prepare_colcon_volumes.sh
 ```bash
 # Allow container GUI apps to open windows on your desktop (X11)
 xhost +local:root
-# Start the container (detached) and open a shell inside
-docker compose up -d
+# Start your target container (e.g., dev, mpc, rl, docs)
+docker compose up dev -d
 docker exec -it erc-aeronautics bash
 ```
 
 ### Step 4 - Build the whole pipeline 
 ```bash
-colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+```
+
+---
+
+## Command the Drone (Takeoff)
+
+Once the simulator and controller are running, open a new shell in the container and run:
+
+```bash
+# Command a takeoff to 2 meters
+ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z 2.0 -yaw 90
 ```
 
 ---
@@ -73,7 +90,7 @@ To "see" what the system is doing, you can use the following tools:
 Launch the simulation to see the drone in the 3D world:
 ```bash
 source install/setup.bash
-cd /ws/px4/PX4-Autopilot
+cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
 make px4_sitl gz_x500_cam 
 ```
 
@@ -95,9 +112,10 @@ ros2 launch launch/perception.launch.py
 ---
 
 ## Recent Fixes (Feb 2026)
-- **Submode Initialization**: Recursive submodules (`open_vins`, `vicon-receiver`) are now mandatory for a full build.
-- **MPC API Update**: Fixed `acados_template` compatibility issues in `drone_opt.py` to support newer versions of the library.
-- **MAVSDK Migration**: Updated drone controller node to use the standard `mavsdk.offboard` types.
+- **Multi-Stage Build**: Separated `perception`, `mpc`, `rl`, and `docs` targets for faster builds.
+- **MPC Runtime Fix**: Resolved a Python formatting error in `drone_mpc_controller.py`.
+- **Acados API Update**: Fixed compatibility issues in `drone_opt.py`.
+- **Submode Initialization**: Recursive submodules are now mandatory for a full build.
 
 ## Agents
 Coding agents should read the files in `aeronautics-utility/agents` and follow the coding conventions. Additionally, the AI should digest our documentation found under `docs/docs`, especially the development guidelines.
