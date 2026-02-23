@@ -29,10 +29,16 @@ jobs:
 
       - name: Initialize Submodules (Excluding Private)
         run: |
-          # On self-hosted runners, submodules can get into a dirty state.
-          # We force update and ensure nested revisions are clean.
+          # On persistent self-hosted runners, 'nuttx' nested submodules often corrupt.
+          # We deinit and reinit to ensure a clean state if the regular update fails.
+          git submodule deinit -f --all || true
+          
+          # Force clean any leftover submodule index entries
           git submodule foreach --recursive git reset --hard
-          git submodule update --init --recursive --force px4/PX4-Autopilot
+          git submodule foreach --recursive git clean -fdx
+          
+          # Attempt forced initialization
+          git submodule update --init --recursive --force px4/PX4-Autopilot || (rm -rf px4/PX4-Autopilot && git submodule update --init --recursive --force px4/PX4-Autopilot)
           git submodule update --init --recursive --force src/perception/VIO/open_vins
           git submodule update --init --recursive --force src/ros2-vicon-receiver
 

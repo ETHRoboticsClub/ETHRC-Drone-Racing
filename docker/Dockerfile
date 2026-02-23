@@ -111,7 +111,8 @@ RUN git clone https://github.com/acados/acados.git /opt/acados && \
     make install -j$(nproc)
 
 # Tera Renderer
-RUN wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64 -O /opt/acados/bin/t_renderer && \
+RUN mkdir -p /opt/acados/bin && \
+    wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64 -O /opt/acados/bin/t_renderer && \
     chmod +x /opt/acados/bin/t_renderer
 ENV TERA_PATH=/opt/acados/bin/t_renderer
 ENV LD_LIBRARY_PATH=/opt/acados/lib
