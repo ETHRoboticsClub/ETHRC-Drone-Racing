@@ -144,7 +144,7 @@ COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
 COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
 COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control mpc my_mavsdk
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk
 
 # =========================================================
 # STAGE 7: rl
@@ -156,11 +156,11 @@ RUN pip3 install --no-cache-dir torch torchvision torchaudio stable-baselines3 s
 # =========================================================
 # STAGE 8: full
 # The complete package
-# =========================================================
+# =========================================================         
 FROM rl AS full
 USER root
 # Copy perception builds from the perception stage
-COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install
+COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install                
 COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build
 # Also ensure perception source is present
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
