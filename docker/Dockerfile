@@ -172,4 +172,5 @@ RUN pip3 install --no-cache-dir "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-
 
 USER drone_dev
 WORKDIR ${WORKSPACE}
+RUN echo "source ${WORKSPACE}/install/setup.bash" >> /home/drone_dev/.bashrc
 CMD ["/bin/bash"]

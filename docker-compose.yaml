@@ -1,6 +1,5 @@
 services:
   dev:
-    container_name: ${CONTAINER_NAME:-ethrc-aero}
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -17,18 +16,15 @@ services:
     tty: true
     working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
 
-    ports:
-      - "11345:11345"
-
     volumes:
       # X11 socket for GUI applications
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       # Mount source code
       - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
       # Mount workspace build/install directories for persistence
-      - ./.colcon/ros2_ws/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
-      - ./.colcon/ros2_ws/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
-      - ./.colcon/ros2_ws/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
+      - ./.colcon/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
+      - ./.colcon/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
+      - ./.colcon/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
       # Mount px4 directory for PX4 Autopilot inside ros_ws
       - ./px4:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/px4:rw
       # Mount sim directory for Gazebo models

@@ -9,9 +9,9 @@ import os
 
 def generate_launch_description():
 
-    extended_pythonpath = os.path.expanduser('~/ros_ws/src')
+    extended_pythonpath = os.path.join(os.getcwd(), 'src')
     current_pythonpath = os.environ.get('PYTHONPATH', '')
-    new_pythonpath_value = f"{current_pythonpath}:{extended_pythonpath}" if current_pythonpath else extended_pythonpath
+    new_pythonpath_value = f"{extended_pythonpath}:{current_pythonpath}" if current_pythonpath else extended_pythonpath
 
     # rviz_config_file = PathJoinSubstitution(
     #     [FindPackageShare('drone_control'), "config", "assignement2.rviz"]

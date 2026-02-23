@@ -61,7 +61,7 @@ sudo ./scripts/prepare_colcon_volumes.sh
 xhost +local:root
 # Start your target container (e.g., dev, mpc, rl, docs)
 docker compose up dev -d
-docker exec -it erc-aeronautics bash
+docker compose exec dev bash
 ```
 
 ### Step 4 - Build the whole pipeline 
