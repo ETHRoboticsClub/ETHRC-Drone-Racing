@@ -15,7 +15,7 @@
 
 ## 🚀 The Mission
 
-Welcome to the **ETHRC Drone Racing** project. We are building the next generation of autonomous racing drones capable of navigating complex, high-speed environments with surgical precision. This repository provides a complete, containerized development environment—from high-fidelity simulation to real-world hardware deployment.
+Welcome to the **ETHRC Drone Racing** project. We are building the next generation of autonomous racing drones capable of navigating complex, high-speed environments with surgical precision. This repository provides a complete, containerized development environment - from high-fidelity simulation to real-world hardware deployment.
 
 ![Drone in Action](docs/docs/images/drone_action_front.webp)
 
