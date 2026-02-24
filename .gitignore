@@ -2,9 +2,12 @@
 build/
 install/
 log/
+__pycache__/
 *.swp
 .DS_Store
 src/mpc_dev/*
-src/mpc/__pycache__/*
 src/mpc/c_generated_code/*
+!src/mpc/c_generated_code/.gitkeep
 src/mpc/logs/*
+!src/mpc/logs/.gitkeep
+

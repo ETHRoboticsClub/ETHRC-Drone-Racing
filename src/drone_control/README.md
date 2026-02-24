@@ -1,26 +1,64 @@
-# Building the package
+# Setup
 
-We need to downgrade the `setuptools` version we currently use
-```sh
-sudo python3 -m pip uninstall -y setuptools
-sudo python3 -m pip install setuptools==79.0.1
+Clone this branch recursively and build+run the docker container. When rebuilding, delete the old image and clear the cache (```docker system prune```).
+```bash
+git clone --branch temp/controls --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
+cd ETHRC-Drone-Racing/
+docker compose build
+docker compose up -d
 ```
 
-Install nav2 msgs
-```sh
-sudo apt install ros-humble-nav2-msgs
+Open 4 terminals and enter the container in each one.
+```bash
+docker exec -it erc-aeronautics bash
 ```
 
-# Fix port is bound:
-Disconnect from container and do this:
-```sh
-$ sudo lsof -i :50051
-COMMAND   PID       USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-code    62707 papaveneti   42u  IPv4 762084      0t0  TCP localhost:50051->localhost:39538 (CLOSE_WAIT)
-$ kill 62707 # copy the PID 
+## Terminal 1
+Run gazebo
+```bash
+cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 ```
+## Terminal 2
+Build ROS, then launch the drone controller
+```bash
+sudo colcon build
+source install/setup.bash
+ros2 launch drone_control drone_controller.launch.py
+```
+
+## Terminal 3
+Send the goal to lift off (x=0, y=0, z<=-2)
+```bash
+source install/setup.bash
+ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -2.0 -yaw 0.0
+```
+
+## Terminal 4
+To cancel a goal 
+```bash
+source install/setup.bash
+ros2 run drone_control send_pose_goal cancel
+# If rejected: 
+# ros2 service call /arm_drone std_srvs/srv/SetBool "{data: true}"
+# Then retry
+```
+
+## Terminal 2
+The visualization should be launched after the first goal has been set. An ugly but working solution is to stop and relaunch the drone_control.
+```bash
+# CTRL+C
+ros2 launch drone_control drone_controller.launch.py
+```
+In the PlotJuggler at "Layout", load ```src/drone_control/config/control_plotjuggler.xml```
+
+## Remarks
+- The drone starts from the ground. It is therefore necessary to ensure the first goal does not contain changes in the x and y coordinates which could lead to it leaning into the ground immediately.
+- The drone sometimes disarms itself automatically. If a pose goal is rejected by the server, reactivate the drone with ```ros2 service call /arm_drone std_srvs/srv/SetBool "{data: true}"```
+
 
 # Run the node
+This is part of the old README. Expect some parts to be redundant with the "Setup" section above.
+
 This runs the mpc controller && the plotjuggler visualization
 ```sh
 ros2 launch drone_control drone_controller.launch.py 

@@ -23,6 +23,8 @@
 # echo ""
 
 # Launch PX4 SITL
-cd ../..
-cd px4/PX4-Autopilot
-make px4_sitl gz_drone
+# cd ../..
+# cd px4/PX4-Autopilot
+# make px4_sitl gz_drone
+
+echo "This file is outdated and serves no purpose."
