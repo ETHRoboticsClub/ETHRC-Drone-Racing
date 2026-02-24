@@ -1,3 +1,5 @@
+import os
+from glob import glob
 from setuptools import find_packages, setup
 
 package_name = 'my_mavsdk'
@@ -10,8 +12,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'config'), glob('config/*')),
     ],
-    install_requires=['setuptools'],
+    install_requires=['setuptools', 'mavsdk'],
     zip_safe=True,
     maintainer='drone_dev',
     maintainer_email='drone_dev@todo.todo',

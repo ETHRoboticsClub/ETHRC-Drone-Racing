@@ -14,11 +14,21 @@ def generate_launch_description():
     controller_params = PathJoinSubstitution(
         [FindPackageShare('drone_control'), "config", "drone_controller_config.yaml"]
     )
+    mavsdk_client_params = PathJoinSubstitution(
+        [FindPackageShare('my_mavsdk'), "config", "mavsdk_client_config.yaml"]
+    )
 
     return LaunchDescription([
         DeclareLaunchArgument('plotjuggler', default_value='false',
             description='Launch PlotJuggler alongside the controller'),
 
+        Node(
+            package="my_mavsdk",
+            executable="mavsdk_client",
+            name="mavsdk_client",
+            parameters=[mavsdk_client_params],
+            output="screen",
+        ),
         Node(
             package="drone_control",
             executable="drone_controller_node",
