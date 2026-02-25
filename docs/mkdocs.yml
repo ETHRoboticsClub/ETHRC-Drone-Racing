@@ -63,6 +63,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Recent Updates: updates.md
   - Getting Started: getting-started.md
   - Guidelines: guidelines.md
   - Perception:

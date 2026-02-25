@@ -91,13 +91,27 @@ The VIO pipeline works as follows:
 
 5. **Output**: The estimated pose, velocity, and trajectory are published to ROS 2 topics for use by other modules.
 
-## Launch OpenVINS in Gazebo Simulation 
-```
-ros2 launch ov_msckf subscribe.launch.py config:=gazebo_sim use_stereo:=false config_path:=/home/drone_dev/ros_ws/src/open_vins/config/gazebo_sim/estimator_config.yaml use_stereo:=false max_cameras:=1
-```
-Important to enforce the use stereo and max cameras parameter otherwise it give segmentation fault error
+## Launch OpenVINS in Gazebo Simulation
 
-## Debug Segmentation Error
+```bash
+ros2 launch ov_msckf subscribe.launch.py \
+    config:=gazebo_sim \
+    use_stereo:=false \
+    config_path:=/home/drone_dev/ros_ws/src/perception/VIO/open_vins/config/gazebo_sim/estimator_config.yaml \
+    use_stereo:=false \
+    max_cameras:=1
+```
+
+> [!TIP]
+> You can also use the top-level orchestration launch file which handles these paths automatically:
+> ```bash
+> ros2 launch launch/perception.launch.py
+> ```
+
+> [!IMPORTANT]
+> It is important to enforce the `use_stereo` and `max_cameras` parameters, otherwise, the system may encounter a segmentation fault.
+
+## Debugging Segmentation Faults
 In case of segmentation error to be able to debug add the following line in the `ov_msckf/launch/subscribe.launch.py` file:
 
 ```

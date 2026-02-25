@@ -4,16 +4,11 @@
 
 ---
 
-Welcome to the Controls team documentation.
+Welcome to the Controls team documentation. This section describes the control algorithms, flight stack configuration, and how components interact during flight.
 
 ## Overview
 
-This section contains documentation for the control algorithms and the overall flight stack configuration.  
-It describes how control, estimation, and communication components are structured in the codebase and how they interact during flight.
-
 The architecture is designed to be **modular**, **controller-agnostic**, and tightly integrated with **ROS 2**, while relying on MAVSDK for low-level communication with the vehicle.
-
----
 
 ## Codebase Architecture
 

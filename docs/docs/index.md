@@ -3,20 +3,42 @@
 **Page Owner:** [Members of the Aeronautics Division](https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/)
 
 ---
+
 <p align="center">
 <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing">
   <img src="images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics Logo" width="70%" class="hero-logo"/>
 </a>
 </p>
 
-Welcome to the ETHRC Drone Racing project documentation! The project is currently still in development and is not yet ready for public use.
-Still, we want to that as soon as we have reached our goals and are ready to release the project. This documentation is hence really important!
+Welcome to the ETHRC Drone Racing project documentation! This repository provides a complete development environment for drone racing research and development.
+
+<p align="center">
+  <a href="images/drone_wip.mp4">
+    <img src="images/rl_wip.gif" alt="Autonomous RL Training Simulation" width="80%"/>
+  </a>
+  <br>
+  <i>Check out our <b>Autonomous RL Training Simulation</b> (click above to play)</i>
+</p>
 
 Everyone in the project is free to commit changes to the docs and we really encourage you to do so!
 If you are unsure whether the information belongs here or on our Notion page, then feel free to ask.
-Otherwise the answer to the question ***"If the repo goes public, would this be relevant to them?"*** should guide your decision. Generally anything technical (implementation details, technical decisions etc.) belong here.
+Relevant technical details (implementation, designs, etc.) should live here.
 
-Please note that some pages have a responsible person but you can do a pull request for changes any time.
+## 🏗 System Architecture
+
+The project integrates high-fidelity simulation with advanced sensing and control for autonomous racing.
+
+<p align="center">
+  <img src="images/Interfaces.drawio.png" width="90%" alt="System Architecture" />
+</p>
+
+## What's New? (Feb 2026)
+
+- **System Stability**: Fixed MPC and MAVSDK compatibility issues for smoother simulation takeoff.
+- **Enhanced Perception**: Correctly integrated `open_vins` and `ros2-vicon-receiver` as submodules.
+- **Visualization Suite**: New instructions for RViz and Gazebo monitoring are now available in the [**Getting Started**](getting-started.md#visualization-and-monitoring) guide.
+
+**[Read the full summary of recent changes here &raquo;](updates.md)**
 
 ## Quick Links
 

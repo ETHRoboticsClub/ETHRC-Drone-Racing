@@ -16,31 +16,44 @@ on:
 
 jobs:
   build:
-    name: Build Docker Image
+    name: Build ${{ matrix.target }}
     runs-on: self-hosted
-    
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [docs, perception, mpc, rl, dev]
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Initialize Submodules (Excluding Private)
         run: |
-          # Manually initialize only the submodules we need and have access to
-          git submodule update --init --recursive px4/PX4-Autopilot
-          git submodule update --init --recursive src/perception/VIO/open_vins
+          # On persistent self-hosted runners, 'nuttx' nested submodules often corrupt.
+          # We deinit and reinit to ensure a clean state if the regular update fails.
+          git submodule deinit -f --all || true
+          
+          # Force clean any leftover submodule index entries
+          git submodule foreach --recursive git reset --hard
+          git submodule foreach --recursive git clean -fdx
+          
+          # Attempt forced initialization
+          git submodule update --init --recursive --force px4/PX4-Autopilot || (rm -rf px4/PX4-Autopilot && git submodule update --init --recursive --force px4/PX4-Autopilot)
+          git submodule update --init --recursive --force src/perception/VIO/open_vins
+          git submodule update --init --recursive --force src/ros2-vicon-receiver
 
-      - name: Build Docker Image
+      - name: Build Docker Service
         run: |
-          # Use docker-compose to build the image.
-          # We don't use -d here as we only want to verify the build.
-          docker compose build --no-cache
+          # Use a unique project name and container name per run to avoid collisions
+          export COMPOSE_PROJECT_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
+          export CONTAINER_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
+          # Use docker-compose to build the specific service.
+          docker compose build --no-cache ${{ matrix.service }}
 
       - name: Cleanup
         if: always()
         run: |
           # Remove the specific image built in this run to save space
-          docker rmi ethrc-drone-racing-dev:latest || true
-          
-          # Prune dangling data and the BuildKit build cache specifically
+          # Docker compose uses specific tagging usually, but we prune for safety
           docker system prune -f
           docker builder prune -a -f

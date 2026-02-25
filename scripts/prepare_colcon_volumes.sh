@@ -11,7 +11,7 @@ USER_NAME="${SUDO_USER:-$USER}"
 USER_ID="$(id -u "$USER_NAME")"
 GROUP_ID="$(id -g "$USER_NAME")"
 
-TARGET_DIR=".colcon/ros2_ws"
+TARGET_DIR=".colcon"
 DIRS=(build install log)
 
 echo "Preparing host bind directories under $TARGET_DIR for user $USER_NAME ($USER_ID:$GROUP_ID)"

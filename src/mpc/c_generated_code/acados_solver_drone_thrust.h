@@ -99,6 +99,7 @@ typedef struct drone_thrust_solver_capsule
     // dynamics
 
     external_function_external_param_casadi *expl_vde_forw;
+    external_function_external_param_casadi *expl_vde_forw_p;
     external_function_external_param_casadi *expl_ode_fun;
     external_function_external_param_casadi *expl_vde_adj;
 
@@ -172,7 +173,6 @@ ACADOS_SYMBOL_EXPORT int drone_thrust_acados_setup_qp_matrices_and_factorize(dro
 ACADOS_SYMBOL_EXPORT int drone_thrust_acados_free(drone_thrust_solver_capsule * capsule);
 ACADOS_SYMBOL_EXPORT void drone_thrust_acados_print_stats(drone_thrust_solver_capsule * capsule);
 ACADOS_SYMBOL_EXPORT int drone_thrust_acados_custom_update(drone_thrust_solver_capsule* capsule, double* data, int data_len);
-
 
 ACADOS_SYMBOL_EXPORT ocp_nlp_in *drone_thrust_acados_get_nlp_in(drone_thrust_solver_capsule * capsule);
 ACADOS_SYMBOL_EXPORT ocp_nlp_out *drone_thrust_acados_get_nlp_out(drone_thrust_solver_capsule * capsule);

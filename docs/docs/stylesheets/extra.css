@@ -1,37 +1,85 @@
 :root {
     /* ETHRC Dark Mode Override */
-    --md-hue: 230;
-    /* Indigo-ish base */
+    --md-hue: 220;
+    --md-primary-fg-color: #0D0D0D;
+    --md-accent-fg-color: #3f51b5;
+
+    /* Typography */
+    --md-typeset-font-size: 17.5px;
+    --md-typeset-line-height: 1.65;
 }
 
 [data-md-color-scheme="slate"] {
     /* Primary background color matching ETHRC website */
     --md-default-bg-color: #0D0D0D;
-    --md-default-bg-color--light: #1a1a1a;
-    --md-default-bg-color--lighter: #262626;
-    --md-default-bg-color--lightest: #333333;
+    --md-default-bg-color--light: #151515;
+    --md-default-bg-color--lighter: #1a1a1a;
+    --md-default-bg-color--lightest: #202020;
+
+    --md-typeset-color: rgba(255, 255, 255, 0.85);
+    --md-typeset-a-color: #5c6bc0;
+}
+
+/* Typography refinements */
+.md-typeset h1 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5em;
+}
+
+.md-typeset h2 {
+    font-weight: 700;
+    margin-top: 2em;
+    border-bottom: 1px solid var(--md-default-bg-color--lightest);
+    padding-bottom: 0.3em;
+}
+
+/* Link Hover Effects */
+.md-typeset a {
+    transition: color 0.2s ease, border-bottom 0.2s ease;
+    text-underline-offset: 3px;
+}
+
+.md-typeset a:hover {
+    color: var(--md-accent-fg-color--transparent);
+    filter: brightness(1.2);
+}
+
+/* Subtle Horizontal Rule */
+hr {
+    border: 0;
+    height: 1px;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0), var(--md-default-bg-color--lightest), rgba(0, 0, 0, 0));
+    margin: 3em 0;
+}
+
+[data-md-color-scheme="slate"] hr {
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
 }
 
 /* Logo Styling */
 .hero-logo {
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
-    transition: all 0.3s ease;
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.1));
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-bottom: 2em;
 }
 
 .hero-logo:hover {
-    transform: scale(1.05);
-    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.4));
+    transform: scale(1.03);
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
 }
 
 /* Invert logo in dark mode if it's black text */
 [data-md-color-scheme="slate"] .hero-logo {
-    filter: invert(1) drop-shadow(0 0 10px rgba(0, 0, 0, 0.5));
+    filter: invert(1) drop-shadow(0 0 15px rgba(0, 0, 0, 0.3));
 }
 
 /* General Image Styling */
 article img {
     max-width: 100%;
     height: auto;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    margin-top: 1em;
+    margin-bottom: 1em;
 }

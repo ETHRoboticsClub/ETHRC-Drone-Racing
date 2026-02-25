@@ -1,9 +1,9 @@
 services:
   dev:
-    container_name: erc-aeronautics
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: full
       network: host
       args:
         BASE_IMAGE: osrf/ros:humble-desktop
@@ -16,18 +16,16 @@ services:
     tty: true
     working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
 
-    ports:
-      - "11345:11345"
-
     volumes:
       # X11 socket for GUI applications
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       # Mount source code
       - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
+      - ./launch:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/launch:rw
       # Mount workspace build/install directories for persistence
-      - ./.colcon/ros2_ws/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
-      - ./.colcon/ros2_ws/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
-      - ./.colcon/ros2_ws/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
+      - ./.colcon/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
+      - ./.colcon/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
+      - ./.colcon/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
       # Mount px4 directory for PX4 Autopilot inside ros_ws
       - ./px4:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/px4:rw
       # Mount sim directory for Gazebo models
@@ -44,7 +42,7 @@ services:
     environment:
       # --- MKDocs ---
       MKDOCS_PORT: ${MKDOCS_PORT:-8000}
-      
+
       # --- ROS Configuration ---
       ROS_DOMAIN_ID: 1
       RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
@@ -65,29 +63,42 @@ services:
       NO_AT_BRIDGE: "1"
       XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
       PULSE_SERVER: ${PULSE_SERVER}
-
       # --- Optional GPU ---
       # LIBGL_ALWAYS_SOFTWARE: 1
 
-    # Uncomment if NVIDIA Container Toolkit is installed
-    # runtime: nvidia
-    # gpus: all
+      # Uncomment if NVIDIA Container Toolkit is installed
+      # runtime: nvidia
+      # gpus: all
 
-  # ov_ros1:
-  #   build:
-  #     context: .
-  #     dockerfile: docker/Dockerfile.ros1
-  #   container_name: erc-ov-ros1
-  #   network_mode: host
-  #   environment:
-  #     - DISPLAY=${DISPLAY}
-  #     - QT_X11_NO_MITSHM=1
-  #     - ROS_MASTER_URI=http://127.0.0.1:11311
-  #   volumes:
-  #     - /tmp/.X11-unix:/tmp/.X11-unix:ro
-  #     # Mount the whole repo to access EuRoC config and bags
-  #     - ./:/ws:rw
-  #     # A persistent catkin_ws outside the image is optional; you can also build in-container
-  #     - ./.colcon/ros1_catkin_ws:/catkin_ws
-  #   working_dir: /catkin_ws
-  #   tty: true
+      # --- Documentation Team ---
+  docs:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: docs
+    command: [ "mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000" ]
+
+  # --- Perception Team ---
+  perception:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: perception
+
+  # --- MPC / Control Team ---
+  mpc:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: mpc
+
+  # --- RL Team ---
+  rl:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: rl

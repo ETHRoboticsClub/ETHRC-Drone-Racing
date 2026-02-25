@@ -65,8 +65,6 @@ class DroneOptimizer(object):
         self.nu = nu
 
         ocp = AcadosOcp()
-        ocp.acados_include_path = acados_source_path + '/include' if acados_source_path else ''
-        ocp.acados_lib_path = acados_source_path + '/lib' if acados_source_path else ''
         ocp.model = model
         ocp.solver_options.N_horizon = self.N
         ocp.solver_options.tf = self.T
