@@ -17,12 +17,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN locale-gen en_US.UTF-8 && update-ca-certificates
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
+# ROS 2 Environment
+ENV ROS_DISTRO=humble
+ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV CMAKE_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
+ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python3.10/site-packages
+
 # ROS 2 Tooling & MAVROS
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-rosdep python3-argcomplete python3-vcstool python3-colcon-common-extensions \
     ros-humble-image-transport ros-humble-cv-bridge ros-humble-rmw-cyclonedds-cpp \
     ros-humble-mavros ros-humble-mavros-extras geographiclib-tools \
     ros-humble-nav2-msgs ros-humble-plotjuggler-ros \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+    libopencv-dev python3-opencv \
+    libvulkan1 vulkan-tools clang clang-format \
     && rm -rf /var/lib/apt/lists/*
 RUN rosdep init || true
 RUN /bin/bash -lc "source /opt/ros/humble/setup.bash && /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"
@@ -119,7 +133,7 @@ RUN mkdir -p /opt/acados/bin && \
     wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64 -O /opt/acados/bin/t_renderer && \
     chmod +x /opt/acados/bin/t_renderer
 ENV TERA_PATH=/opt/acados/bin/t_renderer
-ENV LD_LIBRARY_PATH=/opt/acados/lib
+ENV LD_LIBRARY_PATH=/opt/acados/lib:${LD_LIBRARY_PATH}
 ENV ACADOS_SOURCE_DIR=/opt/acados
 
 # Python deps
