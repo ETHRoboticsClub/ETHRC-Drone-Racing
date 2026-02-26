@@ -34,26 +34,19 @@ ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -2.0 -yaw 0.0
 ```
 
 ## Terminal 4
-To cancel a goal 
+If you wish to cancel a goal: 
 ```bash
 source install/setup.bash
 ros2 run drone_control send_pose_goal cancel
-# If rejected: 
-# ros2 service call /arm_drone std_srvs/srv/SetBool "{data: true}"
-# Then retry
 ```
+This might cause bugs and it is therefore recommended to wait out goals instead of cancelling them unnecessarily.
 
-## Terminal 2
-The visualization should be launched after the first goal has been set. An ugly but working solution is to stop and relaunch the drone_control.
-```bash
-# CTRL+C
-ros2 launch drone_control drone_controller.launch.py
-```
-In the PlotJuggler at "Layout", load ```src/drone_control/config/control_plotjuggler.xml```
+## Finally
+Now that the first goal has been set, in the PlotJuggler at "Layout", load ```src/drone_control/config/control_plotjuggler.xml```
 
 ## Remarks
 - The drone starts from the ground. It is therefore necessary to ensure the first goal does not contain changes in the x and y coordinates which could lead to it leaning into the ground immediately.
-- The drone sometimes disarms itself automatically. If a pose goal is rejected by the server, reactivate the drone with ```ros2 service call /arm_drone std_srvs/srv/SetBool "{data: true}"```
+- The drone sometimes disarms itself automatically. If a pose goal is rejected by the server or the drone seems to not react, reactivate it with ```ros2 service call /arm_drone std_srvs/srv/SetBool "{data: true}"```
 
 
 # Run the node
