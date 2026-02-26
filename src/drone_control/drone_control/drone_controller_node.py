@@ -16,7 +16,10 @@ from geometry_msgs.msg import PoseStamped, Pose
 
 # drone
 from drone_control.mavsdk_client import AttitudeRate, PositionNedYaw
+from interfaces import ControllerInterface
 from mpc.drone_mpc_controller import DroneMpcController
+from rl.drone_rl_controller import DroneRLController
+
 
 # general
 import numpy as np
@@ -32,7 +35,7 @@ class thresholds:
 
 class DroneController(Node):
 
-    controller : DroneMpcController
+    controller : ControllerInterface
 
     # parameters
     control_rate: float
@@ -63,7 +66,6 @@ class DroneController(Node):
     def __init__(self):
         super().__init__('drone_controller_node')
 
-        self.controller = DroneMpcController()
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
         self.state[6] = 1.0
@@ -73,17 +75,19 @@ class DroneController(Node):
         self.timer_cb_group = MutuallyExclusiveCallbackGroup()
 
         # parameters
+        self.declare_parameter('controller_type', 'mpc')  # 'mpc' or 'rl' TODO: remove hardcoding 
         self.declare_parameter('state_topic','drone_state_sim')
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate',100.0)
-        self.declare_parameter('threshold.positon',0.1)
+        self.declare_parameter('threshold.positon',0.1) # TODO: fix typo safely
         self.declare_parameter('threshold.velocity',0.02)
         self.declare_parameter('threshold.angular_velocity',0.02)
         self.declare_parameter('threshold.orientation',0.1)
         self.declare_parameter('trajectory_max_desired_velocity.linear',1)
         self.declare_parameter('trajectory_max_desired_velocity.angular',1)
 
+        controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
@@ -103,6 +107,11 @@ class DroneController(Node):
                                                                             depth=1, 
                                                                             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
                                                                         ))
+        if controller_type == 'mpc':
+            self.controller = DroneMpcController()
+        else:
+            self.controller = DroneRLController()
+        
         self.controller_rate =  self.create_rate(self.control_rate)
         
         self.position_goal_server = rclpy.action.ActionServer(
@@ -391,6 +400,7 @@ class DroneController(Node):
 
         This takes <1ms for 50 sampling points
         """
+        # TODO: This method is unique to MPC and should not be in this module.
 
         if tcurrent is None:
             # TODO: [optional] implement feedback in trajectory tracking. Aim: test what is better

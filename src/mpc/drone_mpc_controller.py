@@ -4,9 +4,11 @@ import numpy as np
 
 from mavsdk.offboard import AttitudeRate
 
+from interfaces import ControllerInterface
+
 DEBUG_INFO_PRINTS = True
 
-class DroneMpcController():
+class DroneMpcController(ControllerInterface):
 
     drone_model : DroneModel
     opt: DroneOptimizer
@@ -90,16 +92,16 @@ class DroneMpcController():
         return self.attitude_cmd_from_mpc_cmd(thrust_N,wx_cmd,wy_cmd,wz_cmd)
 
 
-    def controller_update(self, x_current :np.ndarray, goal_positon :np.ndarray) -> AttitudeRate :
+    def controller_update(self, x_current :np.ndarray, goal_position :np.ndarray) -> AttitudeRate :
         # TODO: bad, 2 change
         self.x_current = x_current
-        self.goal_postion = goal_positon
+        self.goal_position = goal_position
 
         # Solve OCP
         # TODO: Handle mpc failure more explicitely
         try:
             #TODO: bound solution time, ensure RT
-            u0 = self.opt.compute_control_once(self.x_current, self.goal_postion)
+            u0 = self.opt.compute_control_once(self.x_current, self.goal_position)
 
             if DEBUG_INFO_PRINTS:
                 self._debug_print(u0)
