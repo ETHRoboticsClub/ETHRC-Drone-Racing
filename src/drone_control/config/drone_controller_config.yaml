@@ -1,5 +1,6 @@
 /drone_controller_node:
   ros__parameters:
+    controller_type: "mpc_rotor"  # Options: 'mpc', 'mpc_rotor', 'rl'
     state_topic: "drone_state_sim"
     controller_rate: 100.0
     threshold:

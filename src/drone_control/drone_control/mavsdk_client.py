@@ -50,6 +50,7 @@ class MavSDKClient(Node):
     state_publisher: Publisher
     attitude_cmd_subscriber: Subscription
     pos_cmd_subscriber: Subscription
+    rotor_cmd_subscriber: Subscription
     takeoff_server: Service
     arming_server: Service
 
@@ -115,6 +116,7 @@ class MavSDKClient(Node):
         self.state_publisher = self.create_publisher(Float64MultiArray, 'drone_state_sim', 10)
         self.attitude_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.attitudeRate_cmd_cb,10)
         self.pos_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_position_cmd',self.position_cmd_cb,10)
+        self.rotor_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_rotor_cmd',self.rotor_cmd_cb,10)
         
         self.arming_server = self.create_service(SetBool, '/arm_drone', self.arm_drone_cb,callback_group=self.secondary_cb_group)
         self.takeoff_server = self.create_service(SetBool, '/takeoff_drone', self.takeoff_drone_cb,callback_group=self.secondary_cb_group)
@@ -160,6 +162,25 @@ class MavSDKClient(Node):
 
     def send_Position_cmd(self, cmd : PositionNedYaw):
         self.run_async(self.drone.offboard.set_position_ned(cmd))
+
+    def rotor_cmd_cb(self, msg: Float64MultiArray):
+        """Direct rotor actuator control callback - bypasses attitude controllers."""
+        if len(msg.data) == 4:
+            # PX4 actuator control: group 0 = main motors (indices 0-3)
+            # Values are normalized [0, 1]
+            u0 = float(msg.data[0])
+            u1 = float(msg.data[1])
+            u2 = float(msg.data[2])
+            u3 = float(msg.data[3])
+            self.send_Rotor_cmd([u0, u1, u2, u3])
+
+    def send_Rotor_cmd(self, u_rotors: list):
+        """Send direct actuator commands to PX4 motors."""
+        # MAVSDK actuator control: set_actuator_control([group0, group1, ...])
+        # group0 = [motor0, motor1, motor2, motor3, ...]
+        # We only control the 4 main rotors
+        actuator_group = [u_rotors[0], u_rotors[1], u_rotors[2], u_rotors[3]]
+        self.run_async(self.drone.offboard.set_actuator_control([actuator_group]))
 
     def run_async(self, coroutine):
         """ 

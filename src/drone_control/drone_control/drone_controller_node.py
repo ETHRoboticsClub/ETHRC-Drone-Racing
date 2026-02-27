@@ -18,6 +18,7 @@ from geometry_msgs.msg import PoseStamped, Pose
 from drone_control.mavsdk_client import AttitudeRate, PositionNedYaw
 from interfaces import ControllerInterface
 from mpc.drone_mpc_controller import DroneMpcController
+from mpc.drone_mpc_controller_rotor import DroneMpcControllerRotor
 from rl.drone_rl_controller import DroneRLController
 
 
@@ -39,6 +40,7 @@ class DroneController(Node):
 
     # parameters
     control_rate: float
+    controller_type: str
     thresholds_ : thresholds = thresholds()
     trajectory_max_desired_velocity_linear: float
     trajectory_max_desired_velocity_angular: float
@@ -47,6 +49,7 @@ class DroneController(Node):
     controller_rate: Rate
     state_subscriber: Subscription
     attitude_command_publisher: Publisher
+    rotor_command_publisher: Publisher
     current_target_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
@@ -87,7 +90,7 @@ class DroneController(Node):
         self.declare_parameter('trajectory_max_desired_velocity.linear',1)
         self.declare_parameter('trajectory_max_desired_velocity.angular',1)
 
-        controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
+        self.controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
@@ -100,6 +103,7 @@ class DroneController(Node):
         #TODO: maybe change to joint_states (Michalis)
         self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)
         self.attitude_command_publisher = self.create_publisher(Float64MultiArray,attitude_command_topic, 10)
+        self.rotor_command_publisher = self.create_publisher(Float64MultiArray, '/drone_rotor_cmd', 10)
         self.position_command_publisher = self.create_publisher(Float64MultiArray,position_command_topic, 10)
         self.current_target_publisher = self.create_publisher(PoseStamped, 
                                                               '/drone_current_target', 
@@ -107,8 +111,11 @@ class DroneController(Node):
                                                                             depth=1, 
                                                                             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
                                                                         ))
-        if controller_type == 'mpc':
+        if self.controller_type == 'mpc':
             self.controller = DroneMpcController()
+        elif self.controller_type == 'mpc_rotor':
+            self.controller = DroneMpcControllerRotor()
+            self.get_logger().info('Using MPC with direct rotor control')
         else:
             self.controller = DroneRLController()
         
@@ -266,10 +273,16 @@ class DroneController(Node):
         while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
             with self.state_lock:
                 current_state = self.state.copy()
-            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,self.current_goal_state)
-
-            cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
-            self.attitude_command_publisher.publish(cmd_msg)
+            
+            # Direct rotor control for mpc_rotor, attitude control otherwise
+            if self.controller_type == 'mpc_rotor':
+                u_rotors = self.controller.controller_update(current_state, self.current_goal_state)
+                cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
+                self.rotor_command_publisher.publish(cmd_msg)
+            else:
+                attitude_cmd : AttitudeRate = self.controller.controller_update(current_state, self.current_goal_state)
+                cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
+                self.attitude_command_publisher.publish(cmd_msg)
 
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
@@ -359,11 +372,17 @@ class DroneController(Node):
             with self.state_lock:
                 current_state = self.state.copy()
             traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
-            self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached. 
-            attitude_cmd : AttitudeRate  = self.controller.trajectory_controller_update(current_state,traj_desired)
-
-            cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
-            self.attitude_command_publisher.publish(cmd_msg)
+            self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached.
+            
+            # Direct rotor control for mpc_rotor, attitude control otherwise
+            if self.controller_type == 'mpc_rotor':
+                u_rotors = self.controller.trajectory_controller_update(current_state, traj_desired)
+                cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
+                self.rotor_command_publisher.publish(cmd_msg)
+            else:
+                attitude_cmd : AttitudeRate = self.controller.trajectory_controller_update(current_state, traj_desired)
+                cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
+                self.attitude_command_publisher.publish(cmd_msg)
             
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
