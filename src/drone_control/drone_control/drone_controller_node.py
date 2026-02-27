@@ -1,3 +1,10 @@
+# Add src directory to Python path for mpc, interfaces, rl imports
+import sys
+import os
+src_path = os.path.expanduser('~/ros_ws/src')
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
 # ros related
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
@@ -19,7 +26,14 @@ from drone_control.mavsdk_client import AttitudeRate, PositionNedYaw
 from interfaces import ControllerInterface
 from mpc.drone_mpc_controller import DroneMpcController
 from mpc.drone_mpc_controller_rotor import DroneMpcControllerRotor
-from rl.drone_rl_controller import DroneRLController
+
+# Try to import RL controller (optional, requires torch)
+try:
+    from rl.drone_rl_controller import DroneRLController
+    RL_AVAILABLE = True
+except ImportError:
+    RL_AVAILABLE = False
+    print("[WARNING] DroneRLController not available (torch not installed)")
 
 
 # general
@@ -116,8 +130,15 @@ class DroneController(Node):
         elif self.controller_type == 'mpc_rotor':
             self.controller = DroneMpcControllerRotor()
             self.get_logger().info('Using MPC with direct rotor control')
+        elif self.controller_type == 'rl':
+            if not RL_AVAILABLE:
+                self.get_logger().error('RL controller requested but not available (torch not installed). Falling back to MPC.')
+                self.controller = DroneMpcController()
+            else:
+                self.controller = DroneRLController()
         else:
-            self.controller = DroneRLController()
+            self.get_logger().error(f'Unknown controller_type: {self.controller_type}. Falling back to MPC.')
+            self.controller = DroneMpcController()
         
         self.controller_rate =  self.create_rate(self.control_rate)
         

@@ -147,5 +147,8 @@ class DroneMpcController(ControllerInterface):
             print(f"[MPC iter {self.mpc_iter}] "
                     f"pos=({self.x_current[0]:.2f},{self.x_current[1]:.2f},{self.x_current[2]:.2f}) "
                     f"goal=({self.goal_postion[0]:.2f},{self.goal_postion[1]:.2f},{self.goal_postion[2]:.2f})")
-            print(f"  u=[T={u0[0]:.2f}N, "
-                    f"wx={u0[1]:.3f}, wy={u0[2]:.3f}, wz={u0[3]:.3f}]")
+            # u0 is a tuple (u_array, x_next, x_pred, u_pred), so u0[0] is the control array
+            print(f"  u=[T={float(u0[0][0]):.2f}N, "
+                    f"wx={float(u0[0][1]):.3f}, wy={float(u0[0][2]):.3f}, wz={float(u0[0][3]):.3f}]")
+
+

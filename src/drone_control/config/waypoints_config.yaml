@@ -1,35 +1,47 @@
 # waypoints_config.yaml
+# Figure-8 trajectory repeated 10 times
+# 
+# Configuration:
+#   dt = 1.5 seconds (time step between waypoints)
+#   Each lap duration: 8 waypoints × 1.5s = 12 seconds
+#   Total duration: 10 laps × 12s = 120 seconds
+#   Altitude: z = -1.0m (1 meter above origin in NED frame)
+#
+# To regenerate with custom parameters:
+#   python3 generate_waypoints.py waypoints_config.yaml
+
 waypoints:
+  # ===== LAP 1 =====
   - x: 1.0
     y: 1.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 1.5 
+    time_from_beginning: 1.5  
   - x: 2.0
     y: 0.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 3.0 
+    time_from_beginning: 3.0  
   - x: 1.0
     y: -1.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 4.5 
+    time_from_beginning: 4.5  
   - x: 0.0
     y: 0.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 6.0 
+    time_from_beginning: 6.0  
   - x: -1.0
     y: 1.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 7.5 
+    time_from_beginning: 7.5  
   - x: -2.0
     y: 0.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 9.0 
+    time_from_beginning: 9.0  
   - x: -1.0
     y: -1.0
     z: -1.0
@@ -39,5 +51,384 @@ waypoints:
     y: 0.0
     z: -1.0
     yaw_deg: 0.0
-    time_from_beginning: 12.0 
+    time_from_beginning: 12.0  
+
+  # ===== LAP 2 =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 13.5 
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 15.0 
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 16.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 18.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 19.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 21.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 22.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 24.0
+
+  # ===== LAP 3=====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 25.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 27.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 28.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 30.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 31.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 33.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 34.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 36.0
+
+  # ===== LAP 4 (t = 24*dt to 32*dt) =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 37.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 39.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 40.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 42.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 43.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 45.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 46.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 48.0
+
+  # ===== LAP 5 (t = 32*dt to 40*dt) =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 49.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 51.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 52.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 54.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 55.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 57.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 58.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 60.0
+
+  # ===== LAP 6 =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 61.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 63.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 64.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 66.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 67.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 69.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 70.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 72.0
+
+  # ===== LAP 7 =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 73.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 75.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 76.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 78.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 79.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 81.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 82.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 84.0
+
+  # ===== LAP 8 =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 85.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 87.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 88.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 90.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 91.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 93.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 94.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 96.0
+
+  # ===== LAP 9 =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 97.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 99.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 100.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 102.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 103.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 105.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 106.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 108.0
+
+  # ===== LAP 10 =====
+  - x: 1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 109.5
+  - x: 2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 111.0
+  - x: 1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 112.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 114.0
+  - x: -1.0
+    y: 1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 115.5
+  - x: -2.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 117.0
+  - x: -1.0
+    y: -1.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 118.5
+  - x: 0.0
+    y: 0.0
+    z: -1.0
+    yaw_deg: 0.0
+    time_from_beginning: 120.0
+ 
 
