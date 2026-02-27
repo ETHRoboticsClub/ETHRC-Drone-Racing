@@ -6,15 +6,12 @@ install/
 log/
 *.swp
 .DS_Store
-<<<<<<< HEAD
 get-docker.sh
 rosbag
 tests/
 plots/
-=======
 src/mpc_dev/*
 src/mpc/__pycache__/*
 src/mpc/c_generated_code/*
 src/mpc/logs/*
->>>>>>> origin/feature/controls
 docs/docs/images/rl_wip.gif:Zone.Identifier

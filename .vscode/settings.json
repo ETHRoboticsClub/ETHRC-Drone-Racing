@@ -86,5 +86,5 @@
         "core": "cpp",
         "scoped_allocator": "cpp"
     },
-    "cmake.sourceDirectory": "/home/oliomap/Desktop/ETH/ETHRC/ETHRC-Drone-Racing/px4/PX4-Autopilot"
+    "cmake.sourceDirectory": "/home/dime/proj/ETHRC-Drone-Racing/px4/PX4-Autopilot/src/drivers/distance_sensor/ll40ls_pwm"
 }

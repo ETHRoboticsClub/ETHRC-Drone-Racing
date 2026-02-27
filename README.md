@@ -1,4 +1,10 @@
-# <p align="center"><img src="docs/docs/images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics" width="600"/></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/docs/images/ETHRC-Aeronautics-Logo-Dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/docs/images/ETHRC-Aeronautics-Logo-Light.svg">
+    <img alt="ETHRC Aeronautics" src="docs/docs/images/ETHRC-Aeronautics-Logo-Light.svg" width="600">
+  </picture>
+</p>
 
 <p align="center">
   <b>Pushing the boundaries of Autonomous Drone Racing with ROS 2, PX4, and Cutting-edge Perception.</b>
@@ -94,8 +100,8 @@ Our system is composed of several high-performance subsystems working in harmony
 
 Are you passionate about robotics, computer vision, or control theory? We are always looking for motivated engineers to join the ETHRC Aeronautics division.
 
-- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs`)
-- 📝 **Guidelines:** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
+- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs -d`)
+- 📝 **Guidelines (with Coding Agents):** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
 - 💬 **Get Involved:** Reach out to the team on Discord or Open an Issue!
 
 ---

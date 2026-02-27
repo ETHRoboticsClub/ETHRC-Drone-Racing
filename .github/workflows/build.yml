@@ -14,6 +14,10 @@ on:
       - 'merge/*'
       - 'fix/*'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build ${{ matrix.target }}
@@ -26,19 +30,35 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          submodules: false # Manual initialization for better control and recovery
 
-      - name: Initialize Submodules (Excluding Private)
+      - name: Surgical Submodule Initialization
         run: |
-          # On persistent self-hosted runners, 'nuttx' nested submodules often corrupt.
-          # We deinit and reinit to ensure a clean state if the regular update fails.
-          git submodule deinit -f --all || true
+          # 1. Sync submodule URLs (Crucial for handling URL changes)
+          git submodule sync --recursive
           
-          # Force clean any leftover submodule index entries
-          git submodule foreach --recursive git reset --hard
-          git submodule foreach --recursive git clean -fdx
+          # 2. Prevent "could not lock config" errors
+          if [ -d ".git/modules/aeronautics-utility" ]; then
+            if [ ! -f ".git/modules/aeronautics-utility/config" ]; then
+               echo "Fixing corrupted aeronautics-utility metadata..."
+               rm -rf ".git/modules/aeronautics-utility"
+            fi
+          fi
+
+          # 3. Targeted Initialization 
+          echo "Initializing aeronautics-utility..."
+          git submodule update --init --recursive --force aeronautics-utility
           
-          # Attempt forced initialization
-          git submodule update --init --recursive --force px4/PX4-Autopilot || (rm -rf px4/PX4-Autopilot && git submodule update --init --recursive --force px4/PX4-Autopilot)
+          echo "Initializing PX4-Autopilot..."
+          # If nested submodules fail, perform surgical reset of the worktree
+          git submodule update --init --recursive --force --depth 1 px4/PX4-Autopilot || (
+            echo "PX4 update failed, attempting surgical worktree cleanup..."
+            rm -rf px4/PX4-Autopilot
+            git submodule update --init --recursive --force --depth 1 px4/PX4-Autopilot
+          )
+          
+          echo "Initializing Perception and Vicon submodules..."
           git submodule update --init --recursive --force src/perception/VIO/open_vins
           git submodule update --init --recursive --force src/ros2-vicon-receiver
 
