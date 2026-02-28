@@ -14,7 +14,7 @@ import threading
 from dataclasses import dataclass
 
 from mavsdk import System
-from mavsdk.offboard import AttitudeRate, PositionNedYaw
+from mavsdk.offboard import AttitudeRate, PositionNedYaw, ActuatorControl, ActuatorControlGroup
 from mavsdk.telemetry import Battery
 
 import time
@@ -86,7 +86,7 @@ class MavSDKClient(Node):
         Current implementation returns a future while waiting for connections. So other process can occur while waiting for full connection
         #TODO: handle errors
         """
-        await self.drone.connect(system_address="udp://:14540")
+        await self.drone.connect(system_address="udpin://0.0.0.0:14540")
         drone_connected = await self._wait_for_connection(timeout_s=15.0)
         if not drone_connected:
             self.get_logger().info("Connection failed")
