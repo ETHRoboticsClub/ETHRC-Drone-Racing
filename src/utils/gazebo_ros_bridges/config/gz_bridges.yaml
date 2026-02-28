@@ -14,15 +14,15 @@ bridges:
     enabled: true
 
   - name: camera_imu
-    gz_topic: "/world/walls/model/x500_cam_0/link/base_link/sensor/imu_sensor/imu"
+    gz_topic: "/drone/imu"
     ros2_type: "sensor_msgs/msg/Imu"
     gz_type: "gz.msgs.IMU"
     remap_to: "/imu0"
     enabled: true
 
   - name: groundtruth
-    gz_topic: "/model/x500_cam_0/odometry"
-    ros2_type: "nav_msgs/msg/Odometry" 
-    gz_type: "gz.msgs.Odometry" 
-    remap_to: "/odometry" 
+    gz_topic: "/drone/odometry"
+    ros2_type: "nav_msgs/msg/Odometry"
+    gz_type: "gz.msgs.Odometry"
+    remap_to: "/odometry"
     enabled: true
