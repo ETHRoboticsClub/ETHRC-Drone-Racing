@@ -22,7 +22,7 @@ from nav2_msgs.action import FollowWaypoints
 from geometry_msgs.msg import PoseStamped, Pose
 
 # drone
-from drone_control.mavsdk_client import AttitudeRate, PositionNedYaw
+from my_mavsdk.mavsdk_client import AttitudeRate, PositionNedYaw
 from interfaces import ControllerInterface
 from mpc.drone_mpc_controller import DroneMpcController
 from mpc.drone_mpc_controller_rotor import DroneMpcControllerRotor

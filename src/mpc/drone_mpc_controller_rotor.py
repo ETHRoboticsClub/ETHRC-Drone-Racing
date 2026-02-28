@@ -68,7 +68,7 @@ class DroneMpcControllerRotor():
         self.goal_postion = goal_state
 
         try:
-            u0, x_next, x_pred_all, u_pred_all = self.opt.compute_control_once(
+            u0 = self.opt.compute_control_once(
                 self.x_current, self.goal_postion)
 
             self.consecutive_failures = 0
