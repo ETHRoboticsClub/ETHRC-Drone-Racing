@@ -20,12 +20,12 @@ concurrency:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    name: Build ${{ matrix.service }}
     runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
-        service: [docs, perception, mpc, rl, dev]
+        service: [dev]
 
     steps:
       - name: Checkout Code

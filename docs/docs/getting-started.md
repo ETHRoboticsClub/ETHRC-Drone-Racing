@@ -22,6 +22,33 @@ The environment bundles the following core components:
 
 ---
 
+## Docker Infrastructure
+
+```mermaid
+graph TD
+    B["<b>Base</b><br/>(Core ROS & Tools)"]:::m-base --> SPCD["<b>shared-perception-<br/>controls-deps</b>"]:::m-dep
+    B --> D["<b>docs</b>"]:::m-dep
+    SPCD --> P["<b>perception</b>"]:::m-target
+    SPCD --> SMRD["<b>shared-mpc-rl-deps</b>"]:::m-dep
+    SMRD --> M["<b>mpc</b>"]:::m-target
+    SMRD --> R["<b>rl</b>"]:::m-target
+    P --> DEV["<b>dev</b><br/>(Full Environment)"]:::m-final
+    M --> DEV
+    R --> DEV
+    D -.-> DEV
+```
+
+### Build Targets
+
+- **`base`**: The core foundation containing ROS 2, system tools, and base dependencies.
+- **`docs`**: A lightweight environment for building and serving this documentation.
+- **`perception`**: Specialized for camera-based tracking and state estimation (OpenVINS, ArUco).
+- **`mpc`**: Optimized for high-performance controls and trajectory tracking (MAVSDK, ACADOS).
+- **`rl`**: Includes neural network and reinforcement learning libraries (PyTorch, Stable Baselines 3).
+- **`dev`**: The complete, integrated environment containing all components above.
+
+---
+
 ## Quick Start
 
 Follow these steps to get the environment running.
@@ -86,6 +113,19 @@ docker compose exec dev bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
+#### Build Command Breakdown
+
+- **`--symlink-install`**: Instead of copying files, ROS 2 creates symbolic links to your source files. This means changes to Python scripts or configuration files take effect **instantly** without needing another build.
+- **`-DCMAKE_BUILD_TYPE=RelWithDebInfo`**: Compiles with optimizations (for performance) while keeping debug symbols (for troubleshooting).
+
+> [!IMPORTANT]
+> ### 💡 Sourcing the Workspace
+> After building, or whenever you open a **new terminal tab**, you MUST source the workspace to make the packages visible to ROS 2:
+> ```bash
+> source install/setup.bash
+> ```
+> If you omit this, you will see `Package 'drone_control' not found` errors.
+
 ---
 
 ---
@@ -103,9 +143,16 @@ ros2 launch drone_control drone_controller.launch.py
 ### Step 2: Send a Pose Goal (Takeoff)
 In a **separate** container terminal, use the `send_pose_goal` script to command a takeoff to 2 meters:
 ```bash
-# General Format: ros2 run drone_control send_pose_goal <mode> -x <x> -y <y> -z <z> -yaw <degrees>
 ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z 2.0 -yaw 90
 ```
+
+#### Argument Breakdown
+
+| Argument | Description |
+| :--- | :--- |
+| `goal_only` | Sends the goal and waits for completion. Use `cancel` to stop an active mission. |
+| `-x`, `-y`, `-z` | Target coordinates in meters. |
+| `-yaw` | Target orientation in **degrees**. |
 
 ### Step 3: Monitor in PlotJuggler
 The controller launch automatically opens PlotJuggler. Look for the `/drone_state_sim` and `/drone_current_target` topics to verify the drone is tracking the reference accurately.

@@ -6,7 +6,7 @@
 
 <p align="center">
 <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing">
-  <img src="images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics Logo" width="70%" class="hero-logo"/>
+  <img src="images/ETHRC-Aeronautics-Logo-Light.svg" alt="ETHRC Aeronautics Logo" width="70%" class="hero-logo"/>
 </a>
 </p>
 
@@ -34,7 +34,8 @@ The project integrates high-fidelity simulation with advanced sensing and contro
 
 ## What's New? (Feb 2026)
 
-- **System Stability**: Fixed MPC and MAVSDK compatibility issues for smoother simulation takeoff.
+- **Hierarchical Build Tree**: Restructured Docker for faster builds and better caching (merging `dev` target).
+- **Theme-Aware UI**: Added light/dark mode support for project logos and documentation branding.
 - **Enhanced Perception**: Correctly integrated `open_vins` and `ros2-vicon-receiver` as submodules.
 - **Visualization Suite**: New instructions for RViz and Gazebo monitoring are now available in the [**Getting Started**](getting-started.md#visualization-and-monitoring) guide.
 

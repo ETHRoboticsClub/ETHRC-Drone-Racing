@@ -83,6 +83,7 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 source install/setup.bash
 
 # Launch Simulation & Controller
+# IMPORTANT: Run 'source install/setup.bash' in every NEW terminal!
 ros2 launch drone_control drone_controller.launch.py
 ```
 
