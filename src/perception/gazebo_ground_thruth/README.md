@@ -6,7 +6,7 @@ A simple ROS2 node that visualizes the drone's ground truth trajectory from Gaze
 
 - **`/odometry`**
   - **Type**: `nav_msgs/msg/Odometry`
-  - **Description**: Ground truth odometry from Gazebo (bridged from `/model/x500_cam_0/odometry`)
+  - **Description**: Ground truth odometry from Gazebo (bridged from `/drone/odometry`)
 
 ## Output Topics
 

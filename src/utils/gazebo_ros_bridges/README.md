@@ -12,7 +12,7 @@ The bridge reads a YAML configuration file that defines which Gazebo topics shou
 
 ## Current Bridges
 
-The default configuration (`config/gz_bridges.yaml`) currently bridges:
+The default configuration (`config/gz_bridges.yaml`) bridges the following topics. Both the `drone` and `x500_cam` models publish identical Gazebo topics, so the same bridge works for both without any arguments:
 
 1. **Camera Image**: `/drone/camera/image` (Gz) → `/cam0/image_raw` (ROS 2)
    - Type: `gz.msgs.Image` ↔ `sensor_msgs/msg/Image`
@@ -20,12 +20,15 @@ The default configuration (`config/gz_bridges.yaml`) currently bridges:
 2. **Camera Info**: `/drone/camera/camera_info` (Gz) → `/cam0/camera_info` (ROS 2)
    - Type: `gz.msgs.CameraInfo` ↔ `sensor_msgs/msg/CameraInfo`
 
-3. **IMU**: `/world/walls/model/x500_cam_0/link/base_link/sensor/imu_sensor/imu` (Gz) → `/imu0` (ROS 2)
+3. **IMU**: `/drone/imu` (Gz) → `/imu0` (ROS 2)
    - Type: `gz.msgs.IMU` ↔ `sensor_msgs/msg/Imu`
+
+4. **Ground Truth Odometry**: `/drone/odometry` (Gz) → `/odometry` (ROS 2)
+   - Type: `gz.msgs.Odometry` ↔ `nav_msgs/msg/Odometry`
 
 ## Launching the Bridge
 
-To launch the bridge with the default configuration:
+Works identically for both `gz_drone` and `gz_x500_cam`:
 
 ```bash
 ros2 launch gazebo_ros_bridges bridge.launch.py
