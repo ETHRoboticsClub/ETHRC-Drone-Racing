@@ -167,10 +167,11 @@ To launch the default simulation environment:
     ```bash
     source install/setup.bash
     ```
-2.  **Launch PX4 SITL with Gazebo**:
+2.  **Launch PX4 SITL with Gazebo** (pick one):
     ```bash
     cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
-    make px4_sitl gz_x500_mono_cam 
+    make px4_sitl gz_drone       # ETHRC custom drone (airframe 4023)
+    make px4_sitl gz_x500_cam    # x500 with front camera (airframe 4022)
     ```
 
 ---
