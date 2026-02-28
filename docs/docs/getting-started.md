@@ -113,6 +113,19 @@ docker compose exec dev bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 ```
 
+#### Build Command Breakdown
+
+- **`--symlink-install`**: Instead of copying files, ROS 2 creates symbolic links to your source files. This means changes to Python scripts or configuration files take effect **instantly** without needing another build.
+- **`-DCMAKE_BUILD_TYPE=RelWithDebInfo`**: Compiles with optimizations (for performance) while keeping debug symbols (for troubleshooting).
+
+> [!IMPORTANT]
+> ### 💡 Sourcing the Workspace
+> After building, or whenever you open a **new terminal tab**, you MUST source the workspace to make the packages visible to ROS 2:
+> ```bash
+> source install/setup.bash
+> ```
+> If you omit this, you will see `Package 'drone_control' not found` errors.
+
 ---
 
 ---
@@ -130,9 +143,16 @@ ros2 launch drone_control drone_controller.launch.py
 ### Step 2: Send a Pose Goal (Takeoff)
 In a **separate** container terminal, use the `send_pose_goal` script to command a takeoff to 2 meters:
 ```bash
-# General Format: ros2 run drone_control send_pose_goal <mode> -x <x> -y <y> -z <z> -yaw <degrees>
 ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z 2.0 -yaw 90
 ```
+
+#### Argument Breakdown
+
+| Argument | Description |
+| :--- | :--- |
+| `goal_only` | Sends the goal and waits for completion. Use `cancel` to stop an active mission. |
+| `-x`, `-y`, `-z` | Target coordinates in meters. |
+| `-yaw` | Target orientation in **degrees**. |
 
 ### Step 3: Monitor in PlotJuggler
 The controller launch automatically opens PlotJuggler. Look for the `/drone_state_sim` and `/drone_current_target` topics to verify the drone is tracking the reference accurately.
