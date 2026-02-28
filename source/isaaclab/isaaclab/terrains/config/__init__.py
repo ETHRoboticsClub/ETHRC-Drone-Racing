@@ -5,4 +5,5 @@
 
 """Pre-defined terrain configurations for the terrain generator."""
 
+from .racing import *  # noqa: F401
 from .rough import *  # noqa: F401

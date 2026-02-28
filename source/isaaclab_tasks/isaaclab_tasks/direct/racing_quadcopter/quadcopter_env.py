@@ -3,154 +3,153 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+"""Racing Quadcopter Environment with Gate Terrain Generator.
+
+This environment trains a quadcopter to fly through racing gates using:
+- Terrain-generated gates with proper collision meshes
+- Gate-based rewards (passage, progress, centering)
+- Fully vectorised reward / observation computation (no per-env Python loops)
+"""
+
 from __future__ import annotations
 
 import gymnasium as gym
+import numpy as np
 import torch
-from typing import Any
 
 import isaaclab.sim as sim_utils
 from isaaclab.assets import Articulation, ArticulationCfg
 from isaaclab.envs import DirectRLEnv, DirectRLEnvCfg
+from isaaclab.envs.common import ViewerCfg
 from isaaclab.envs.ui import BaseEnvWindow
-from isaaclab.markers import VisualizationMarkers
+from isaaclab.markers import CUBOID_MARKER_CFG, VisualizationMarkers
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sim import SimulationCfg
 from isaaclab.terrains import TerrainImporterCfg
+from isaaclab.terrains.config.racing import create_racing_gates_terrain
+from isaaclab.terrains.trimesh.racing_gates import get_gate_registry
 from isaaclab.utils import configclass
-from isaaclab.utils.math import subtract_frame_transforms, quat_rotate_inverse
+from isaaclab.utils.math import quat_apply, quat_apply_inverse
 
-from .trajectory import RacingTrajectory, TrajectoryConfig
-from .managers import (
-    RewardManager,
-    RewardConfig,
-    ObservationManager,
-    ObservationConfig,
-    DisturbanceManager,
-)
-from .curriculum import TrajectoryCurriculumManager, CurriculumCfg
+from isaaclab_assets import CRAZYFLIE_CFG
+from .reward_manager import GateRewardManager, RewardWeights
 
-##
-# Pre-defined configs
-##
-from isaaclab_assets import CRAZYFLIE_CFG  # isort: skip
-from isaaclab.markers import CUBOID_MARKER_CFG  # isort: skip
+from .reward_manager import GateRewardManager, RewardWeights
+
+
+# ---------------------------------------------------------------------------
+# UI
+# ---------------------------------------------------------------------------
 
 
 class QuadcopterEnvWindow(BaseEnvWindow):
     """Window manager for the Quadcopter environment."""
 
     def __init__(self, env: "RacingQuadcopterEnv", window_name: str = "IsaacLab"):
-        """Initialize the window.
-
-        Args:
-            env: The environment object.
-            window_name: The name of the window. Defaults to "IsaacLab".
-        """
-        # initialize base window
         super().__init__(env, window_name)
-        # add custom UI elements
         with self.ui_window_elements["main_vstack"]:
             with self.ui_window_elements["debug_frame"]:
                 with self.ui_window_elements["debug_vstack"]:
-                    # add command manager visualization
                     self._create_debug_vis_ui_element("targets", self.env)
+
+
+# ---------------------------------------------------------------------------
+# Sub-configs
+# ---------------------------------------------------------------------------
+
+
+@configclass
+class GateRewardConfig:
+    """Configuration for gate-based rewards.
+    
+    Primary rewards encourage gate passage and proper trajectory.
+    Penalties discourage unsafe or inefficient behavior.
+    """
+
+    # Primary rewards (positive)
+    gate_passage_reward: float = 20.0   # Large reward for passing through gate
+    gate_progress_scale: float = 2.0     # Reward for moving toward next gate
+    gate_centering_scale: float = 0.5    # Reward for staying aligned with gate center
+    velocity_toward_gate_scale: float = 0.1  # Reward for velocity toward gate
+    
+    # Penalties (negative)
+    velocity_limit_penalty_scale: float = -0.05
+    orientation_penalty_scale: float = -0.005
+    ang_vel_penalty_scale: float = -0.001
+    action_smoothness_scale: float = -0.0001
+    crash_penalty: float = -50.0
+    wrong_side_penalty_scale: float = -0.1
+
+    reward_scale: float = 1/100.0 # Overall scaling to keep rewards in a reasonable range
+    
+    def to_reward_weights(self) -> RewardWeights:
+        """Convert to RewardWeights dataclass."""
+        return RewardWeights(
+            gate_passage=self.gate_passage_reward,
+            gate_progress=self.gate_progress_scale,
+            gate_centering=self.gate_centering_scale,
+            velocity_toward_gate=self.velocity_toward_gate_scale,
+            velocity_limit=self.velocity_limit_penalty_scale,
+            orientation=self.orientation_penalty_scale,
+            angular_velocity=self.ang_vel_penalty_scale,
+            action_smoothness=self.action_smoothness_scale,
+            crash=self.crash_penalty,
+            wrong_side=self.wrong_side_penalty_scale,
+            reward_scale=self.reward_scale,
+        )
+
+
+@configclass
+class GateObservationConfig:
+    """Configuration for gate-based observations."""
+
+    num_next_gates: int = 5  # Increased from 3 to 5 for longer trajectories
+    history_length: int = 0
+    include_velocity_limit: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Main environment config
+# ---------------------------------------------------------------------------
 
 
 @configclass
 class RacingQuadcopterEnvCfg(DirectRLEnvCfg):
-    # env
-    episode_length_s = 15.0
-    decimation = 2
-    action_space = 4
-    # observation_space calculation:
-    # base: lin_vel(3) + ang_vel(3) + gravity(3) + velocity_limit(1) = 10
-    # optional: contour_error(3) + speed_error(1) + progress(1) + gate_proximity(1) = 6
-    # lookahead points: 6 * 3 = 18
-    # history: (lin_vel(3) + ang_vel(3) + actions(4)) * history_length
-    state_space = 0
-    debug_vis = True
+    """Configuration for racing quadcopter environment with terrain-generated gates."""
 
-    lookahead_distances = (0.0, 0.1, 0.3, 0.5, 0.9, 1.4)
+    # Environment settings
+    episode_length_s: float = 20.0
+    decimation: int = 2
+    action_space: int = 4
+    state_space: int = 0
+    debug_vis: bool = False
 
-    # velocity limit configuration
-    velocity_limit: float = 30.0  # Maximum allowed speed (m/s)
-    randomize_velocity_limit: bool = False  # Randomize limit per episode
-    velocity_limit_range: tuple[float, float] = (1.5, 4.0)  # Random range for velocity limit
+    # Velocity settings
+    velocity_limit: float = 15.0
+    randomize_velocity_limit: bool = False
+    velocity_limit_range: tuple[float, float] = (8.0, 15.0)
 
-    # trajectory config
-    trajectory: TrajectoryConfig = TrajectoryConfig(
-        trajectory_type="library",
-        radius=5.0,
-        height=1.5,
-        waypoints_density=6.0,
-        desired_speed=1.0,
-        lookahead_distances=lookahead_distances,
-        use_trajectory_library=True,
-        track_seed=42,
-        trajectories_per_env=1,  # Each environment gets 1 unique trajectory (set to 3 for curriculum learning)
-        gate_spacing=4.0,
-        gate_size=0.5,
-    )
+    # Reward / observation sub-configs
+    reward: GateRewardConfig = GateRewardConfig()
+    observation: GateObservationConfig = GateObservationConfig()
 
-    # observation config
-    observation: ObservationConfig = ObservationConfig(
-        history_length=0,
-        lookahead_distances=lookahead_distances,
-        include_velocity_limit=True,
-        include_contour_error=True,
-        include_speed_error=True,
-        include_gate_proximity=True,
-    )
+    # Observation space (recalculated in __post_init__)
+    # lin_vel(3) + ang_vel(3) + gravity(3) + vel_limit(1) + gates(N * 6)
+    # Each gate: rel_pos(3) + forward_dir(3)
+    observation_space: int = 10 + 5 * 6  # Updated for 5 gates
 
-    observation_space = ObservationManager.get_observation_dim(observation, action_space)
-
-    # reward config
-    reward: RewardConfig = RewardConfig(
-        progress_scale=0.2,
-        contour_error_scale=0.04,
-        velocity_alignment_scale=0.02,
-        speed_tracking_scale=0.00,
-        velocity_limit_penalty_scale=-0.02,
-        orientation_penalty_scale=-0.002,
-        ang_vel_penalty_scale=-0.0005,
-        action_smoothness_scale=-0.0001,
-    )
-    
-    # disturbances for robustness
-    enable_disturbances: bool = False
-    force_disturbance_scale: float = 0.05  # Scale of random force as fraction of weight
-    torque_disturbance_scale: float = 0.02  # Scale of random torque
-
-    # curriculum learning
-    enable_curriculum: bool = False  # Enable curriculum learning for trajectories
-    curriculum: CurriculumCfg = CurriculumCfg(
-        # Good performance thresholds (advance difficulty)
-        good_contour_error_threshold=0.10,
-        good_progress_velocity_threshold=1.0,
-        # Bad performance thresholds (demote difficulty)
-        bad_contour_error_threshold=0.25,
-        bad_progress_velocity_threshold=0.5,
-        # Difficulty settings
-        initial_difficulty=0.0,
-        max_difficulty=1.0,
-        # Random adjustment amounts
-        max_advancement_increment=0.10,  # Random [0, 0.10] when good
-        max_demotion_decrement=0.10,  # Random [0, 0.10] when bad
-    )
-    
     # Termination thresholds
-    off_track_threshold: float = 2.0  # Max contour error before termination (meters)
-    upside_down_threshold: float = 0.75  # Gravity z-component threshold (>0.5 means >60° tilt)
-    min_height: float = 0.3  # Minimum height before ground crash termination (meters)
-    max_velocity: float = 100.0  # Maximum velocity before runaway termination (m/s)
+    upside_down_threshold: float = 0.7
+    min_height: float = 0.2
+    max_velocity: float = 50.0
 
+    # UI
     ui_window_class_type = QuadcopterEnvWindow
 
-    # simulation
+    # Simulation
     sim: SimulationCfg = SimulationCfg(
-        dt=1 / 100,
-        render_interval=decimation,
+        dt=1 / 50,
+        render_interval=2,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
             restitution_combine_mode="multiply",
@@ -158,508 +157,544 @@ class RacingQuadcopterEnvCfg(DirectRLEnvCfg):
             dynamic_friction=1.0,
             restitution=0.0,
         ),
-    )
-    terrain = TerrainImporterCfg(
-        prim_path="/World/ground",
-        terrain_type="plane",
-        collision_group=-1,
-        physics_material=sim_utils.RigidBodyMaterialCfg(
-            friction_combine_mode="multiply",
-            restitution_combine_mode="multiply",
-            static_friction=1.0,
-            dynamic_friction=1.0,
-            restitution=0.0,
-        ),
-        debug_vis=False,
     )
 
-    # scene
+    # Terrain with racing gates (configured in __post_init__ based on observation config)
+    terrain: TerrainImporterCfg = None
+
+    # Scene
     scene: InteractiveSceneCfg = InteractiveSceneCfg(
-        num_envs=4096, env_spacing=2.5, replicate_physics=True, clone_in_fabric=True
+        num_envs=1024,
+        env_spacing=5.0,  # Increased spacing for larger terrain (15x15m)
+        replicate_physics=True,
+        clone_in_fabric=True,
     )
 
-    # robot
-    robot: ArticulationCfg = CRAZYFLIE_CFG.replace(prim_path="/World/envs/env_.*/Robot")
-    thrust_to_weight = 1.9
-    moment_scale = 0.01
+    camera_on_drone: bool = False
+
+    if camera_on_drone:
+        viewer: ViewerCfg = ViewerCfg(
+            eye=(-0.1, 0.0, 0.1), lookat=(5.0, 0.0, -0.5), origin_type="asset_root", env_index=0, asset_name="robot", body_name="body")
+    else:
+        # Position camera to see the first environment's terrain (15x15m terrain)
+        viewer: ViewerCfg = ViewerCfg(
+            eye=(25.0, 25.0, 15.0), lookat=(10.0, 10.0, 2.5), origin_type="world")
+
+
+    # Robot
+    # robot: ArticulationCfg = CRAZYFLIE_CFG.replace(
+    #     prim_path="/World/envs/env_.*/Robot",
+    # )
+
+    robot: ArticulationCfg = CRAZYFLIE_CFG.replace(prim_path="/World/envs/env_.*/Robot").\
+                                           replace(spawn = CRAZYFLIE_CFG.spawn.replace(activate_contact_sensors=False))
+    thrust_to_weight: float = 1.9
+    moment_scale: float = 0.01
+
+    def __post_init__(self):
+        """Post initialization."""
+        base = 10  # lin_vel(3) + ang_vel(3) + gravity(3) + vel_limit(1)
+        gates = self.observation.num_next_gates * 6  # position(3) + forward_direction(3) for each gate
+        history = self.observation.history_length * 10 if self.observation.history_length > 0 else 0
+        self.observation_space = base + gates + history
+        self.sim.render_interval = self.decimation
+        
+        # Use enhanced configuration for longer, more complex trajectories
+        from isaaclab.terrains.config.racing import RACING_GATES_SIMPLE_CFG
+        from isaaclab.terrains import terrain_generator as terrain_gen
+        print(f"[DEBUG] Creating enhanced racing terrain for longer, more complex trajectories")
+        
+        # Create enhanced configuration with longer, more challenging trajectories
+        terrain_generator = create_racing_gates_terrain()
+        
+        self.terrain = TerrainImporterCfg(
+            prim_path="/World/ground",
+            terrain_type="generator",
+            terrain_generator=terrain_generator,
+            max_init_terrain_level=0,
+            collision_group=-1,
+            physics_material=sim_utils.RigidBodyMaterialCfg(
+                friction_combine_mode="multiply",
+                restitution_combine_mode="multiply",
+                static_friction=1.0,
+                dynamic_friction=1.0,
+            ),
+            debug_vis=True,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Environment
+# ---------------------------------------------------------------------------
 
 
 class RacingQuadcopterEnv(DirectRLEnv):
-    """Quadcopter racing environment with time-independent trajectory tracking.
-    
-    This environment trains a quadcopter to follow a racing trajectory with:
-    - Time-independent progress tracking
-    - Look-ahead trajectory points for anticipation
-    - Velocity limits and disturbances for robustness
-    - Temporal observation history for better control
+    """Racing quadcopter environment using terrain-generated gates.
+
+    Gates are generated as part of the terrain mesh by :class:`MeshRacingGatesTerrainCfg`.
+    Gate positions/orientations are recovered from a module-level registry
+    that the terrain function writes to during generation.
+
+    All reward and observation computations are **fully vectorised** -- no per-env
+    Python ``for`` loops on the hot path.
     """
-    
+
     cfg: RacingQuadcopterEnvCfg
 
     def __init__(self, cfg: RacingQuadcopterEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
 
-        # Action tracking
+        # --- action buffers ---
         self._actions = torch.zeros(self.num_envs, gym.spaces.flatdim(self.single_action_space), device=self.device)
         self._previous_actions = torch.zeros_like(self._actions)
         self._thrust = torch.zeros(self.num_envs, 1, 3, device=self.device)
         self._moment = torch.zeros(self.num_envs, 1, 3, device=self.device)
 
-        # Get robot properties
+        # --- robot properties ---
         self._body_id = self._robot.find_bodies("body")[0]
         self._robot_mass = self._robot.root_physx_view.get_masses()[0].sum()
         self._gravity_magnitude = torch.tensor(self.sim.cfg.gravity, device=self.device).norm()
         self._robot_weight = (self._robot_mass * self._gravity_magnitude).item()
 
-        # Initialize trajectory AFTER parent init (when we have device and num_envs)
-        self._trajectory = RacingTrajectory(cfg.trajectory, self.device, self.num_envs)
-        # Set environment origins now that terrain is created
-        self._trajectory.set_environment_origins(self._terrain.env_origins)
+        # --- velocity limit ---
+        self._velocity_limit = torch.full((self.num_envs,), cfg.velocity_limit, device=self.device)
 
-        # Per-environment velocity limit
-        self._velocity_limit = torch.ones(self.num_envs, device=self.device) * cfg.velocity_limit
+        # --- gate tracking (populated by _setup_gate_tracking) ---
+        self._setup_gate_tracking()
 
-        # Initialize managers
-        self._reward_manager = RewardManager(
-            cfg.reward,
-            self.num_envs,
-            self.device,
-            self._trajectory,
+        # --- observation history ---
+        if cfg.observation.history_length > 0:
+            hl = cfg.observation.history_length
+            self._lin_vel_history = torch.zeros(self.num_envs, hl, 3, device=self.device)
+            self._ang_vel_history = torch.zeros(self.num_envs, hl, 3, device=self.device)
+            self._action_history = torch.zeros(self.num_envs, hl, cfg.action_space, device=self.device)
+
+        # --- pre-allocated local-frame direction vectors ---
+        self._y_local = torch.tensor([0.0, 1.0, 0.0], device=self.device)
+        self._x_local = torch.tensor([1.0, 0.0, 0.0], device=self.device)
+        self._z_local = torch.tensor([0.0, 0.0, 1.0], device=self.device)
+
+        # --- reward manager ---
+        reward_weights = cfg.reward.to_reward_weights()
+        self._reward_manager = GateRewardManager(
+            num_envs=self.num_envs,
+            device=self.device,
+            weights=reward_weights,
         )
-        self._observation_manager = ObservationManager(
-            cfg.observation,
-            self.num_envs,
-            cfg.action_space,
-            self.device,
-            self._trajectory,
-            self._velocity_limit,
-        )
-        self._disturbance_manager = DisturbanceManager(
-            self.num_envs,
-            self.device,
-            self._robot_weight,
-            cfg.force_disturbance_scale,
-            cfg.torque_disturbance_scale,
-            cfg.enable_disturbances,
-            difficulty_dependent=cfg.enable_curriculum,  # Enable difficulty scaling if curriculum enabled
-            difficulty_threshold=0.33,
-            max_force_scale_at_max_difficulty=0.15,
-            max_torque_scale_at_max_difficulty=0.06,
-        )
+        
+        # --- episode metrics tracking ---
+        self._episode_velocity_sum = torch.zeros(self.num_envs, device=self.device)
+        self._episode_step_count = torch.zeros(self.num_envs, device=self.device)
 
-        # Initialize curriculum learning manager
-        self._curriculum_manager = None
-        if cfg.enable_curriculum:
-            self._curriculum_manager = TrajectoryCurriculumManager(
-                self.num_envs,
-                self.device,
-                cfg.curriculum,
-            )
-            print("Curriculum learning enabled for trajectory difficulty progression")
-
-        # Episode tracking for curriculum
-        self._episode_contour_errors = torch.zeros(self.num_envs, device=self.device)
-        self._episode_progress_velocities = torch.zeros(self.num_envs, device=self.device)
-        self._episode_steps = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
-
-        # Termination reason tracking (for logging)
-        self._last_off_track = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        self._last_gate_collision = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        self._last_upside_down = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        self._last_ground_crash = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        self._last_runaway = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-
-        # Add handle for debug visualization
+        # debug vis
         self.set_debug_vis(self.cfg.debug_vis)
 
+    # ------------------------------------------------------------------
+    # Scene
+    # ------------------------------------------------------------------
+
     def _setup_scene(self) -> None:
-        """Setup the scene with robot, terrain, and lighting."""
         self._robot = Articulation(self.cfg.robot)
         self.scene.articulations["robot"] = self._robot
 
+        # Terrain (spawns gate meshes as part of the trimesh)
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
+        print(f"[DEBUG] Creating terrain with {self.cfg.terrain.num_envs} envs, spacing {self.cfg.terrain.env_spacing}m")
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
-        # clone and replicate
+
         self.scene.clone_environments(copy_from_source=False)
-        
-        # Trajectory will be initialized in __init__ after this method completes
-        # we need to explicitly filter collisions for CPU simulation
         if self.device == "cpu":
             self.scene.filter_collisions(global_prim_paths=[self.cfg.terrain.prim_path])
-        # add lights
+
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
+    # ------------------------------------------------------------------
+    # Gate tracking setup
+    # ------------------------------------------------------------------
+
+    def _setup_gate_tracking(self) -> None:
+        """Extract gate data from the module-level registry and build tensors.
+
+        After :class:`TerrainGenerator` runs, :func:`racing_gates_terrain` has
+        deposited gate data keyed by ``(difficulty, seed)`` in the registry.
+
+        Each cell in the terrain grid gets the *same* set of gates in its local
+        frame (since RACING_GATES_SIMPLE_CFG uses a single sub-terrain with
+        ``curriculum=False``).  We take the first entry from the registry,
+        offset it by the per-cell ``terrain_origin``, and centre it exactly
+        the same way the TerrainGenerator centres its meshes.
+        """
+        registry = get_gate_registry()
+        if not registry:
+            raise RuntimeError(
+                "Gate registry is empty -- racing_gates_terrain was never called. "
+                "Make sure the terrain generator uses MeshRacingGatesTerrainCfg."
+            )
+
+        # Take the first (and, with SIMPLE_CFG, only) entry
+        gate_data = next(iter(registry.values()))
+        print(f"[DEBUG] Found {len(gate_data.positions)} gates in registry")
+
+        # Gate positions are in the sub-terrain's *raw* local frame.
+        # The TerrainGenerator centres the mesh by shifting it by
+        # (-size[0]/2, -size[1]/2) **before** placing it into the grid.
+        # Then ``terrain_origins`` already accounts for that shift.
+        # So we apply the same centring offset to the gate positions.
+        terrain_cfg = self._terrain.cfg.terrain_generator
+        centre_offset = np.array([-terrain_cfg.size[0] / 2.0, -terrain_cfg.size[1] / 2.0, 0.0])
+        local_gate_pos = gate_data.positions + centre_offset  # [M, 3]
+
+        base_gate_pos = torch.from_numpy(local_gate_pos).float().to(self.device)
+        base_gate_ori = torch.from_numpy(gate_data.orientations).float().to(self.device)
+        self._gate_size = gate_data.gate_size
+
+        num_gates = base_gate_pos.shape[0]
+        self._num_gates = num_gates
+
+        # terrain_origins: [num_rows, num_cols, 3] -- already in world frame
+        # TerrainImporter stores this directly (already as a Tensor on CPU)
+        if self._terrain.terrain_origins is None:
+            raise RuntimeError("Terrain origins are None - make sure use_terrain_origins=True in TerrainImporterCfg")
+        
+        terrain_origins = self._terrain.terrain_origins
+        if isinstance(terrain_origins, np.ndarray):
+            terrain_origins = torch.from_numpy(terrain_origins).float().to(self.device)
+        else:
+            terrain_origins = terrain_origins.to(self.device)
+        num_rows, num_cols = terrain_origins.shape[:2]
+
+        # Build per-env gate tensors by offsetting by the terrain origin
+        # Env -> grid cell mapping (same logic as TerrainImporter)
+        self._gate_positions = torch.zeros(self.num_envs, num_gates, 3, device=self.device)
+        self._gate_orientations = base_gate_ori.unsqueeze(0).expand(self.num_envs, -1, -1).clone()
+
+        for env_id in range(self.num_envs):
+            row = (env_id // num_cols) % num_rows
+            col = env_id % num_cols
+            origin = terrain_origins[row, col]
+            self._gate_positions[env_id] = base_gate_pos + origin
+
+        # Tracking state (all vectorised)
+        self._current_gate_idx = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._gates_passed = torch.zeros(self.num_envs, dtype=torch.long, device=self.device)
+        self._prev_drone_pos = torch.zeros(self.num_envs, 3, device=self.device)
+
+        # Debug: Count gates across all environments
+        total_gates = self.num_envs * num_gates
+        gate_cfg = terrain_cfg.sub_terrains['racing_gates']
+        print(f"[RacingQuadcopterEnv] Enhanced Racing Gate Configuration:")
+        print(f"  Trajectory type: {gate_cfg.trajectory_type} (ENHANCED with complex 3D paths)")
+        print(f"  Difficulty range: {terrain_cfg.difficulty_range[0]:.1f}-{terrain_cfg.difficulty_range[1]:.1f} (HIGH for maximum complexity)")
+        print(f"  Gates per env: {num_gates} (target: ≥10 gates)")
+        print(f"  Total environments: {self.num_envs}")
+        print(f"  Total gates in simulation: {total_gates}")
+        print(f"  Gate size: {self._gate_size:.3f}m")
+        print(f"  Gate height range: {gate_cfg.gate_height_range[0]:.1f}-{gate_cfg.gate_height_range[1]:.1f}m (EXTENDED vertical range)")
+        if hasattr(gate_cfg, 'gate_spacing_range') and gate_cfg.gate_spacing_range is not None:
+            print(f"  Gate spacing: {gate_cfg.gate_spacing_range[0]:.1f}-{gate_cfg.gate_spacing_range[1]:.1f}m (tighter for more gates)")
+        else:
+            print(f"  Gate spacing: {gate_cfg.gate_spacing:.2f}m (fixed)")
+        print(f"  Terrain size: {terrain_cfg.size[0]}x{terrain_cfg.size[1]}m (ENLARGED for longer trajectories)")
+        print(f"  All gates perpendicular to ground with ENHANCED 3D trajectory complexity")
+
+    # ------------------------------------------------------------------
+    # Helpers: gather current-gate data for the whole batch
+    # ------------------------------------------------------------------
+
+    def _gather_current_gate(self):
+        """Return pos [N,3], ori [N,4] of each env's current target gate."""
+        idx = self._current_gate_idx  # [N]
+        env_arange = torch.arange(self.num_envs, device=self.device)
+        pos = self._gate_positions[env_arange, idx]
+        ori = self._gate_orientations[env_arange, idx]
+        return pos, ori
+
+    def _gate_forward(self, gate_ori: torch.Tensor) -> torch.Tensor:
+        """World-frame forward (y) direction of gates.  [N, 3]."""
+        return quat_apply(gate_ori, self._y_local.expand(gate_ori.shape[0], -1))
+
+    def _gate_right(self, gate_ori: torch.Tensor) -> torch.Tensor:
+        """World-frame right (x) direction of gates.  [N, 3]."""
+        return quat_apply(gate_ori, self._x_local.expand(gate_ori.shape[0], -1))
+
+    def _gate_up(self, gate_ori: torch.Tensor) -> torch.Tensor:
+        """World-frame up (z) direction of gates.  [N, 3]."""
+        return quat_apply(gate_ori, self._z_local.expand(gate_ori.shape[0], -1))
+
+    # ------------------------------------------------------------------
+    # Step
+    # ------------------------------------------------------------------
+
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        """Process actions and update state before physics step."""
         self._previous_actions = self._actions.clone()
         self._actions = actions.clone().clamp(-1.0, 1.0)
-        self._thrust[:, 0, 2] = self.cfg.thrust_to_weight * self._robot_weight * (self._actions[:, 0] + 1.0) / 2.0
+
+        thrust_cmd = (self._actions[:, 0] + 1.0) * 0.5  # -> [0, 1]
+        self._thrust[:, 0, 2] = self.cfg.thrust_to_weight * self._robot_weight * thrust_cmd
         self._moment[:, 0, :] = self.cfg.moment_scale * self._actions[:, 1:]
 
-        # Update observation history
-        self._observation_manager.update_history(self._robot, self._actions)
-        
-        # Track episode metrics for curriculum (if enabled)
-        if self._curriculum_manager is not None:
-            # Accumulate contour error and progress velocity
-            contour_error = self._reward_manager.contour_error
-            # Use proper progress velocity calculation (dot product with tangent)
-            progress_velocity = self._trajectory.get_progress_velocity(self._robot.data.root_lin_vel_w)
-            
-            self._episode_contour_errors += contour_error
-            self._episode_progress_velocities += progress_velocity
-            self._episode_steps += 1
-
     def _apply_action(self) -> None:
-        """Apply control forces and disturbances to robot."""
-        # Sample disturbances
-        force_disturbance, torque_disturbance = self._disturbance_manager.sample_disturbances()
+        self._robot.set_external_force_and_torque(self._thrust, self._moment, body_ids=self._body_id)
 
-        # Combine control forces with disturbances
-        total_force = self._thrust + force_disturbance
-        total_torque = self._moment + torque_disturbance
-        self._robot.set_external_force_and_torque(total_force, total_torque, body_ids=self._body_id)
+    # ------------------------------------------------------------------
+    # Observations (vectorised)
+    # ------------------------------------------------------------------
 
     def _get_observations(self) -> dict:
-        """Compute observations for the policy network."""
-        # Pass tracking info from reward manager to observation manager
-        self._observation_manager.set_tracking_info(
-            self._reward_manager.closest_point,
-            self._reward_manager.contour_error_vector,
-        )
-        obs = self._observation_manager.compute_observations(self._robot, self._actions)
-        return {"policy": obs}
+        parts = [
+            self._robot.data.root_lin_vel_b,       # [N, 3]
+            self._robot.data.root_ang_vel_b,        # [N, 3]
+            self._robot.data.projected_gravity_b,   # [N, 3]
+        ]
+        if self.cfg.observation.include_velocity_limit:
+            parts.append(self._velocity_limit.unsqueeze(-1))  # [N, 1]
+
+        parts.append(self._compute_gate_observations())  # [N, num_next_gates*6]
+
+        if self.cfg.observation.history_length > 0:
+            parts.append(self._lin_vel_history.reshape(self.num_envs, -1))
+            parts.append(self._ang_vel_history.reshape(self.num_envs, -1))
+            parts.append(self._action_history.reshape(self.num_envs, -1))
+
+        return {"policy": torch.cat(parts, dim=-1)}
+
+    def _compute_gate_observations(self) -> torch.Tensor:
+        """Next-N-gate observations in body frame (fully vectorised).
+        
+        Returns position and forward direction for each of the next K gates,
+        transformed into the drone's body frame.
+        
+        Output format per gate: [rel_pos_x, rel_pos_y, rel_pos_z, fwd_x, fwd_y, fwd_z]
+        Total output shape: [N, K*6]
+        """
+        K = self.cfg.observation.num_next_gates
+        M = self._num_gates
+        N = self.num_envs
+
+        drone_pos = self._robot.data.root_pos_w   # [N, 3]
+        drone_quat = self._robot.data.root_quat_w  # [N, 4]
+
+        # Pre-allocate output
+        gate_obs = torch.zeros(N, K * 6, device=self.device)
+
+        # Batch compute all gate indices at once
+        env_arange = torch.arange(N, device=self.device)
+        
+        for i in range(K):
+            gate_idx = (self._current_gate_idx + i) % M  # [N]
+            
+            # Gather gate data for all envs at once
+            g_pos = self._gate_positions[env_arange, gate_idx]  # [N, 3]
+            g_ori = self._gate_orientations[env_arange, gate_idx]  # [N, 4]
+
+            # Relative position in world frame, then transform to body frame
+            rel_w = g_pos - drone_pos  # [N, 3]
+            rel_b = quat_apply_inverse(drone_quat, rel_w)  # [N, 3]
+
+            # Normalize position for network input (scale by expected max distance)
+            rel_b_normalized = rel_b / 10.0
+
+            # Gate forward direction in world frame, then transform to body frame
+            fwd_w = self._gate_forward(g_ori)  # [N, 3]
+            fwd_b = quat_apply_inverse(drone_quat, fwd_w)  # [N, 3]
+
+            # Write to output tensor
+            s = i * 6
+            gate_obs[:, s:s+3] = rel_b_normalized
+            gate_obs[:, s+3:s+6] = fwd_b
+
+        return gate_obs
+
+    # ------------------------------------------------------------------
+    # Rewards (vectorised via reward manager)
+    # ------------------------------------------------------------------
 
     def _get_rewards(self) -> torch.Tensor:
-        """Compute rewards for current state."""
-        total_reward, _ = self._reward_manager.compute_rewards(
-            self._robot,
-            self._actions,
-            self._previous_actions,
-            self._velocity_limit,
-            self.step_dt,
+        drone_pos = self._robot.data.root_pos_w
+        drone_vel = self._robot.data.root_lin_vel_w
+        gate_pos, gate_ori = self._gather_current_gate()
+        
+        # Check for gate passages
+        gate_passed = self._check_gate_passages(drone_pos)
+        
+        # Check for crashes (ground collision or upside down)
+        crashed = (
+            (drone_pos[:, 2] < self.cfg.min_height) |
+            (self._robot.data.projected_gravity_b[:, 2] > self.cfg.upside_down_threshold)
         )
+        
+        # Compute all rewards using manager
+        total_reward, components = self._reward_manager.compute_rewards(
+            # Robot state
+            drone_pos=drone_pos,
+            drone_vel=drone_vel,
+            drone_angvel=self._robot.data.root_ang_vel_b,
+            projected_gravity=self._robot.data.projected_gravity_b,
+            actions=self._actions,
+            prev_actions=self._previous_actions,
+            # Gate state
+            gate_pos=gate_pos,
+            gate_ori=gate_ori,
+            gate_size=self._gate_size,
+            # Helper functions
+            gate_forward_fn=self._gate_forward,
+            gate_right_fn=self._gate_right,
+            gate_up_fn=self._gate_up,
+            # Previous state
+            prev_drone_pos=self._prev_drone_pos,
+            # Gate passage
+            gate_passed=gate_passed,
+            # Limits
+            velocity_limit=self._velocity_limit,
+            # Termination
+            crashed=crashed,
+        )
+        
+        # Track episode metrics
+        speed = torch.norm(drone_vel, dim=1)
+        self._episode_velocity_sum += speed
+        self._episode_step_count += 1.0
+        
+        # Update previous position for next step
+        self._prev_drone_pos = drone_pos.clone()
+        
         return total_reward
 
-    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        """Check termination conditions.
-        
-        Returns:
-            died: Boolean tensor indicating premature termination.
-            time_out: Boolean tensor indicating episode timeout.
-        """
-        time_out = self.episode_length_buf >= self.max_episode_length - 1
+    def _check_gate_passages(self, drone_pos: torch.Tensor) -> torch.Tensor:
+        """Vectorised gate-plane crossing test for the full batch.
 
-        # Check contour error (off-track)
-        contour_error = self._reward_manager.contour_error
-        off_track = contour_error > self.cfg.off_track_threshold
-        
-        # Check gate collisions
-        check_gate_collision = False
-        if check_gate_collision:
-            gate_collision = self._trajectory.check_gate_collision(
-                self._robot.data.root_pos_w,
-                contour_error
-            )
-        else:
-            gate_collision = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
-        
-        # Safety terminations
-        # Upside down: gravity in body frame pointing up (z > 0.5 means >60° tilt)
+        Returns a ``[N]`` tensor of 1/0 for each env that passed its gate.
+        """
+        gate_pos, gate_ori = self._gather_current_gate()
+        fwd = self._gate_forward(gate_ori)  # [N, 3]
+
+        to_prev = self._prev_drone_pos - gate_pos
+        to_curr = drone_pos - gate_pos
+
+        dist_prev = (to_prev * fwd).sum(dim=1)   # signed distance to plane
+        dist_curr = (to_curr * fwd).sum(dim=1)
+
+        # crossed from behind (<=0) to front (>0)?
+        crossed = (dist_prev <= 0) & (dist_curr > 0)
+
+        # interpolate crossing point
+        t = (-dist_prev / (dist_curr - dist_prev + 1e-8)).clamp(0.0, 1.0)
+        crossing = self._prev_drone_pos + t.unsqueeze(-1) * (drone_pos - self._prev_drone_pos)
+        to_cross = crossing - gate_pos
+
+        right = self._gate_right(gate_ori)
+        up = self._gate_up(gate_ori)
+        lat = (to_cross * right).sum(dim=1).abs()
+        vert = (to_cross * up).sum(dim=1).abs()
+
+        half = self._gate_size / 2.0
+        within = (lat < half) & (vert < half)
+
+        passed = crossed & within  # [N] bool
+
+        # advance gate index for envs that passed
+        if passed.any():
+            self._gates_passed[passed] += 1
+            self._current_gate_idx[passed] = (self._current_gate_idx[passed] + 1) % self._num_gates
+
+        return passed.float()
+
+    # ------------------------------------------------------------------
+    # Termination
+    # ------------------------------------------------------------------
+
+    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        time_out = self.episode_length_buf >= self.max_episode_length - 1
         upside_down = self._robot.data.projected_gravity_b[:, 2] > self.cfg.upside_down_threshold
-        
-        # Ground collision: below minimum height
-        ground_crash = self._robot.data.root_pos_w[:, 2] < self.cfg.min_height
-        
-        # Runaway velocity: exceeding maximum safe speed
+        crash = self._robot.data.root_pos_w[:, 2] < self.cfg.min_height
         runaway = torch.norm(self._robot.data.root_lin_vel_w, dim=1) > self.cfg.max_velocity
-        
-        # Combine all death conditions (first match wins for categorization)
-        died = off_track | gate_collision | upside_down | ground_crash | runaway
-        
-        # Store termination reasons for logging in _reset_idx
-        self._last_off_track = off_track
-        self._last_gate_collision = gate_collision
-        self._last_upside_down = upside_down
-        self._last_ground_crash = ground_crash
-        self._last_runaway = runaway
-        
+        died = upside_down | crash | runaway
         return died, time_out
 
+    # ------------------------------------------------------------------
+    # Reset
+    # ------------------------------------------------------------------
+
     def _reset_idx(self, env_ids: torch.Tensor | None) -> None:
-        """Reset specified environments."""
-        # print(f"[TRACE] _reset_idx START: num_envs={len(env_ids) if env_ids is not None else 'all'}")
         if env_ids is None or len(env_ids) == self.num_envs:
-            env_ids = self._robot._ALL_INDICES
+            env_ids = torch.arange(self.num_envs, device=self.device)
 
-        # Gather logging statistics
-        final_contour_error = self._reward_manager.contour_error[env_ids].mean()
-        mean_contour_error = self._episode_contour_errors[env_ids] / torch.clamp(self._episode_steps[env_ids], min=1)
-        mean_contour_error_value = mean_contour_error.mean()
-        
-        # Compute mean progress velocity for the episode
-        mean_progress_velocity = self._episode_progress_velocities[env_ids] / torch.clamp(self._episode_steps[env_ids], min=1)
-        mean_progress_velocity_value = mean_progress_velocity.mean()
-
-        # Update curriculum based on episode performance
-        if self._curriculum_manager is not None:
-            # Compute mean episode metrics for curriculum
+        # --- logging ---
+        if len(env_ids) > 0:
+            # Get reward component averages from reward manager
+            extras = self._reward_manager.reset_episode_sums(env_ids)
             
-            # Update curriculum
-            self._curriculum_manager.update(mean_contour_error, mean_progress_velocity, env_ids)
+            # Add gate passage metric
+            extras["Episode_Metrics/gates_passed"] = self._gates_passed[env_ids].float().mean().item()
             
-            # Get curriculum statistics for logging
-            curriculum_stats = self._curriculum_manager.get_statistics()
+            # Add mean velocity metric
+            step_counts = self._episode_step_count[env_ids]
+            valid_steps = step_counts > 0
+            if valid_steps.any():
+                mean_vel = (self._episode_velocity_sum[env_ids][valid_steps] / step_counts[valid_steps]).mean().item()
+                extras["Episode_Metrics/mean_velocity"] = mean_vel
+            else:
+                extras["Episode_Metrics/mean_velocity"] = 0.0
             
-            # Reset episode tracking
-            self._episode_contour_errors[env_ids] = 0.0
-            self._episode_progress_velocities[env_ids] = 0.0
-            self._episode_steps[env_ids] = 0
-
-        # Get episode reward statistics from reward manager
-        extras = self._reward_manager.get_episode_stats(env_ids, self.max_episode_length_s)
-        self.extras["log"] = dict()
-        self.extras["log"].update(extras)
-
-        # Add termination statistics with detailed breakdown
-        terminated_mask = self.reset_terminated[env_ids]
-        num_terminated = torch.count_nonzero(terminated_mask).item()
+            self.extras["log"] = extras
         
-        # Count each termination reason
-        off_track_count = torch.count_nonzero(self._last_off_track[env_ids] & terminated_mask).item()
-        gate_collision_count = torch.count_nonzero(self._last_gate_collision[env_ids] & terminated_mask).item()
-        upside_down_count = torch.count_nonzero(self._last_upside_down[env_ids] & terminated_mask).item()
-        ground_crash_count = torch.count_nonzero(self._last_ground_crash[env_ids] & terminated_mask).item()
-        runaway_count = torch.count_nonzero(self._last_runaway[env_ids] & terminated_mask).item()
-        
-        extras = {
-            "Episode_Termination/died": num_terminated,
-            "Episode_Termination/died_off_track": off_track_count,
-            "Episode_Termination/died_gate_collision": gate_collision_count,
-            "Episode_Termination/died_upside_down": upside_down_count,
-            "Episode_Termination/died_ground_crash": ground_crash_count,
-            "Episode_Termination/died_runaway": runaway_count,
-            "Episode_Termination/time_out": torch.count_nonzero(self.reset_time_outs[env_ids]).item(),
-            "Metrics/final_contour_error": final_contour_error.item(),
-            "Metrics/mean_contour_error": mean_contour_error_value.item(),
-            "Metrics/mean_progress_velocity": mean_progress_velocity_value.item(),
-        }
-        self.extras["log"].update(extras)
-        
-        # Add curriculum statistics
-        if self._curriculum_manager is not None:
-            self.extras["log"].update(curriculum_stats)
+        # Reset episode metrics
+        self._episode_velocity_sum[env_ids] = 0.0
+        self._episode_step_count[env_ids] = 0.0
 
-        # Reset robot
-        self._robot.reset(env_ids)
         super()._reset_idx(env_ids)
 
-        # Spread out resets to avoid training spikes
-        if len(env_ids) == self.num_envs:
-            self.episode_length_buf = torch.randint_like(self.episode_length_buf, high=int(self.max_episode_length))
+        # --- reset gate tracking ---
+        self._current_gate_idx[env_ids] = 0
+        self._gates_passed[env_ids] = 0
 
-        # Reset actions
-        self._actions[env_ids] = 0.0
-        self._previous_actions[env_ids] = 0.0
+        # --- compute starting poses (2 m behind first gate, facing it) ---
+        first_gate_pos = self._gate_positions[env_ids, 0]  # [B, 3]
+        first_gate_ori = self._gate_orientations[env_ids, 0]  # [B, 4]
+        fwd = quat_apply(first_gate_ori, self._y_local.expand(len(env_ids), -1))  # [B, 3]
 
-        # Reset managers
-        # Use curriculum-based reset if enabled
-        if self._curriculum_manager is not None:
-            difficulties = self._curriculum_manager.get_difficulty(env_ids)
-            self._trajectory.reset_with_difficulty(env_ids, difficulties)
-            # Reset disturbances with difficulty-dependent scaling
-            self._disturbance_manager.reset_episode_disturbances(env_ids, self._curriculum_manager.difficulty_levels)
-        else:
-            self._trajectory.reset(env_ids)
-            # Reset disturbances without difficulty scaling
-            self._disturbance_manager.reset_episode_disturbances(env_ids, None)
-            
-        # Randomize velocity limit if enabled
-        if self.cfg.randomize_velocity_limit:
-            vl_min, vl_max = self.cfg.velocity_limit_range
-            self._velocity_limit[env_ids] = torch.rand(len(env_ids), device=self.device) * (vl_max - vl_min) + vl_min
-        else:
-            self._velocity_limit[env_ids] = self.cfg.velocity_limit
-            
-        self._reward_manager.reset(env_ids)
-        self._observation_manager.reset(env_ids)
+        start_pos = first_gate_pos - 2.0 * fwd
+        start_pos[:, 2] = first_gate_pos[:, 2]  # same height as gate
 
-        # Get starting pose from trajectory (already in world coordinates after offset)
-        start_positions, start_orientations = self._trajectory.get_starting_pose(env_ids)
+        root_poses = torch.zeros(len(env_ids), 7, device=self.device)
+        root_poses[:, :3] = start_pos
+        root_poses[:, 3:7] = first_gate_ori  # face the gate
+        root_vel = torch.zeros(len(env_ids), 6, device=self.device)
 
-        # Reset robot state
         joint_pos = self._robot.data.default_joint_pos[env_ids]
         joint_vel = self._robot.data.default_joint_vel[env_ids]
 
-        root_pose = torch.cat([start_positions, start_orientations], dim=1)
-        root_vel = torch.zeros(len(env_ids), 6, device=self.device)
-
-        self._robot.write_root_pose_to_sim(root_pose, env_ids)
+        self._robot.write_root_pose_to_sim(root_poses, env_ids)
         self._robot.write_root_velocity_to_sim(root_vel, env_ids)
         self._robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
-        
-        # Note: Observation history is properly initialized to zero in reset().
-        # The first observation will use zero history, which is correct since
-        # there is no prior state after a reset.
-        # print(f"[TRACE] _reset_idx END")
+
+        self._prev_drone_pos[env_ids] = start_pos
+        self._actions[env_ids] = 0.0
+        self._previous_actions[env_ids] = 0.0
+
+        if self.cfg.randomize_velocity_limit:
+            lo, hi = self.cfg.velocity_limit_range
+            self._velocity_limit[env_ids] = torch.rand(len(env_ids), device=self.device) * (hi - lo) + lo
+
+    # ------------------------------------------------------------------
+    # Debug visualisation
+    # ------------------------------------------------------------------
 
     def _set_debug_vis_impl(self, debug_vis: bool) -> None:
-        """Set debug visualization on or off.
-        
-        Args:
-            debug_vis: Whether to enable debug visualization.
-        """
-        # create markers if necessary for the first time
         if debug_vis:
-            if not hasattr(self, "closest_point_visualizer"):
+            if not hasattr(self, "gate_visualizer"):
                 marker_cfg = CUBOID_MARKER_CFG.copy()
-                marker_cfg.markers["cuboid"].size = (0.08, 0.08, 0.08)
-                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (0.0, 1.0, 0.0)  # Green
-                # -- closest trajectory point
-                marker_cfg.prim_path = "/Visuals/Command/closest_point"
-                self.closest_point_visualizer = VisualizationMarkers(marker_cfg)
-                
-            if not hasattr(self, "lookahead_visualizer"):
-                marker_cfg = CUBOID_MARKER_CFG.copy()
-                marker_cfg.markers["cuboid"].size = (0.05, 0.05, 0.05)
-                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (1.0, 0.0, 0.0)  # Red
-                # -- lookahead points (will visualize first env only for clarity)
-                marker_cfg.prim_path = "/Visuals/Command/lookahead_points"
-                self.lookahead_visualizer = VisualizationMarkers(marker_cfg)
-            
-            # Create 4-sided gate visualization (top, bottom, left, right bars)
-            gate_size = self.cfg.trajectory.gate_size
-            bar_thickness = 0.015  # Thickness of gate bars
-            
-            if not hasattr(self, "gate_top_visualizer"):
-                marker_cfg = CUBOID_MARKER_CFG.copy()
-                marker_cfg.markers["cuboid"].size = (gate_size, bar_thickness, bar_thickness)  # Horizontal bar
-                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (1.0, 0.3, 0.0)  # Orange
-                marker_cfg.prim_path = "/Visuals/Command/gates_top"
-                self.gate_top_visualizer = VisualizationMarkers(marker_cfg)
-            
-            if not hasattr(self, "gate_bottom_visualizer"):
-                marker_cfg = CUBOID_MARKER_CFG.copy()
-                marker_cfg.markers["cuboid"].size = (gate_size, bar_thickness, bar_thickness)  # Horizontal bar
-                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (1.0, 0.3, 0.0)  # Orange
-                marker_cfg.prim_path = "/Visuals/Command/gates_bottom"
-                self.gate_bottom_visualizer = VisualizationMarkers(marker_cfg)
-            
-            if not hasattr(self, "gate_left_visualizer"):
-                marker_cfg = CUBOID_MARKER_CFG.copy()
-                marker_cfg.markers["cuboid"].size = (bar_thickness, bar_thickness, gate_size)  # Vertical bar
-                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (1.0, 0.3, 0.0)  # Orange
-                marker_cfg.prim_path = "/Visuals/Command/gates_left"
-                self.gate_left_visualizer = VisualizationMarkers(marker_cfg)
-            
-            if not hasattr(self, "gate_right_visualizer"):
-                marker_cfg = CUBOID_MARKER_CFG.copy()
-                marker_cfg.markers["cuboid"].size = (bar_thickness, bar_thickness, gate_size)  # Vertical bar
-                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (1.0, 0.3, 0.0)  # Orange
-                marker_cfg.prim_path = "/Visuals/Command/gates_right"
-                self.gate_right_visualizer = VisualizationMarkers(marker_cfg)
-            
-            # Create trajectory line visualizer using small spheres
-            if not hasattr(self, "trajectory_line_visualizer"):
-                from isaaclab.markers import SPHERE_MARKER_CFG
-                marker_cfg = SPHERE_MARKER_CFG.copy()
-                marker_cfg.markers["sphere"].radius = 0.01  # Small spheres
-                marker_cfg.markers["sphere"].visual_material.diffuse_color = (0.3, 0.7, 1.0)  # Light blue
-                marker_cfg.prim_path = "/Visuals/Command/trajectory_line"
-                self.trajectory_line_visualizer = VisualizationMarkers(marker_cfg)
-                
-            # set their visibility to true
-            self.closest_point_visualizer.set_visibility(False)
-            self.lookahead_visualizer.set_visibility(False)
-            self.gate_top_visualizer.set_visibility(True)
-            self.gate_bottom_visualizer.set_visibility(True)
-            self.gate_left_visualizer.set_visibility(True)
-            self.gate_right_visualizer.set_visibility(True)
-            self.trajectory_line_visualizer.set_visibility(False)
+                marker_cfg.markers["cuboid"].size = (0.1, 0.1, 0.1)
+                marker_cfg.markers["cuboid"].visual_material.diffuse_color = (0.0, 1.0, 0.0)
+                marker_cfg.prim_path = "/Visuals/Command/current_gate"
+                self.gate_visualizer = VisualizationMarkers(marker_cfg)
+            self.gate_visualizer.set_visibility(True)
         else:
-            if hasattr(self, "closest_point_visualizer"):
-                self.closest_point_visualizer.set_visibility(False)
-            if hasattr(self, "lookahead_visualizer"):
-                self.lookahead_visualizer.set_visibility(False)
-            if hasattr(self, "gate_top_visualizer"):
-                self.gate_top_visualizer.set_visibility(False)
-            if hasattr(self, "gate_bottom_visualizer"):
-                self.gate_bottom_visualizer.set_visibility(False)
-            if hasattr(self, "gate_left_visualizer"):
-                self.gate_left_visualizer.set_visibility(False)
-            if hasattr(self, "gate_right_visualizer"):
-                self.gate_right_visualizer.set_visibility(False)
-            if hasattr(self, "trajectory_line_visualizer"):
-                self.trajectory_line_visualizer.set_visibility(False)
+            if hasattr(self, "gate_visualizer"):
+                self.gate_visualizer.set_visibility(False)
 
     def _debug_vis_callback(self, event) -> None:
-        """Update debug visualization markers.
-        
-        Args:
-            event: Simulation event triggering the callback.
-        """
-        # Show closest trajectory point from reward manager
-        closest_point = self._reward_manager._closest_traj_point
-        self.closest_point_visualizer.visualize(closest_point)
-        
-        # Show lookahead points for first few environments
-        lookahead_points = self._trajectory.get_lookahead_points(self._robot.data.root_pos_w, self.cfg.lookahead_distances)
-        vis_points = lookahead_points[:self.num_envs].reshape(-1, 3)
-        self.lookahead_visualizer.visualize(vis_points)
-        
-        # Show virtual gates if enabled (4-sided gate visualization)
-        if self._trajectory.gates_enabled and self._trajectory.num_gates_per_env is not None and self._trajectory.num_gates_per_env.sum() > 0:
-            gate_positions, gate_orientations, num_gates = self._trajectory.get_all_gates_flattened()
-            # Gate positions are already in world coordinates (offset applied during trajectory generation)
-            gate_centers = gate_positions
-            
-            # Compute positions for 4 bars of each gate
-            gate_size = self.cfg.trajectory.gate_size
-            half_size = gate_size / 2.0
-            
-            # Transform local offsets to world coordinates using gate orientations
-            from isaaclab.utils.math import quat_rotate
-            
-            # Gate body frame: x=right, y=tangent(through), z=up
-            # Top bar: offset upward by half_size in local z (body-z = up)
-            top_offset = torch.zeros(num_gates, 3, device=self.device)
-            top_offset[:, 2] = half_size
-            top_positions = gate_centers + quat_rotate(gate_orientations, top_offset)
-            
-            # Bottom bar: offset downward by half_size in local z
-            bottom_offset = torch.zeros(num_gates, 3, device=self.device)
-            bottom_offset[:, 2] = -half_size
-            bottom_positions = gate_centers + quat_rotate(gate_orientations, bottom_offset)
-            
-            # Left bar: offset left by half_size in local x (body-x = right, so -x = left)
-            left_offset = torch.zeros(num_gates, 3, device=self.device)
-            left_offset[:, 0] = -half_size
-            left_positions = gate_centers + quat_rotate(gate_orientations, left_offset)
-            
-            # Right bar: offset right by half_size in local x
-            right_offset = torch.zeros(num_gates, 3, device=self.device)
-            right_offset[:, 0] = half_size
-            right_positions = gate_centers + quat_rotate(gate_orientations, right_offset)
-            
-            # Visualize each bar with appropriate orientation
-            self.gate_top_visualizer.visualize(top_positions, gate_orientations)
-            self.gate_bottom_visualizer.visualize(bottom_positions, gate_orientations)
-            self.gate_left_visualizer.visualize(left_positions, gate_orientations)
-            self.gate_right_visualizer.visualize(right_positions, gate_orientations)
-        
-        # Visualize trajectory lines using waypoints from all environments
-        if self._trajectory.current_waypoints is not None:
-            # Get all waypoints from all environments and flatten them
-            # Subsample waypoints to reduce visual clutter (every 3rd waypoint)
-            all_waypoints = []
-            for env_id in range(self.num_envs):  # Limit to first 100 envs for performance
-                waypoints = self._trajectory.current_waypoints[env_id]  # [num_waypoints, 3]
-                # Subsample every Xth waypoint
-                # subsampled = waypoints[::1]
-                all_waypoints.append(waypoints)
-            
-            # Flatten all waypoints
-            trajectory_points = torch.cat(all_waypoints, dim=0)
-            self.trajectory_line_visualizer.visualize(trajectory_points)
+        gate_pos, _ = self._gather_current_gate()
+        self.gate_visualizer.visualize(gate_pos)
