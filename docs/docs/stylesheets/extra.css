@@ -20,6 +20,16 @@
     --md-typeset-a-color: #5c6bc0;
 }
 
+/* Theme-aware Header Logo */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img {
+    content: url("../images/ETHRC-Aeronautics-Logo-Dark.svg");
+}
+
+/* Theme-aware Hero Logo */
+[data-md-color-scheme="slate"] .hero-logo {
+    content: url("../images/ETHRC-Aeronautics-Logo-Dark.svg");
+}
+
 /* Typography refinements */
 .md-typeset h1 {
     font-weight: 800;
@@ -70,9 +80,10 @@ hr {
 }
 
 /* Invert logo in dark mode if it's black text */
-[data-md-color-scheme="slate"] .hero-logo {
+/* Removed: redundant with theme-aware SVGs */
+/* [data-md-color-scheme="slate"] .hero-logo {
     filter: invert(1) drop-shadow(0 0 15px rgba(0, 0, 0, 0.3));
-}
+} */
 
 /* General Image Styling */
 article img {

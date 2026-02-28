@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake ninja-build ccache gdb valgrind pkg-config \
     python3-pip python3-venv python3-dev swig \
     && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN locale-gen en_US.UTF-8 && update-ca-certificates
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
@@ -81,36 +82,55 @@ RUN  echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
 
 # PX4 build dependencies — sourced from the PX4 submodule itself
 COPY px4/PX4-Autopilot/Tools/setup/requirements.txt /tmp/px4_requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/px4_requirements.txt && rm /tmp/px4_requirements.txt
+RUN uv pip install --system --no-cache setuptools==58.2.0 && \
+    uv pip install --system --no-cache -r /tmp/px4_requirements.txt && rm /tmp/px4_requirements.txt
 
 # =========================================================
-# STAGE 2: docs
-# Minimal stage for MkDocs only
+# STAGE 2: shared-perception-controls-deps
+# Shared dependencies for perception, controls, and docs
 # =========================================================
-FROM base AS docs
-RUN pip3 install --no-cache-dir "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
-EXPOSE 8000
-COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
-CMD ["mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000"]
+FROM base AS shared-perception-controls-deps
 
-# =========================================================
-# STAGE 3: perception-deps
-# Dependencies for OpenVINS, ArUco, EKF
-# =========================================================
-FROM base AS perception-deps
+# Perception system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-dev python3-opencv \
     libeigen3-dev libyaml-cpp-dev libboost-all-dev \
     libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
     ros-humble-robot-localization \
     && rm -rf /var/lib/apt/lists/*
-RUN python3 -m pip install --no-cache-dir numpy==1.24.4 scipy==1.10.1
+
+# Shared Python deps
+RUN uv pip install --system --no-cache numpy==1.24.4 scipy==1.10.1
 
 # =========================================================
-# STAGE 4: mpc-deps
-# Dependencies for Control, Acados, MAVSDK
+# STAGE 3: docs
+# Minimal stage for MkDocs only
 # =========================================================
-FROM base AS mpc-deps
+FROM base AS docs
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+EXPOSE 8000
+COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
+CMD ["mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000"]
+
+# =========================================================
+# STAGE 4: perception
+# Perception-only build
+# =========================================================
+FROM shared-perception-controls-deps AS perception
+USER drone_dev
+COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
+COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
+COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
+WORKDIR ${WORKSPACE}
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver gazebo_ros_bridges
+
+# =========================================================
+# STAGE 5: shared-mpc-rl-deps
+# Dependencies for MPC, MAVSDK, ACADOS, and RL
+# =========================================================
+FROM shared-perception-controls-deps AS shared-mpc-rl-deps
+
 # MAVSDK C++ Build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev \
@@ -136,29 +156,17 @@ ENV TERA_PATH=/opt/acados/bin/t_renderer
 ENV LD_LIBRARY_PATH=/opt/acados/lib:${LD_LIBRARY_PATH}
 ENV ACADOS_SOURCE_DIR=/opt/acados
 
-# Python deps
-RUN python3 -m pip install --no-cache-dir \
-    numpy==1.24.4 scipy==1.10.1 mavsdk casadi cython && \
-    python3 -m pip install --no-cache-dir -e /opt/acados/interfaces/acados_template
-
-# =========================================================
-# STAGE 5: perception
-# Perception-only build
-# =========================================================
-FROM perception-deps AS perception
-USER drone_dev
-COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
-COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
-COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
-COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
-WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver gazebo_ros_bridges
+# Python deps (MPC + RL)
+RUN uv pip install --system --no-cache \
+    setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk casadi cython && \
+    uv pip install --system --no-cache -e /opt/acados/interfaces/acados_template
+RUN uv pip install --system --no-cache torch torchvision torchaudio stable-baselines3 shimmy gymnasium
 
 # =========================================================
 # STAGE 6: mpc
 # MPC-only build
 # =========================================================
-FROM mpc-deps AS mpc
+FROM shared-mpc-rl-deps AS mpc
 USER drone_dev
 COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
 COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
@@ -169,35 +177,36 @@ RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packag
 
 # =========================================================
 # STAGE 7: rl
-# MPC + RL Libraries
+# RL build (includes MPC builds)
 # =========================================================
-FROM mpc AS rl
-RUN pip3 install --no-cache-dir torch torchvision torchaudio stable-baselines3 shimmy gymnasium
+FROM shared-mpc-rl-deps AS rl
+USER drone_dev
+# Copy MPC builds to avoid redundant compilation
+COPY --from=mpc ${WORKSPACE}/install ${WORKSPACE}/install
+COPY --from=mpc ${WORKSPACE}/build ${WORKSPACE}/build
+COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
+COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
+COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
+WORKDIR ${WORKSPACE}
 
 # =========================================================
-# STAGE 8: full
-# The complete package
-# =========================================================         
-FROM rl AS full
+# STAGE 8: dev (full build)
+# The complete package — merges all targets
+# =========================================================
+FROM rl AS dev
 USER root
-# Install perception system dependencies (not inherited from mpc-deps→base chain)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopencv-dev python3-opencv \
-    libeigen3-dev libyaml-cpp-dev libboost-all-dev \
-    libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
-    ros-humble-robot-localization \
-    && rm -rf /var/lib/apt/lists/*
 # Copy perception builds from the perception stage
-COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install                
+COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install
 COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build
-# Also ensure perception source is present
+# Ensure perception source is present
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
-# Add docs to full image too
+# Add docs
 COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
-RUN pip3 install --no-cache-dir "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
 
 USER drone_dev
 WORKDIR ${WORKSPACE}

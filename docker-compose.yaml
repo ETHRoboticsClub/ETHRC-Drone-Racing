@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-      target: full
+      target: dev
       network: host
       args:
         BASE_IMAGE: osrf/ros:humble-desktop

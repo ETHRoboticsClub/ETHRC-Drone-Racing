@@ -6,7 +6,7 @@
 
 <p align="center">
 <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing">
-  <img src="images/ETHRC-Aeronautics_transparent.png" alt="ETHRC Aeronautics Logo" width="70%" class="hero-logo"/>
+  <img src="images/ETHRC-Aeronautics-Logo-Light.svg" alt="ETHRC Aeronautics Logo" width="70%" class="hero-logo"/>
 </a>
 </p>
 
