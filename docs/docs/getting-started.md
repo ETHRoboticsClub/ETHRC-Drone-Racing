@@ -22,6 +22,33 @@ The environment bundles the following core components:
 
 ---
 
+## Docker Infrastructure
+
+```mermaid
+graph TD
+    B["<b>Base</b><br/>(Core ROS & Tools)"]:::m-base --> SPCD["<b>shared-perception-<br/>controls-deps</b>"]:::m-dep
+    B --> D["<b>docs</b>"]:::m-dep
+    SPCD --> P["<b>perception</b>"]:::m-target
+    SPCD --> SMRD["<b>shared-mpc-rl-deps</b>"]:::m-dep
+    SMRD --> M["<b>mpc</b>"]:::m-target
+    SMRD --> R["<b>rl</b>"]:::m-target
+    P --> DEV["<b>dev</b><br/>(Full Environment)"]:::m-final
+    M --> DEV
+    R --> DEV
+    D -.-> DEV
+```
+
+### Build Targets
+
+- **`base`**: The core foundation containing ROS 2, system tools, and base dependencies.
+- **`docs`**: A lightweight environment for building and serving this documentation.
+- **`perception`**: Specialized for camera-based tracking and state estimation (OpenVINS, ArUco).
+- **`mpc`**: Optimized for high-performance controls and trajectory tracking (MAVSDK, ACADOS).
+- **`rl`**: Includes neural network and reinforcement learning libraries (PyTorch, Stable Baselines 3).
+- **`dev`**: The complete, integrated environment containing all components above.
+
+---
+
 ## Quick Start
 
 Follow these steps to get the environment running.

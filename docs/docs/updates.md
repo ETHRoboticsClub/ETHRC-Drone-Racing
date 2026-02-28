@@ -19,14 +19,17 @@ This page summarizes the critical stability improvements and architectural updat
 
 ## 🐋 Docker & CI Refactoring
 
-### Multi-Stage Build Pipeline
-- **Optimized**: Transitioned the monolithic Dockerfile to a **multi-stage build architecture**.
-- **Team-Specific Targets**: Introduced dedicated build targets for different development needs:
-    - `target: docs`: Ultra-lightweight image for documentation tasks.
-    - `target: perception`: Bundles all VIO, ArUco, and EKF dependencies.
-    - `target: mpc`: Contains the full control stack (Acados, MAVSDK).
-    - `target: rl`: Includes `mpc` stack plus Machine Learning libraries (Torch, StableBaselines3).
-    - `target: full`: The production-ready image containing all system components.
+- **Hierarchical Build Tree**: Restructured the Dockerfile into a logical dependency tree to maximize layer caching and clean separation:
+    - `shared-perception-controls-deps`: Shared root for all functional builds.
+    - `shared-mpc-rl-deps`: High-performance math and ML dependencies.
+- **Fast Build Targets**:
+    - `target: docs`: Now branches directly from `base`, making it the fastest component to build.
+    - `target: dev`: Renamed from `full`, seamlessly merges all team-specific layers.
+- **Optimized Caching**: The `rl` stage now copies local `mpc` artifacts, cutting down total build time significantly.
+
+### Theme-Aware UI
+- **Branding**: Implemented theme-aware SVG logos (ETHRC Aeronautics) that automatically switch between Light and Dark modes.
+- **Support**: Enabled full SVG support for documentation logos and favicons.
 
 ### CI Build Verification
 - **Fixed**: Corrected submodule initialization paths and added `ros2-vicon-receiver` to the automated build verification pipeline.
