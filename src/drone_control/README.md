@@ -54,12 +54,22 @@ This is part of the old README. Expect some parts to be redundant with the "Setu
 
 This runs the mpc controller && the plotjuggler visualization
 ```sh
-ros2 launch drone_control drone_controller.launch.py 
+ros2 launch drone_control drone_controller.launch.py
+```
+
+### Launch Arguments
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `plotjuggler` | `false` | Launch PlotJuggler visualization alongside the controller |
+
+Example with PlotJuggler:
+```sh
+ros2 launch drone_control drone_controller.launch.py plotjuggler:=true
 ```
 
 You need to run the simulation first:
 ```sh
-cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500_cam
 ```
 
 You can test the action client with (this is a placeholder node, since this functionalities will be implemented using GUI):
@@ -105,8 +115,8 @@ ros2 run drone_control send_trajectory_goal goal_only
 
 
 # TO DO controls wise
-3. [important] Smooth Cancel Actions - Emergency stop
-    - Current is unsafe
+3. [important] Smooth Cancel Actions - Emergency stop **done**
+    - Current is unsafe 
 4. [important] Add Visualization & Telemetry **WIP** (perception integration)
     - Plotjuggler **done**
     - Robot TF

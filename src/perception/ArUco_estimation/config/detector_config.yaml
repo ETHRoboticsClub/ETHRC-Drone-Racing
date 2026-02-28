@@ -1,0 +1,92 @@
+# ArUco Pose Estimation Configuration File
+# Parameters for the ArUco pose estimation node
+
+/**:
+  ros__parameters:
+    # ============================================================================
+    # Camera and Frame Settings
+    # ============================================================================
+    camera_topic: "/cam0/image_raw"
+    marker_map_file: ""  # Path to marker map configuration
+    camera_calibration_file: ""  # Path to camera calibration file
+    world_frame: "world"
+    camera_frame: "front_camera_link"
+    base_link_frame: "base_link"
+
+    # ============================================================================
+    # ArUco Detector Parameters
+    # ============================================================================
+    aruco_detector:
+      # Corner refinement parameters
+      corner_refinement_win_size: 0  # 0 to disable (expensive for drone use)
+      corner_refinement_max_iterations: 0
+      corner_refinement_min_accuracy: 0.0
+      
+      # Adaptive thresholding parameters for marker detection
+      adaptive_thresh_win_size_min: 7
+      adaptive_thresh_win_size_max: 23
+      adaptive_thresh_win_size_step: 10  # default
+      
+      # Marker size filtering parameters (as ratio of image diagonal)
+      min_marker_perimeter_rate: 0.04  # Minimum marker size
+      max_marker_perimeter_rate: 4.0   # Maximum marker size
+      
+      # Polygon approximation parameters
+      polygonal_approx_accuracy_rate: 0.09
+      
+      # Minimum distance between markers
+      min_marker_distance_rate: 0.1
+
+    # ============================================================================
+    # Pose Estimation and Smoothing
+    # ============================================================================
+    pose_estimation:
+      min_markers_for_init: 1  # Minimum markers needed to initialize
+      use_smoothing: true
+      position_smoothing_alpha: 0.3    # 0.0 = full smoothing, 1.0 = no smoothing
+      orientation_smoothing_alpha: 0.3
+
+    # ============================================================================
+    # Optical Flow Tracking (Lucas-Kanade)
+    # ============================================================================
+    optical_flow:
+      enabled: true
+      max_tracking_age: 10    # Max frames to track a marker
+      redetect_interval: 30   # Force full detection every N frames
+      
+      # Lucas-Kanade algorithm parameters
+      window_size: 21         # Search window size (should be odd)
+      max_pyramid_level: 3    # Number of pyramid levels for multi-scale matching
+      max_iterations: 30      # Max iterations for convergence
+      epsilon: 0.01           # Convergence threshold
+
+    # ============================================================================
+    # Visualization and Debug Settings
+    # ============================================================================
+    visualization:
+      publish_debug_image: true
+      
+      # Trail marker visualization
+      trail_marker_interval_sec: 0.1   # Interval between trail markers
+      trail_marker_size: 0.08          # Size of trail marker spheres (meters)
+      
+      # Debug text rendering
+      debug_text_scale: 0.6
+      debug_text_thickness: 2
+      debug_text_line_height: 30       # Pixels between lines
+      
+      # Debug visualization flags
+      show_rejected_candidates: false   # Highlight markers that failed validation
+      show_corner_points: true         # Draw individual corner points
+      show_detector_params: true       # Display detector parameters on image
+      show_marker_ids: true            # Draw marker IDs on detected markers
+
+    # ============================================================================
+    # Motion Blur Simulation
+    # ============================================================================
+    motion_blur:
+      enabled: false
+      kernel_size: 10         # Size of the blur kernel (odd integer)
+      major_axis: 22          # Major axis of the ellipse
+      minor_axis: 1           # Minor axis of the ellipse
+      angle: 15.0             # Angle of the ellipse in degrees

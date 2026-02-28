@@ -1,3 +1,12 @@
 [submodule "px4/PX4-Autopilot"]
 	path = px4/PX4-Autopilot
 	url = https://github.com/PX4/PX4-Autopilot.git
+[submodule "aeronautics-utility"]
+	path = aeronautics-utility
+	url = git@github.com:ETHRoboticsClub/aeronautics-utility.git
+[submodule "src/open_vins"]
+	path = src/perception/VIO/open_vins
+	url = https://github.com/ETHRoboticsClub/open_vins_RETH.git
+[submodule "src/ros2-vicon-receiver"]
+	path = src/ros2-vicon-receiver
+	url = https://github.com/OPT4SMART/ros2-vicon-receiver.git

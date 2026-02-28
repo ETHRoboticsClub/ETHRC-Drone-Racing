@@ -1,3 +1,6 @@
+.vscode/
+.devcontainer/
+repo_artifact/
 .colcon/
 build/
 install/
@@ -5,9 +8,17 @@ log/
 __pycache__/
 *.swp
 .DS_Store
+get-docker.sh
+rosbag
+tests/
+plots/
 src/mpc_dev/*
 src/mpc/c_generated_code/*
 !src/mpc/c_generated_code/.gitkeep
 src/mpc/logs/*
+docs/docs/images/rl_wip.gif:Zone.Identifier
+src/my_mavsdk/my_mavsdk/__pycache__
+src/mpc/mpc/__pycache__
+
 !src/mpc/logs/.gitkeep
 

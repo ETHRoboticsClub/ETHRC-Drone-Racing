@@ -1,70 +1,112 @@
-# ETHRC-Drone-Racing
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/docs/images/ETHRC-Aeronautics-Logo-Dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/docs/images/ETHRC-Aeronautics-Logo-Light.svg">
+    <img alt="ETHRC Aeronautics" src="docs/docs/images/ETHRC-Aeronautics-Logo-Light.svg" width="600">
+  </picture>
+</p>
 
-This repo gives us a ready-to-use drone racing environment in Docker.
-Why Docker? → So everyone works in the same environment, avoiding “it works on my machine” issues.
+<p align="center">
+  <b>Pushing the boundaries of Autonomous Drone Racing with ROS 2, PX4, and Cutting-edge Perception.</b>
+</p>
 
-It bundles:
-
-ROS 2 Humble → our robotics framework
-
-Gazebo (gz) → 3D simulator for drones
-
-PX4 SITL → autopilot software in simulation
-
-MAVROS / MAVSDK → talk between PX4 and ROS
-
-Workspace /ws → where we put our ROS 2 packages
-
-> **Host OS:** Ubuntu/Linux recommended  
-> **Requires:** Docker Engine + Compose v2
+<p align="center">
+  <img src="https://img.shields.io/badge/ROS2-Humble-blue?style=flat-square&logo=ros" alt="ROS2 Humble"/>
+  <img src="https://img.shields.io/badge/Simulator-Gazebo-orange?style=flat-square&logo=gazebo" alt="Gazebo"/>
+  <img src="https://img.shields.io/badge/Autopilot-PX4-blue?style=flat-square" alt="PX4"/>
+  <img src="https://img.shields.io/badge/Docker-Supported-2496ED?style=flat-square&logo=docker" alt="Docker"/>
+</p>
 
 ---
 
-## Quick Start
+## 🚀 The Mission
 
-### Step 0 — One-time: Set up SSH for GitHub (if you’ve never done this)
-We need SSH so git clone works smoothly without typing passwords.
-Follow GitHub’s guide: [Follow Github's guide here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh)
+Welcome to the **ETHRC Drone Racing** project. We are building the next generation of autonomous racing drones capable of navigating complex, high-speed environments with surgical precision. This repository provides a complete, containerized development environment - from high-fidelity simulation to real-world hardware deployment.
 
-### Step 1 — Clone (with PX4 submodule)
+![Drone in Action](docs/docs/images/drone_action_front.webp)
+
+---
+
+## 🛠 Project Pillars
+
+| **Perception** | **Control** | **Simulation** |
+| :--- | :--- | :--- |
+| **State Estimation:** VIO (OpenVINS) + EKF for robust localization. | **High-Speed Tracking:** MPC and RL-based controllers for agile flight. | **Digital Twin:** Gazebo Harmonic for realistic physics and sensor noise. |
+| **Object Detection:** Real-time gate and ArUco marker tracking. | **Planning:** Minimal-time trajectory generation through race gates. | **SITL:** PX4 Software-In-The-Loop for autopilot parity. |
+
+---
+
+## 📸 Real-World Hardware & Lab
+
+We don't just simulate; we fly. Our hardware stack is designed for extreme performance and modularity.
+
+<p align="center">
+  <img src="docs/docs/images/drone_hardware_closeup.webp" width="45%" />
+  <!-- <img src="docs/docs/images/drone_lab_arena.webp" width="45%" /> -->
+</p>
+
+<p align="center">
+  <img src="docs/docs/images/rl_wip.gif" width="45%" />
+
+  <i><b>Autonomous RL Training Simulation</b>: Drones learning optimal racing lines in IsaacLab.</i>
+</p>
+
+---
+
+## ⚡ Quick Start
+
+Get your environment up and running in minutes.
+
+### 1. Clone & Initialize
 ```bash
 git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
 cd ETHRC-Drone-Racing
 ```
 
-### Step 2 — Build the Docker image
+### 2. Launch Environment
+We use Docker to ensure "it works on everyone's machine."
 ```bash
-docker compose build
-```
+# Prepare host volumes
+sudo ./scripts/prepare_colcon_volumes.sh
 
-### Step 3 — Start services (enable GUI, start container, open shell)
-```bash
-# Allow container GUI apps to open windows on your desktop (X11)
+# Start the development container
 xhost +local:root
-
-# Start the container (detached) and open a shell inside
-docker compose up -d
-docker exec -it erc-aeronautics bash
+docker compose up dev -d
+docker compose exec dev bash
 ```
 
-### Step 4 — Run the simulation in the container
+### 3. Build & Fly
+Inside the container:
 ```bash
-# Default x500 in the default world
-cd /ws/px4/PX4-Autopilot
-make px4_sitl gz_x500
+# Build the workspace
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+source install/setup.bash
+
+# Launch Simulation & Controller
+# IMPORTANT: Run 'source install/setup.bash' in every NEW terminal!
+ros2 launch drone_control drone_controller.launch.py
 ```
 
-# Using dev containers
+---
 
-## Using nvidia graphics card inside the container. 
-1. Install the [nvidia container toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html). 
-    - Install on your platform
-    - Configure ([here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuration))
-    -  Run the [sample](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/sample-workload.html)  
+## 🏗 System Architecture
 
-## Rebuilding the container after new configuration
-1. Make sure all the folders in the workspace are owned by the local user. 
-    ```sh
-    sudo chown -R $USER:$USER .
-    ```
-2. Inside `px4/PX4-Autopilot` use `make clean` to clear all the build artifacts. Then build again.
+Our system is composed of several high-performance subsystems working in harmony. The perception pipeline feeds high-frequency state updates to the MPC controller, ensuring agile and precise flight.
+
+![System Architecture](docs/docs/images/Interfaces.drawio.png)
+
+---
+
+## 🤝 Join the Race
+
+Are you passionate about robotics, computer vision, or control theory? We are always looking for motivated engineers to join the ETHRC Aeronautics division.
+
+- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs -d`)
+- 📝 **Guidelines (with Coding Agents):** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
+- 💬 **Get Involved:** Reach out to the team on Discord or Open an Issue!
+
+---
+
+<p align="center">
+  Proudly developed by the <b>ETH Robotics Club - Aeronautics Division</b>
+</p>
