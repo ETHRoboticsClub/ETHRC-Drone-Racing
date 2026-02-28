@@ -1,0 +1,11 @@
+/drone_controller_node:
+  ros__parameters:
+    state_topic: "drone_state_sim"
+    attitude_command_topic: "/drone_attitude_cmd"
+    position_command_topic: "/drone_position_cmd"
+    controller_rate: 100.0
+    threshold:
+      position: 0.1
+      velocity: 0.02
+      angular_velocity: 0.02
+      orientation: 0.1

@@ -1,8 +1,4 @@
 .git
-.colcon/
-build/
-install/
-log/
 px4/PX4-Autopilot/.git
 px4/PX4-Autopilot/build*/
 px4/PX4-Autopilot/Tools/simulation/gazebo-classic/build*/

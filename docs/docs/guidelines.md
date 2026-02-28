@@ -1,5 +1,8 @@
 # Project Guidelines
 
+**Page Owner:** [Leads of the Aeronautics Division](https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/)
+
+---
 This document outlines the guidelines for contributing to the ETHRC Drone Racing project, including documentation standards and development workflow.
 
 ## Documentation Guidelines
@@ -8,7 +11,7 @@ We use [MkDocs](https://www.mkdocs.org/) with the [Material for MkDocs](https://
 
 ### Editing Documentation
 
-Documentation source files are located in `docs/docs/`. They are written in Markdown.
+Documentation source files are located in `docs/docs/`. They are written in Markdown, [this is a really useful guide by Google](https://google.github.io/styleguide/docguide/style.html#headings).
 
 - **Headers**: Use `#` for page titles and `##` for section headers.
 - **Code Blocks**: Use triple backticks (\`\`\`) for code blocks. Specify the language for syntax highlighting (e.g., \`\`\`bash).
@@ -53,7 +56,6 @@ If you are an AI assistant (e.g., Antigravity, Claude, Codex) helping with devel
 - **Read the guidelines**: First, read the guidelines in this document and the detailed guides in `/aeronautics-utility/agents` (as specified in the `README.md`).
 - **Understand the code**: Do not perform blind edits. Ensure you understand the surrounding code logic. If you are unsure, explain your reasoning or ask the user for clarification.
 - **Manageable Commits**: Break up the development into smaller, focused commits. Avoid overwhelmingly large commits (e.g., thousands of lines) that are difficult to review.
-
 ### Docker Environment
 
 The project relies heavily on Docker to ensure a consistent environment.

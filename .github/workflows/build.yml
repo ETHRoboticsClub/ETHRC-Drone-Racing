@@ -1,0 +1,79 @@
+name: Build Verification
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+      - 'merge/*'
+      - 'fix/*'
+  pull_request:
+    branches:
+      - main
+      - 'feature/*'
+      - 'merge/*'
+      - 'fix/*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build ${{ matrix.service }}
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [dev]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: false # Manual initialization for better control and recovery
+
+      - name: Surgical Submodule Initialization
+        run: |
+          # 1. Sync submodule URLs (Crucial for handling URL changes)
+          git submodule sync --recursive
+          
+          # 2. Prevent "could not lock config" errors
+          if [ -d ".git/modules/aeronautics-utility" ]; then
+            if [ ! -f ".git/modules/aeronautics-utility/config" ]; then
+               echo "Fixing corrupted aeronautics-utility metadata..."
+               rm -rf ".git/modules/aeronautics-utility"
+            fi
+          fi
+
+          # 3. Targeted Initialization 
+          echo "Initializing aeronautics-utility..."
+          git submodule update --init --recursive --force aeronautics-utility
+          
+          echo "Initializing PX4-Autopilot..."
+          # If nested submodules fail, perform surgical reset of the worktree
+          git submodule update --init --recursive --force --depth 1 px4/PX4-Autopilot || (
+            echo "PX4 update failed, attempting surgical worktree cleanup..."
+            rm -rf px4/PX4-Autopilot
+            git submodule update --init --recursive --force --depth 1 px4/PX4-Autopilot
+          )
+          
+          echo "Initializing Perception and Vicon submodules..."
+          git submodule update --init --recursive --force src/perception/VIO/open_vins
+          git submodule update --init --recursive --force src/ros2-vicon-receiver
+
+      - name: Build Docker Service
+        run: |
+          # Use a unique project name and container name per run to avoid collisions
+          export COMPOSE_PROJECT_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
+          export CONTAINER_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
+          # Use docker-compose to build the specific service.
+          docker compose build --no-cache ${{ matrix.service }}
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Remove the specific image built in this run to save space
+          # Docker compose uses specific tagging usually, but we prune for safety
+          docker system prune -f
+          docker builder prune -a -f

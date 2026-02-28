@@ -1,37 +1,104 @@
-version: "3.9"
-
 services:
   dev:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      target: dev
+      network: host
       args:
-        BASE_IMAGE: "ubuntu:22.04"
-    container_name: erc-aeronautics
+        BASE_IMAGE: osrf/ros:humble-desktop
+        WORKSPACE: ${PWD}
+        USERNAME: ${CONTAINER_USERNAME:-drone_dev}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+
     network_mode: host
-    environment:
-      - DISPLAY=${DISPLAY}
-      - QT_X11_NO_MITSHM=1
-      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
-      - GZ_SIM_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
-      - IGN_GAZEBO_RESOURCE_PATH=${IGN_GAZEBO_RESOURCE_PATH:-/ws/sim/gazebo/models:/ws/sim/gazebo/worlds}
-    volumes:
-      # X11 GUI (Linux)
-      - /tmp/.X11-unix:/tmp/.X11-unix:ro
-
-      # Whole repo as the ROS 2 workspace
-      - ./:/ws:rw
-
-      # Keep colcon artifacts outside the image
-      - ./.colcon/build:/ws/build
-      - ./.colcon/install:/ws/install
-      - ./.colcon/log:/ws/log
-
-      # USB / serial passthrough
-      - /dev/bus/usb:/dev/bus/usb
-      - /dev:/dev
-    privileged: true
-    working_dir: /ws
     tty: true
-    # Optional: enable GPU on NVIDIA laptops
-    # gpus: all
+    working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
+
+    volumes:
+      # X11 socket for GUI applications
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Mount source code
+      - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
+      - ./launch:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/launch:rw
+      # Mount workspace build/install directories for persistence
+      - ./.colcon/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
+      - ./.colcon/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
+      - ./.colcon/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
+      # Mount px4 directory for PX4 Autopilot inside ros_ws
+      - ./px4:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/px4:rw
+      # Mount sim directory for Gazebo models
+      - ./sim:/home/${CONTAINER_USERNAME:-drone_dev}/sim:rw
+      # Mount .git 
+      - ./.git:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/.git
+      # Mount scripts directory
+      - ./scripts:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/scripts:rw
+      # # Mount other useful directories
+      # - ./bags_ros2:/home/${CONTAINER_USERNAME:-drone_dev}/bags_ros2:ro
+      # - ./results:/home/${CONTAINER_USERNAME:-drone_dev}/results:rw
+      - ./docs:/home/${CONTAINER_USERNAME:-drone_dev}/docs:rw
+
+    environment:
+      # --- MKDocs ---
+      MKDOCS_PORT: ${MKDOCS_PORT:-8000}
+
+      # --- ROS Configuration ---
+      ROS_DOMAIN_ID: 1
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+
+      # --- Gazebo Resource Paths ---
+      GZ_SIM_RESOURCE_PATH: ${GZ_SIM_RESOURCE_PATH:-/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/models:/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/worlds}
+      IGN_GAZEBO_RESOURCE_PATH: ${IGN_GAZEBO_RESOURCE_PATH:-/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/models:/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/worlds}
+
+      # --- Display (X11 / Wayland) ---
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: ${XAUTHORITY}
+      # Disable MIT-SHM for Qt applications
+      QT_X11_NO_MITSHM: "1"
+      # Disable MIT-SHM for GTK applications (prevents BadAccess errors)
+      # Use software rendering to avoid MIT-SHM issues
+      GDK_SYNCHRONIZE: "1"
+      # Disable accessibility bus (removes warning messages)
+      NO_AT_BRIDGE: "1"
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+      PULSE_SERVER: ${PULSE_SERVER}
+      # --- Optional GPU ---
+      # LIBGL_ALWAYS_SOFTWARE: 1
+
+      # Uncomment if NVIDIA Container Toolkit is installed
+      # runtime: nvidia
+      # gpus: all
+
+      # --- Documentation Team ---
+  docs:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: docs
+    command: [ "mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000" ]
+
+  # --- Perception Team ---
+  perception:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: perception
+
+  # --- MPC / Control Team ---
+  mpc:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: mpc
+
+  # --- RL Team ---
+  rl:
+    extends: dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: rl

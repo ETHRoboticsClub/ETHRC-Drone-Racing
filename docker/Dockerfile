@@ -1,111 +1,214 @@
-# ROS 2 Humble + gz (Ignition) + PX4 SITL + MAVROS + MAVSDK + OpenCV + Python tooling
-ARG BASE_IMAGE=ubuntu:22.04
-FROM ${BASE_IMAGE}
+# =========================================================
+# STAGE 1: base
+# Core ROS 2, system tools, and user configuration
+# =========================================================
+ARG BASE_IMAGE=ros:humble-desktop-full
+FROM ${BASE_IMAGE} AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
-# ---- Base tools & locales ----
+# Locales & Base Tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata locales sudo bash-completion ca-certificates curl wget git gnupg2 lsb-release \
-    build-essential cmake ninja-build ccache gdb valgrind \
-    python3-pip \
+    build-essential cmake ninja-build ccache gdb valgrind pkg-config \
+    python3-pip python3-venv python3-dev swig \
     && rm -rf /var/lib/apt/lists/*
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN locale-gen en_US.UTF-8 && update-ca-certificates
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
 
-# ---- ROS 2 Humble apt repo (keyring method) ----
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
-    | gpg --dearmor -o /etc/apt/keyrings/ros-archive-keyring.gpg && \
-    sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" > /etc/apt/sources.list.d/ros2.list'
+# ROS 2 Environment
+ENV ROS_DISTRO=humble
+ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV CMAKE_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
+ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python3.10/site-packages
 
-# ---- ROS 2 Humble desktop + core ROS tools (after repo is added) ----
+# ROS 2 Tooling & MAVROS
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-rosdep python3-argcomplete python3-vcstool python3-colcon-common-extensions \
-    ros-humble-desktop \
-    ros-humble-image-transport \
-    ros-humble-cv-bridge \
-    ros-humble-rmw-cyclonedds-cpp \
-    && rm -rf /var/lib/apt/lists/*
-# rosdep baseline (ignore if already inited)
-RUN rosdep init || true
-
-# ---- Gazebo Sim (gz) + ROS bridge ----
-RUN apt-get update && apt-get install -y --no-install-recommends lsb-release wget gnupg && \
-    wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg && \
-    sh -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" > /etc/apt/sources.list.d/gz-stable.list' && \
-    apt-get update && \
-    (apt-get install -y --no-install-recommends gz-harmonic || apt-get install -y --no-install-recommends gz-garden) && \
-    rm -rf /var/lib/apt/lists/*
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-ros-gz \
-    && rm -rf /var/lib/apt/lists/*
-
-# Resource paths for your mounted worlds/models
-ENV GZ_SIM_RESOURCE_PATH=/ws/sim/gazebo/models:/ws/sim/gazebo/worlds:${GZ_SIM_RESOURCE_PATH}
-ENV IGN_GAZEBO_RESOURCE_PATH=${GZ_SIM_RESOURCE_PATH}
-
-# ---- MAVROS + GeographicLib datasets ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-humble-image-transport ros-humble-cv-bridge ros-humble-rmw-cyclonedds-cpp \
     ros-humble-mavros ros-humble-mavros-extras geographiclib-tools \
+    ros-humble-nav2-msgs ros-humble-plotjuggler-ros \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+    libopencv-dev python3-opencv \
+    libvulkan1 vulkan-tools clang clang-format \
     && rm -rf /var/lib/apt/lists/*
+RUN rosdep init || true
 RUN /bin/bash -lc "source /opt/ros/humble/setup.bash && /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"
 
-# ---- PX4 SITL deps + (image-bundled) PX4 clone (can be overridden by bind mount) ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git zip unzip tar xz-utils \
-    python3-jinja2 python3-numpy python3-yaml \
-    xterm xsltproc libxml2-utils \
+# Gazebo (GZ Harmonic)
+RUN wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] \
+    https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+    > /etc/apt/sources.list.d/gz-stable.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-msgs10-dev \
+    libgz-transport13-dev libgz-math7-dev libgz-common5-dev libsdformat14-dev \
+    ros-humble-ros-gzharmonic ros-humble-ros-gzharmonic-bridge ros-humble-ros-gzharmonic-image \
+    ros-humble-ros-gzharmonic-interfaces ros-humble-ros-gzharmonic-sim \
     && rm -rf /var/lib/apt/lists/*
-RUN git clone --recursive https://github.com/PX4/PX4-Autopilot.git /opt/PX4-Autopilot
-RUN /bin/bash -lc "cd /opt/PX4-Autopilot && Tools/setup/ubuntu.sh --no-nuttx"
 
-# ---- MAVSDK (C++) from source ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev \
-    libjsoncpp-dev libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
-    cmake -S /opt/MAVSDK -B /opt/MAVSDK/build -DCMAKE_BUILD_TYPE=Release && \
-    cmake --build /opt/MAVSDK/build -j"$(nproc)" && \
-    cmake --install /opt/MAVSDK/build && ldconfig
+# udev rules for FMU/USB bridges
+RUN install -d -m 0755 /etc/udev/rules.d && \
+    cat <<'EOF' >/etc/udev/rules.d/99-robotics-serial.rules
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", MODE="0666", GROUP="dialout"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", MODE="0666", GROUP="dialout"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", MODE="0666", GROUP="dialout"
+EOF
 
-# ---- Useful C++/CV/Serial/Math + Python tooling ----
+# User Setup
+ARG USERNAME=drone_dev
+ARG USER_UID=1000
+ARG USER_GID=$USER_UID
+RUN groupadd --gid $USER_GID $USERNAME && \
+    useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME && chmod 0440 /etc/sudoers.d/$USERNAME
+
+ENV WORKSPACE=/home/${USERNAME}/ros_ws
+WORKDIR /home/${USERNAME}
+
+# Set up autocompletion for user
+RUN  echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
+    && echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/$USERNAME/.bashrc \
+    && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc \
+    && echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc
+
+# PX4 build dependencies — sourced from the PX4 submodule itself
+COPY px4/PX4-Autopilot/Tools/setup/requirements.txt /tmp/px4_requirements.txt
+RUN uv pip install --system --no-cache setuptools==58.2.0 && \
+    uv pip install --system --no-cache -r /tmp/px4_requirements.txt && rm /tmp/px4_requirements.txt
+
+# =========================================================
+# STAGE 2: shared-perception-controls-deps
+# Shared dependencies for perception, controls, and docs
+# =========================================================
+FROM base AS shared-perception-controls-deps
+
+# Perception system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-dev python3-opencv \
     libeigen3-dev libyaml-cpp-dev libboost-all-dev \
-    libserial-dev libusb-1.0-0-dev libudev-dev libzmq3-dev \
-    gstreamer1.0-tools gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
+    ros-humble-robot-localization \
     && rm -rf /var/lib/apt/lists/*
-RUN pip3 install --no-cache-dir \
-    numpy matplotlib pandas scipy tqdm pyyaml pyserial ipython pre-commit mavsdk mkdocs mkdocs-material pymdown-extensions
 
-# ---- udev rules for FMU/USB bridges ----
-RUN install -d -m 0755 /etc/udev/rules.d && \
-    cat <<'EOF' >/etc/udev/rules.d/99-robotics-serial.rules
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", MODE="0666", GROUP="dialout"   # STM32 VCP
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", MODE="0666", GROUP="dialout"   # CP210x (Kakute H7, etc.)
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", MODE="0666", GROUP="dialout"   # FTDI
-SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", MODE="0666", GROUP="dialout"   # CH340/CH341
-SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", MODE="0666", GROUP="dialout"   # Prolific PL2303
-SUBSYSTEM=="tty", ATTRS{idVendor}=="2341", MODE="0666", GROUP="dialout"   # Arduino
-EOF
-# udev isn't active during image build; this is harmless but kept for runtime containers.
-RUN udevadm control --reload-rules || true && udevadm trigger || true
+# Shared Python deps
+RUN uv pip install --system --no-cache numpy==1.24.4 scipy==1.10.1
 
-# ---- ROS 2 workspace (/ws) ----
-ENV ROS_DISTRO=humble
-WORKDIR /ws
-RUN mkdir -p /ws/src
-ENV COLCON_DEFAULTS_FILE=/ws/colcon.defaults
-RUN bash -lc 'printf "{\\n  \\"build-base\\": \\"build\\",\\n  \\"install-base\\": \\"install\\",\\n  \\"test-result-base\\": \\"test_results\\"\\n}\\n" > ${COLCON_DEFAULTS_FILE}'
+# =========================================================
+# STAGE 3: docs
+# Minimal stage for MkDocs only
+# =========================================================
+FROM base AS docs
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+EXPOSE 8000
+COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
+CMD ["mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000"]
 
-# Auto-source ROS + overlay
-RUN bash -lc 'echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /etc/bash.bashrc && \
-    echo "[ -f /ws/install/setup.bash ] && source /ws/install/setup.bash" >> /etc/bash.bashrc && \
-    echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /etc/bash.bashrc'
+# =========================================================
+# STAGE 4: perception
+# Perception-only build
+# =========================================================
+FROM shared-perception-controls-deps AS perception
+USER drone_dev
+COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
+COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
+COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
+WORKDIR ${WORKSPACE}
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver gazebo_ros_bridges
 
+# =========================================================
+# STAGE 5: shared-mpc-rl-deps
+# Dependencies for MPC, MAVSDK, ACADOS, and RL
+# =========================================================
+FROM shared-perception-controls-deps AS shared-mpc-rl-deps
 
-# Start doc server in background, then drop into bash
-CMD ["/bin/bash", "-c", "mkdocs serve -f /ws/docs/mkdocs.yml -a 0.0.0.0:8000 & exec /bin/bash"]
+# MAVSDK C++ Build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev \
+    libjsoncpp-dev libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
+    cd /opt/MAVSDK && git fetch --tags && git checkout v3.10.2 && \
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
+    cmake --build build -j$(nproc) && cmake --install build && ldconfig
+
+# ACADOS C++ Build
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libblas-dev liblapack-dev libopenblas-dev liblapacke-dev gfortran && rm -rf /var/lib/apt/lists/*
+RUN git clone https://github.com/acados/acados.git /opt/acados && \
+    cd /opt/acados && git submodule update --recursive --init && \
+    mkdir -p build && cd build && cmake -DACADOS_SHARED_LIBS=ON -DACADOS_WITH_QPOASES=ON .. && \
+    make install -j$(nproc)
+
+# Tera Renderer
+RUN mkdir -p /opt/acados/bin && \
+    wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64 -O /opt/acados/bin/t_renderer && \
+    chmod +x /opt/acados/bin/t_renderer
+ENV TERA_PATH=/opt/acados/bin/t_renderer
+ENV LD_LIBRARY_PATH=/opt/acados/lib:${LD_LIBRARY_PATH}
+ENV ACADOS_SOURCE_DIR=/opt/acados
+
+# Python deps (MPC + RL)
+RUN uv pip install --system --no-cache \
+    setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk casadi cython && \
+    uv pip install --system --no-cache -e /opt/acados/interfaces/acados_template
+RUN uv pip install --system --no-cache torch torchvision torchaudio stable-baselines3 shimmy gymnasium
+
+# =========================================================
+# STAGE 6: mpc
+# MPC-only build
+# =========================================================
+FROM shared-mpc-rl-deps AS mpc
+USER drone_dev
+COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
+COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
+COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
+WORKDIR ${WORKSPACE}
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk mpc
+
+# =========================================================
+# STAGE 7: rl
+# RL build (includes MPC builds)
+# =========================================================
+FROM shared-mpc-rl-deps AS rl
+USER drone_dev
+# Copy MPC builds to avoid redundant compilation
+COPY --from=mpc ${WORKSPACE}/install ${WORKSPACE}/install
+COPY --from=mpc ${WORKSPACE}/build ${WORKSPACE}/build
+COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
+COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
+COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
+WORKDIR ${WORKSPACE}
+
+# =========================================================
+# STAGE 8: dev (full build)
+# The complete package — merges all targets
+# =========================================================
+FROM rl AS dev
+USER root
+# Copy perception builds from the perception stage
+COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install
+COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build
+# Ensure perception source is present
+COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
+COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
+COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
+COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
+# Add docs
+COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+
+USER drone_dev
+WORKDIR ${WORKSPACE}
+RUN echo "source ${WORKSPACE}/install/setup.bash" >> /home/drone_dev/.bashrc
+CMD ["/bin/bash"]

@@ -1,0 +1,28 @@
+bridges:
+  - name: camera_image
+    gz_topic: "/drone/camera/image"
+    ros2_type: "sensor_msgs/msg/Image"
+    gz_type: "gz.msgs.Image"
+    remap_to: "/cam0/image_raw"
+    enabled: true
+
+  - name: camera_info
+    gz_topic: "/drone/camera/camera_info"
+    ros2_type: "sensor_msgs/msg/CameraInfo"
+    gz_type: "gz.msgs.CameraInfo"
+    remap_to: "/cam0/camera_info"
+    enabled: true
+
+  - name: camera_imu
+    gz_topic: "/drone/imu"
+    ros2_type: "sensor_msgs/msg/Imu"
+    gz_type: "gz.msgs.IMU"
+    remap_to: "/imu0"
+    enabled: true
+
+  - name: groundtruth
+    gz_topic: "/drone/odometry"
+    ros2_type: "nav_msgs/msg/Odometry"
+    gz_type: "gz.msgs.Odometry"
+    remap_to: "/odometry"
+    enabled: true
