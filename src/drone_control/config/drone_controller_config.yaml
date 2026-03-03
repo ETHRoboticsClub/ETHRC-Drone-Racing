@@ -1,6 +1,6 @@
 /drone_controller_node:
   ros__parameters:
-    controller_type: "mpc_rotor"  # Options: 'mpc', 'mpc_rotor', 'rl'
+    controller_type: "mpc"  # Options: 'mpc', 'mpc_rotor', 'rl'
     state_topic: "drone_state_sim"
     attitude_command_topic: "/drone_attitude_cmd"
     position_command_topic: "/drone_position_cmd"

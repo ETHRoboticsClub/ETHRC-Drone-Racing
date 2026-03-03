@@ -123,6 +123,8 @@ class MavSDKClient(Node):
         
         self._logger.info("Initialized")
 
+    # UNUSED: timer is scheduled every 0.5s but this callback is completely empty (only pass).
+    # Intended for battery/debug telemetry publishing but never implemented.
     def _secondary_timer_callback(self):
         """This function publishes the secondary and debugging info for the gui"""
         pass
@@ -152,6 +154,8 @@ class MavSDKClient(Node):
         #TODO: verify that it is best way (Michalis)
         self.run_async(self.drone.offboard.set_attitude_rate(cmd))
 
+    # UNUSED: subscribed to /drone_position_cmd but drone_controller_node.py creates the publisher
+    # for that topic and never calls .publish() on it — so this callback is never triggered.
     def position_cmd_cb(self,msg :Float64MultiArray ):
         if len(msg.data) == 4:
             north_m  = msg.data[0]
@@ -160,6 +164,7 @@ class MavSDKClient(Node):
             yaw_deg  = msg.data[3]
             self.send_Position_cmd(PositionNedYaw(north_m,east_m,down_m,yaw_deg))
 
+    # UNUSED: only called by position_cmd_cb() above, which is itself never triggered
     def send_Position_cmd(self, cmd : PositionNedYaw):
         self.run_async(self.drone.offboard.set_position_ned(cmd))
 

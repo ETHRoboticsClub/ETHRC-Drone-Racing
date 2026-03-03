@@ -2,109 +2,138 @@
 """
 Drone dynamics model for MPC using CasADi and ACADOS.
 State: position(3), velocity(3), quaternion(4), angular_rates(3) = 13 states
-Control: thrust(1), body_rates(3) = 4 controls
-Uses full quadrotor dynamics with thrust vector and body rates.
+Control: per-rotor normalized thrust(4) = 4 controls, u_i in [0, 1]
+
+Internally optimizes over per-rotor inputs with full Euler rigid-body dynamics,
+respecting individual rotor thrust limits. The optimizer outputs [thrust_N, wx, wy, wz]
+(same interface as attitude_rate mode) via the mixing matrix.
+
+Rotor geometry from PX4 X500 airframe (4001_gz_x500), FRD body frame:
+  Rotor 0: PX=+0.13  PY=+0.22  KM=+0.05  rear-right,  CCW
+  Rotor 1: PX=-0.13  PY=-0.20  KM=+0.05  front-left,  CCW
+  Rotor 2: PX=+0.13  PY=-0.22  KM=-0.05  rear-left,   CW
+  Rotor 3: PX=-0.13  PY=+0.20  KM=-0.05  front-right, CW
+
+Sign conventions (FRD/NED):
+  Roll+  = right wing down (rotation about +X body)
+  Pitch+ = nose up         (rotation about +Y body)
+  Yaw+   = clockwise from above (rotation about +Z body, which points down)
 """
 import numpy as np
 import casadi as ca
 from acados_template import AcadosModel
 
+
 class DroneModel(object):
     def __init__(self):
         model = AcadosModel()
         constraint = ca.types.SimpleNamespace()
-        
-        # Physical parameters (X500 da SDF)
+
+        # Physical parameters (X500 from SDF)
         self.I_xx = 0.02166666666666667  # kg*m^2
         self.I_yy = 0.02166666666666667  # kg*m^2
-        self.I_zz = 0.0400  # kg*m^2
-        self.m = 2.5372  # kg
-        self.g = 9.81  # m/s^2
+        self.I_zz = 0.0400               # kg*m^2
+        self.m = 2.5372                  # kg
+        self.g = 9.81                    # m/s^2
         self.I = np.diag([self.I_xx, self.I_yy, self.I_zz])
+        self.I_inv = np.diag([1.0/self.I_xx, 1.0/self.I_yy, 1.0/self.I_zz])
 
-        self.motorConstant = 8.54858e-6  # N/(rad/s)^2
-        self.maxRotVelocity = 1000.0  # rad/s
-        self.maxThrust = 4 * self.motorConstant * self.maxRotVelocity**2  # N
-        
+        self.motorConstant = 8.54858e-6   # N/(rad/s)^2
+        self.maxRotVelocity = 1000.0      # rad/s
+        self.maxSingleRotorThrust = self.motorConstant * self.maxRotVelocity**2  # ~8.55 N
+        self.maxThrust = 4 * self.maxSingleRotorThrust  # ~34.19 N total
+
         # Aerodynamic drag coefficient
-        self.k_drag = 0.0  # N/(m/s)^2
-        
-        # Time constant for body rate tracking (first-order dynamics)
-        # Use more conservative value for numerical stability
-        self.tau_w = 0.1  # s (increased for better conditioning)
-        
+        self.k_drag = 0.0
+
+        # X500 rotor geometry (FRD body frame)
+        self.rotor_px = np.array([+0.13, -0.13, +0.13, -0.13])
+        self.rotor_py = np.array([+0.22, -0.20, -0.22, +0.20])
+        self.rotor_km = np.array([+0.05, +0.05, -0.05, -0.05])
+
+        # Hover values
+        self.hover_thrust_per_rotor_N = self.m * self.g / 4.0
+        self.hover_normalized = self.hover_thrust_per_rotor_N / self.maxSingleRotorThrust  # ~0.727
+
+        # Mixing matrix: maps per-rotor normalized inputs [0,1] -> [T_N, Mx, My, Mz]
+        # (multiply by kf so input is normalized)
+        kf = self.maxSingleRotorThrust
+        self.B_mix = np.array([
+            [1.0,               1.0,               1.0,               1.0              ],
+            [self.rotor_py[0],  self.rotor_py[1],  self.rotor_py[2],  self.rotor_py[3] ],
+            [-self.rotor_px[0], -self.rotor_px[1], -self.rotor_px[2], -self.rotor_px[3]],
+            [self.rotor_km[0],  self.rotor_km[1],  self.rotor_km[2],  self.rotor_km[3] ],
+        ]) * kf
+
+        # Constraint alias for compatibility with drone_opt.py
+        # (thrust_max used for normalizing output)
+        self.constraint_thrust_max = self.maxThrust
+
         # ============================================
-        # Control inputs: thrust and body rate commands
+        # Control inputs: per-rotor normalized thrust [0, 1]
         # ============================================
-        thrust_cmd = ca.MX.sym('thrust', 1)  # N (total thrust magnitude)
-        wx_cmd = ca.MX.sym('wx_cmd', 1)      # rad/s (roll rate command)
-        wy_cmd = ca.MX.sym('wy_cmd', 1)      # rad/s (pitch rate command)
-        wz_cmd = ca.MX.sym('wz_cmd', 1)      # rad/s (yaw rate command)
-        
-        controls = ca.vertcat(thrust_cmd, wx_cmd, wy_cmd, wz_cmd)
-        
+        u0 = ca.MX.sym('u0', 1)  # rotor 0 (rear-right, CCW)
+        u1 = ca.MX.sym('u1', 1)  # rotor 1 (front-left, CCW)
+        u2 = ca.MX.sym('u2', 1)  # rotor 2 (rear-left, CW)
+        u3 = ca.MX.sym('u3', 1)  # rotor 3 (front-right, CW)
+
+        controls = ca.vertcat(u0, u1, u2, u3)
+
         # ============================================
-        # State vector (13 states total)
+        # State vector (13 states)
         # ============================================
         p = ca.MX.sym('p', 3)    # position NED [north, east, down]
         v = ca.MX.sym('v', 3)    # velocity NED [vn, ve, vd]
         q = ca.MX.sym('q', 4)    # quaternion [w,x,y,z] body->NED
-        w = ca.MX.sym('w', 3)    # angular rates body [wx, wy, wz]
-        
+        w = ca.MX.sym('w', 3)    # angular rates body [wx, wy, wz] (rad/s)
+
         states = ca.vertcat(p, v, q, w)
-        
+
+        # ============================================
+        # Per-rotor forces -> collective thrust + moments
+        # ============================================
+        kf_sym = self.maxSingleRotorThrust
+
+        F0 = u0 * kf_sym
+        F1 = u1 * kf_sym
+        F2 = u2 * kf_sym
+        F3 = u3 * kf_sym
+
+        T_total = F0 + F1 + F2 + F3
+
+        Mx = self.rotor_py[0]*F0 + self.rotor_py[1]*F1 + self.rotor_py[2]*F2 + self.rotor_py[3]*F3
+        My = -(self.rotor_px[0]*F0 + self.rotor_px[1]*F1 + self.rotor_px[2]*F2 + self.rotor_px[3]*F3)
+        Mz = self.rotor_km[0]*F0 + self.rotor_km[1]*F1 + self.rotor_km[2]*F2 + self.rotor_km[3]*F3
+
         # ============================================
         # System dynamics
         # ============================================
-        
+
         # 1. Position dynamics: p_dot = v
         p_dot = v
-        
-        # 2. Velocity dynamics: m*v_dot = R*F_thrust - m*g - F_drag
-        # Rotation matrix from body to NED frame using quaternion
+
+        # 2. Velocity dynamics
         qw, qx, qy, qz = q[0], q[1], q[2], q[3]
-        
-        # Normalize quaternion to prevent numerical drift
-        q_norm = ca.sqrt(qw**2 + qx**2 + qy**2 + qz**2 + 1e-8)  # Add small epsilon
+
+        q_norm = ca.sqrt(qw**2 + qx**2 + qy**2 + qz**2 + 1e-8)
         qw, qx, qy, qz = qw/q_norm, qx/q_norm, qy/q_norm, qz/q_norm
-        
-        # Thrust vector in body frame (pointing up = negative z_body in NED convention)
-        # La thrust punta lungo +z_body, che corrisponde alla direzione "up" del drone
-        F_body = ca.vertcat(0, 0, thrust_cmd)
-        
-        # Rotation matrix body -> NED (from quaternion)
+
+        F_body = ca.vertcat(0, 0, T_total)
+
         R_bn = ca.vertcat(
-            ca.horzcat(
-                1 - 2*(qy**2 + qz**2),
-                2*(qx*qy - qw*qz),
-                2*(qx*qz + qw*qy)
-            ),
-            ca.horzcat(
-                2*(qx*qy + qw*qz),
-                1 - 2*(qx**2 + qz**2),
-                2*(qy*qz - qw*qx)
-            ),
-            ca.horzcat(
-                2*(qx*qz - qw*qy),
-                2*(qy*qz + qw*qx),
-                1 - 2*(qx**2 + qy**2)
-            )
+            ca.horzcat(1 - 2*(qy**2 + qz**2),  2*(qx*qy - qw*qz),    2*(qx*qz + qw*qy)),
+            ca.horzcat(2*(qx*qy + qw*qz),       1 - 2*(qx**2 + qz**2), 2*(qy*qz - qw*qx)),
+            ca.horzcat(2*(qx*qz - qw*qy),       2*(qy*qz + qw*qx),    1 - 2*(qx**2 + qy**2))
         )
-        
-        # Thrust force in NED frame
+
         F_thrust_ned = R_bn @ F_body
-        
-        # Gravity in NED frame (positive down)
         g_ned = ca.vertcat(0, 0, self.g)
-        
-        # Aerodynamic drag (opposing velocity)
-        v_norm = ca.sqrt(ca.dot(v, v) + 1e-6)  # Add small epsilon for smoothness
+
+        v_norm = ca.sqrt(ca.dot(v, v) + 1e-6)
         F_drag = self.k_drag * v_norm * v
-        
-        # Acceleration
-        a = (-F_thrust_ned + self.m * g_ned - F_drag) / self.m
-        v_dot = a
-        
+
+        v_dot = (-F_thrust_ned + self.m * g_ned - F_drag) / self.m
+
         # 3. Quaternion kinematics: q_dot = 0.5 * q ⊗ [0, w]
         q_dot = 0.5 * ca.vertcat(
             -w[0]*qx - w[1]*qy - w[2]*qz,
@@ -112,27 +141,31 @@ class DroneModel(object):
              w[1]*qw - w[2]*qx + w[0]*qz,
              w[2]*qw + w[1]*qx - w[0]*qy
         )
-        
-        # 4. Angular rate dynamics (first-order tracking)
-        # Per body rates istantanei: w_dot = (w_cmd - w) / tau_w con tau_w molto piccolo
-        # Oppure per dinamica più realistica basata su inerzia:
-        # I*w_dot = M - w × (I*w), dove M sono i momenti comandati
-        
-        w_cmd = ca.vertcat(wx_cmd, wy_cmd, wz_cmd)
-        w_dot = (w_cmd - w) / self.tau_w
-        
-        # Concatenate all derivatives
+
+        # 4. Angular rate dynamics: full Euler equations
+        # I * w_dot = M - w x (I * w)
+        M_vec = ca.vertcat(Mx, My, Mz)
+        I_diag = ca.vertcat(self.I_xx, self.I_yy, self.I_zz)
+        Iw = I_diag * w
+        w_cross_Iw = ca.vertcat(
+            w[1]*Iw[2] - w[2]*Iw[1],
+            w[2]*Iw[0] - w[0]*Iw[2],
+            w[0]*Iw[1] - w[1]*Iw[0]
+        )
+        I_inv_diag = ca.vertcat(1.0/self.I_xx, 1.0/self.I_yy, 1.0/self.I_zz)
+        w_dot = I_inv_diag * (M_vec - w_cross_Iw)
+
         f_expression = ca.vertcat(p_dot, v_dot, q_dot, w_dot)
-        
+
         # ============================================
         # ACADOS model setup
         # ============================================
-        f = ca.Function('f', [states, controls], [f_expression], 
+        f = ca.Function('f', [states, controls], [f_expression],
                        ['state', 'control_input'], ['xdot'])
-        
+
         x_dot = ca.MX.sym('x_dot', states.size1())
         f_impl = x_dot - f_expression
-        
+
         model.f_expl_expr = f_expression
         model.f_impl_expr = f_impl
         model.x = states
@@ -140,44 +173,33 @@ class DroneModel(object):
         model.u = controls
         model.p = []
         model.name = 'drone_thrust'
-        
+
         # ============================================
         # Physical constraints
         # ============================================
-        # Thrust limits 
-        constraint.thrust_min = 0 
-        constraint.thrust_max = self.maxThrust  # N
-        
-        # Body rate limits (rad/s)
-        constraint.w_max_xy = 50.0   # roll/pitch rates
-        constraint.w_max_yaw = 50.0  # yaw rate
-        
-        # Control input bounds
-        constraint.u_min = np.array([constraint.thrust_min, 
-                                     -constraint.w_max_xy,
-                                     -constraint.w_max_xy,
-                                     -constraint.w_max_yaw])
-        constraint.u_max = np.array([constraint.thrust_max,
-                                     constraint.w_max_xy,
-                                     constraint.w_max_xy,
-                                     constraint.w_max_yaw])
-        
-        # State bounds (for angular rates in state)
-        constraint.w_state_max = np.array([np.pi, np.pi, np.pi])  # rad/s
+        # Per-rotor thrust limits (normalized [0, 1])
+        constraint.u_min = np.array([0.0, 0.0, 0.0, 0.0])
+        constraint.u_max = np.array([1.0, 1.0, 1.0, 1.0])
+
+        # Kept for backward compatibility with drone_opt.py
+        constraint.thrust_min = 0.0
+        constraint.thrust_max = self.maxThrust
+
+        # State bounds (angular rates)
+        constraint.w_state_max = np.array([np.pi, np.pi, np.pi])
         constraint.w_state_min = -constraint.w_state_max
-        
-        # Velocity bounds (safety limits)
-        constraint.v_max = np.array([10.0, 10.0, 10.0])  # m/s 
+
+        # Velocity bounds
+        constraint.v_max = np.array([10.0, 10.0, 10.0])
         constraint.v_min = -constraint.v_max
-        constraint.p_min = np.array([-50.0, -50.0, -100.0])  # [north, east, down] 
+        constraint.p_min = np.array([-50.0, -50.0, -100.0])
         constraint.p_max = np.array([ 50.0,  50.0,   0.0])
-        
+
         self.model = model
         self.constraint = constraint
         self.f = f
-        
+
         print(f"DroneModel initialized: nx={states.size1()}, nu={controls.size1()}")
-        print(f"  Mass: {self.m} kg")
-        print(f"  Thrust limits: [{constraint.thrust_min:.1f}, {constraint.thrust_max:.1f}] N")
-        print(f"  Body rate limits: ±{constraint.w_max_xy:.1f} rad/s (roll/pitch), "
-              f"±{constraint.w_max_yaw:.1f} rad/s (yaw)")
+        print(f"  Mass: {self.m} kg, Max single rotor thrust: {self.maxSingleRotorThrust:.2f} N")
+        print(f"  Hover per-rotor (normalized): {self.hover_normalized:.4f}")
+        print(f"  Output interface: [thrust_N, wx, wy, wz] (attitude_rate compatible)")

@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 """
-ACADOS OCP solver wrapper for drone MPC with thrust and body rate commands.
+ACADOS OCP solver wrapper for drone MPC.
+Control inputs: per-rotor normalized thrust u[0..3] in [0, 1].
+Output of compute_control_once: [thrust_N, wx, wy, wz] (attitude_rate compatible).
+
+The optimizer internally works with per-rotor inputs and full Euler dynamics,
+then converts the optimal solution via the mixing matrix before returning.
 """
 import os
 import sys
@@ -30,22 +35,37 @@ def safe_mkdir_recursive(directory, overwrite=False):
 
 
 class DroneOptimizer(object):
-    """ACADOS OCP wrapper for drone MPC with thrust/body rate control."""
+    """ACADOS OCP wrapper for drone MPC with per-rotor thrust control.
 
-    """Lambda to normalize quaternions"""
+    Optimizes over per-rotor normalized inputs [0,1] with full Euler dynamics.
+    compute_control_once returns [thrust_N, wx, wy, wz] for attitude_rate mode.
+
+    Args:
+        d_model: DroneModel instance (contains model, constraint and all physical params)
+        t_horizon: MPC time horizon in seconds
+        n_nodes: number of discretization nodes
+        enable_logging: enable solver logging
+    """
+
     normalize_quat = lambda q: q / np.linalg.norm(q) if np.linalg.norm(q) > 1e-12 else np.array([0., 0., 0., 1.])
 
-    def __init__(self, d_model, d_constraint, t_horizon, n_nodes, enable_logging=True):
-        model = d_model
+    def __init__(self, d_model, t_horizon, n_nodes, enable_logging=True):
+        # Extract acados model and constraints from DroneModel instance
+        model = d_model.model
+        d_constraint = d_model.constraint
+
         self.T = t_horizon
         self.N = n_nodes
         self.enable_logging = enable_logging
         self.log_failures = True
-        
-        # Store physical parameters for reference
-        self.m = 2.5372
-        self.g = 9.81
 
+        # Physical parameters from DroneModel
+        self.m = d_model.m
+        self.g = d_model.g
+        self.hover_normalized = d_model.hover_normalized
+
+        # Mixing matrix for converting per-rotor output -> [thrust_N, Mx, My, Mz]
+        self.B_mix = d_model.B_mix
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
         self.acados_models_dir = './acados_models'
@@ -65,8 +85,6 @@ class DroneOptimizer(object):
         self.nu = nu
 
         ocp = AcadosOcp()
-        # ocp.acados_include_path = acados_source_path + '/include' if acados_source_path else ''
-        # ocp.acados_lib_path = acados_source_path + '/lib' if acados_source_path else ''
         ocp.model = model
         ocp.solver_options.N_horizon = self.N
         ocp.solver_options.tf = self.T
@@ -81,19 +99,18 @@ class DroneOptimizer(object):
         u = model.u
         x_ref_param = ca.MX.sym('x_ref', nx)
 
-        # Stage cost weights - heavily reduced for numerical stability
-        Q_pos = 5.0        # Position tracking (was 10.0)
-        Q_vel = 0.5        # Velocity tracking (was 1.0)
-        Q_quat = 0.5       # Quaternion tracking (was 1.0)
-        Q_omega = 0.1     # Angular rate tracking (was 0.1)
-        R_thrust = 0.01  # Thrust penalty (was 0.001)
-        R_rates = 0.1   # Body rate penalty (was 0.01)
+        # Stage cost weights
+        Q_pos = 5.0
+        Q_vel = 0.5
+        Q_quat = 0.5
+        Q_omega = 0.1
+        R_rotor = 0.01  # penalty on deviation from hover per rotor
 
-        # Terminal weights - slightly higher than stage weights
-        Q_pos_term = 5.0       # Terminal position (was 20.0)
-        Q_vel_term = 0.5       # Terminal velocity (was 2.0)
-        Q_quat_term = 0.2      # Terminal quaternion (was 2.0)
-        Q_omega_term = 0.02   # Terminal angular rate (was 0.2)
+        # Terminal weights
+        Q_pos_term = 5.0
+        Q_vel_term = 0.5
+        Q_quat_term = 0.2
+        Q_omega_term = 0.02
 
         # Position error cost
         pos_error = x[0:3] - x_ref_param[0:3]
@@ -105,7 +122,7 @@ class DroneOptimizer(object):
         vel_cost = Q_vel * ca.dot(vel_error, vel_error)
         vel_cost_term = Q_vel_term * ca.dot(vel_error, vel_error)
 
-        # Quaternion tracking cost - simplified euclidean distance for stability
+        # Quaternion tracking cost
         q_current = x[6:10]
         q_ref = x_ref_param[6:10]
         quat_error = q_current - q_ref
@@ -117,16 +134,17 @@ class DroneOptimizer(object):
         w_cost = Q_omega * ca.dot(w_error, w_error)
         w_cost_term = Q_omega_term * ca.dot(w_error, w_error)
 
-        # Control cost - penalize deviation from hover thrust and zero body rates
-        u_hover = ca.vertcat(self.m * self.g, 0, 0, 0)
-        u_error = u - u_hover
-        control_cost = R_thrust * u_error[0]**2 + R_rates * ca.dot(u_error[1:4], u_error[1:4])
+        # Control cost: penalize deviation from hover (all rotors at hover_normalized)
+        u_hover_ca = ca.vertcat(self.hover_normalized, self.hover_normalized,
+                                self.hover_normalized, self.hover_normalized)
+        u_error = u - u_hover_ca
+        control_cost = R_rotor * ca.dot(u_error, u_error)
 
-        # Stage cost (along trajectory)
+        # Stage cost
         stage_cost = pos_cost + vel_cost + quat_cost + w_cost + control_cost
         ocp.model.cost_expr_ext_cost = stage_cost
-        
-        # Terminal cost (at end of horizon - no control penalty)
+
+        # Terminal cost (no control penalty)
         terminal_cost = pos_cost_term + vel_cost_term + quat_cost_term + w_cost_term
         ocp.model.cost_expr_ext_cost_e = terminal_cost
 
@@ -140,8 +158,7 @@ class DroneOptimizer(object):
         # ============================================
         # Constraints
         # ============================================
-        
-        # Control input constraints (thrust, wx, wy, wz)
+        # Per-rotor thrust constraints [0, 1]
         lbu = d_constraint.u_min
         ubu = d_constraint.u_max
         ocp.constraints.lbu = lbu
@@ -160,31 +177,31 @@ class DroneOptimizer(object):
         ocp.constraints.x0 = x_init
 
         # ============================================
-        # Solver options - maximum robustness
+        # Solver options
         # ============================================
         ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
         ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
         ocp.solver_options.integrator_type = 'ERK'
-        ocp.solver_options.sim_method_num_stages = 2  # Compromise accuracy/stability
+        ocp.solver_options.sim_method_num_stages = 4  # RK4 for stiffer Euler dynamics
         ocp.solver_options.sim_method_num_steps = 2
         ocp.solver_options.print_level = 0
         ocp.solver_options.nlp_solver_type = 'SQP'
-        
-        # Relaxed tolerances for robustness
+
+        # Tolerances
         ocp.solver_options.nlp_solver_tol_eq = 1e-3
         ocp.solver_options.nlp_solver_tol_ineq = 1e-3
-        ocp.solver_options.nlp_solver_tol_stat = 1e-2    # Relaxed
+        ocp.solver_options.nlp_solver_tol_stat = 1e-2
         ocp.solver_options.nlp_solver_tol_comp = 1e-3
-        
-        # Moderate iteration limits
+
+        # Iteration limits
         ocp.solver_options.qp_solver_iter_max = 100
         ocp.solver_options.nlp_solver_max_iter = 50
-        
-        # Strong regularization for numerical stability
+
+        # Regularization
         ocp.solver_options.regularize_method = 'CONVEXIFY'
-        ocp.solver_options.levenberg_marquardt = 1e-1  # Heavy regularization
-        
-        # Aggressive globalization
+        ocp.solver_options.levenberg_marquardt = 1e-1
+
+        # Globalization
         if hasattr(ocp.solver_options, 'globalization'):
             ocp.solver_options.globalization = 'MERIT_BACKTRACKING'
             if hasattr(ocp.solver_options, 'alpha_min'):
@@ -192,7 +209,6 @@ class DroneOptimizer(object):
             if hasattr(ocp.solver_options, 'alpha_reduction'):
                 ocp.solver_options.alpha_reduction = 0.7
 
-        # QP solver options for robustness
         if hasattr(ocp.solver_options, 'qp_solver_warm_start'):
             ocp.solver_options.qp_solver_warm_start = 1
         if hasattr(ocp.solver_options, 'qp_solver_cond_ric_alg'):
@@ -210,20 +226,19 @@ class DroneOptimizer(object):
         if self.enable_logging:
             print(f"Acados OCP solver initialized: N={self.N}, T={self.T}")
             print(f"  State dim: {nx}, Control dim: {nu}")
-            print(f"  Control: thrust [N], body_rates [rad/s]")
-            print(f"  Hover thrust: {self.m * self.g:.2f} N")
-            print(f"  Constraints: thrust [{lbu[0]:.1f}, {ubu[0]:.1f}] N")
-            print(f"              rates  [{lbu[1]:.1f}, {ubu[1]:.1f}] rad/s")
+            print(f"  Control: per-rotor normalized [0, 1]")
+            print(f"  Output: [thrust_N, wx, wy, wz] (attitude_rate compatible)")
+            print(f"  Hover per-rotor: {self.hover_normalized:.4f}")
+            print(f"  Per-rotor constraints: [{lbu[0]:.1f}, {ubu[0]:.1f}]")
 
-    def initialize_solver(self,x_current :np.ndarray, x_ref :np.ndarray, trajectory: bool = False):
+    def initialize_solver(self, x_current: np.ndarray, x_ref: np.ndarray, trajectory: bool = False):
         """
-        x_current and x_ref are already normalized
+        x_current and x_ref are already normalized.
         """
-        # Set reference for all stages
-        if trajectory :
-            for i in range(self.N+1):
-                self.solver.set(i, 'p', x_ref[:,i])
-        else: 
+        if trajectory:
+            for i in range(self.N + 1):
+                self.solver.set(i, 'p', x_ref[:, i])
+        else:
             for i in range(self.N + 1):
                 self.solver.set(i, 'p', x_ref)
 
@@ -231,49 +246,40 @@ class DroneOptimizer(object):
         self.solver.set(0, 'lbx', x_current)
         self.solver.set(0, 'ubx', x_current)
 
-        #Initialize Solver States and Control
-        initialized =False
+        initialized = False
         if self.warm_start_available:
-            try: #TODO: is try needed? 
-                # Shift trajectory forward
+            try:
                 for i in range(min(self.N, self.last_x_pred.shape[0] - 1)):
                     self.solver.set(i, 'x', self.last_x_pred[i + 1, :])
-                # Last state: duplicate final state
                 if self.last_x_pred.shape[0] > 1:
                     self.solver.set(self.N, 'x', self.last_x_pred[-1, :])
-                
-                # Shift controls
+
                 for i in range(min(self.N - 1, self.last_u_pred.shape[0] - 1)):
                     self.solver.set(i, 'u', self.last_u_pred[i + 1, :])
-                # Last control: duplicate final control
                 if self.last_u_pred.shape[0] > 0:
                     self.solver.set(self.N - 1, 'u', self.last_u_pred[-1, :])
-                
-                initialized =True
+
+                initialized = True
             except Exception as e:
                 if self.enable_logging:
                     print(f"Warning: warm start failed: {e}")
-        
-        if not initialized: #if no warm start available or warms start fails:
 
-            if trajectory: #interpolation of trajectory and 
+        if not initialized:
+            if trajectory:
                 for i in range(self.N + 1):
-                    self.solver.set(i, 'x', x_ref[:,i])
-            else:       
-                # Initialize states with linear interpolation to reference
+                    self.solver.set(i, 'x', x_ref[:, i])
+            else:
                 for i in range(self.N + 1):
                     alpha = i / max(self.N, 1)
                     x_init = (1 - alpha) * x_current + alpha * x_ref
                     x_init[6:10] = DroneOptimizer.normalize_quat(x_init[6:10])
                     self.solver.set(i, 'x', x_init)
 
-            # Initialize controls with hover
-            u_hover = np.array([self.m * self.g, 0.0, 0.0, 0.0])
+            u_hover = np.array([self.hover_normalized] * 4)
             for i in range(self.N):
-                self.solver.set(i, 'u', u_hover)            
+                self.solver.set(i, 'u', u_hover)
 
     def store_predicted_trajectories(self):
-        # Extract predicted trajectories
         x_pred_all = np.zeros((self.N + 1, self.nx))
         for i in range(self.N + 1):
             x_pred_all[i, :] = self.solver.get(i, 'x').copy()
@@ -288,37 +294,52 @@ class DroneOptimizer(object):
         self.last_x_pred = x_pred_all.copy()
         self.last_u_pred = u_pred_all.copy()
 
-        if (np.isfinite(x_pred_all).all() and np.isfinite(u_pred_all).all()):
+        if np.isfinite(x_pred_all).all() and np.isfinite(u_pred_all).all():
             self.warm_start_available = True
 
-    def compute_control_once(self, x_current :np.ndarray, x_ref :np.ndarray, is_trajectory: bool = False):
+    def rotor_to_attitude_cmd(self, u_rotor: np.ndarray, x_next: np.ndarray) -> np.ndarray:
+        """
+        Convert optimal per-rotor solution to [thrust_N, wx, wy, wz].
+
+        thrust_N: total thrust from mixing matrix (B_mix row 0)
+        wx, wy, wz: body rates read from the predicted next state x_next[10:13],
+                    which are the result of integrating the full Euler equations.
+        """
+        thrust_N = float(self.B_mix[0] @ u_rotor)
+
+        # Body rates from predicted next state (integrated by OCP Euler dynamics)
+        wx = float(x_next[10])
+        wy = float(x_next[11])
+        wz = float(x_next[12])
+
+        return np.array([thrust_N, wx, wy, wz])
+
+    def compute_control_once(self, x_current: np.ndarray, x_ref: np.ndarray, is_trajectory: bool = False):
         """
         Solve OCP for one step from current state.
-        
+
         Args:
             x_current: current state [p(3), v(3), q(4), w(3)]
-            x_ref: reference state (same dimensions)
-            
+            x_ref: reference state (same dimensions) or trajectory (nx, N+1)
+
         Returns:
-            u0: optimal control [thrust, wx, wy, wz]
+            u0_attitude: [thrust_N, wx, wy, wz] — thrust in N, rates in rad/s
             x_next: optimal next state
             x_pred_all: predicted state trajectory (N+1, nx)
-            u_pred_all: predicted control trajectory (N, nu)
+            u_pred_all: predicted per-rotor trajectory (N, 4)
         """
-        
-        # Normalize quaternion in current state
         x_current[6:10] = DroneOptimizer.normalize_quat(x_current[6:10])
         if not is_trajectory:
-            x_ref[6:10]     = DroneOptimizer.normalize_quat(x_ref[6:10])
-        else: 
+            x_ref[6:10] = DroneOptimizer.normalize_quat(x_ref[6:10])
+        else:
             for i in range(self.N + 1):
-                x_ref[6:10,i]     = DroneOptimizer.normalize_quat(x_ref[6:10,i])
-        self.initialize_solver(x_current,x_ref,is_trajectory)
-        
+                x_ref[6:10, i] = DroneOptimizer.normalize_quat(x_ref[6:10, i])
+
+        self.initialize_solver(x_current, x_ref, is_trajectory)
+
         status = self.solver.solve()
-        self.warm_start_available = False #reset warm start
-                
-        # Handle solver status:
+        self.warm_start_available = False
+
         if self.enable_logging:
             residuals = self.solver.get_residuals()
             print(f"[ACADOS] status: {status}, residuals: "
@@ -327,24 +348,23 @@ class DroneOptimizer(object):
                   f"ineq={residuals[2]:.2e}, "
                   f"comp={residuals[3]:.2e}")
 
-        if (status not in [0, 2]):
+        if status not in [0, 2]:
             print(f"[WARNING] ACADOS solver status {status}")
             if self.log_failures:
-                self.log_solver_failures(self, x_current,x_ref[:,-1])
+                self.log_solver_failures(x_current, x_ref if not is_trajectory else x_ref[:, -1])
             raise Exception(f"acados ocp solver returned status {status}")
-                
-        # Extract optimal control & optimal next state
-        u0 = self.solver.get(0, 'u').copy()
+
+        u_rotor = self.solver.get(0, 'u').copy()   # per-rotor [0,1] x4
         x_next = self.solver.get(1, 'x').copy()
 
         self.store_predicted_trajectories()
 
-        # TODO: why return all this?
-        return u0, x_next, self.last_x_pred, self.last_u_pred
-    
-    def log_solver_failures(self, x_current :np.ndarray,x_ref :np.ndarray):
-        # Handle solver status
-        
+        # Convert per-rotor optimal input -> [thrust_N, wx, wy, wz]
+        u0_attitude = self.rotor_to_attitude_cmd(u_rotor, x_next)
+
+        return u0_attitude, x_next, self.last_x_pred, self.last_u_pred
+
+    def log_solver_failures(self, x_current: np.ndarray, x_ref: np.ndarray):
         safe_mkdir_recursive('./logs', overwrite=False)
         try:
             np.savetxt('./logs/debug_x0.csv', x_current.reshape(1, -1), delimiter=',')
@@ -354,4 +374,3 @@ class DroneOptimizer(object):
         except Exception as e:
             if self.enable_logging:
                 print("Error saving debug logs:", e)
-        

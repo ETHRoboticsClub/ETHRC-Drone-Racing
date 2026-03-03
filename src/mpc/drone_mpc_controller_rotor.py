@@ -117,6 +117,7 @@ class DroneMpcControllerRotor():
             print(f"[MPC Rotor Controller] ERROR: Optimizer failed ({self.consecutive_failures}x): {e}")
             return np.full(4, self.hover_normalized)
 
+    # UNUSED: never called anywhere in the active codebase — intended for visualization only
     def get_predicted_trajectories(self):
         """Return last predicted state and control trajectories for visualization."""
         if self.opt.last_x_pred is not None and self.opt.last_u_pred is not None:

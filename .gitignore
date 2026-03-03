@@ -22,3 +22,17 @@ src/mpc/mpc/__pycache__
 
 !src/mpc/logs/.gitkeep
 
+# Submodule build artifacts
+px4/PX4-Autopilot/install/
+px4/PX4-Autopilot/build/
+px4/PX4-Autopilot/log/
+
+# JSON solver artifacts
+src/mpc/*.json
+
+# px4_msgs (generated package, not tracked)
+src/px4_msgs/
+
+# rotor model files (new, untracked)
+src/mpc/mpc/
+

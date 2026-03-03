@@ -9,6 +9,7 @@ if src_path not in sys.path:
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.timer import Rate
+# UNUSED: Timer is imported but never used directly (create_timer() is called via self, not Timer type)
 from rclpy.node import Node, Timer, Publisher, Subscription
 from rclpy.action import ActionServer,CancelResponse, GoalResponse
 from rclpy.action.server import ServerGoalHandle as GoalHandle
@@ -19,9 +20,11 @@ import time
 # msgs
 from std_msgs.msg import Float64MultiArray
 from nav2_msgs.action import FollowWaypoints
+# UNUSED: Pose is imported but never used (only PoseStamped is used throughout)
 from geometry_msgs.msg import PoseStamped, Pose
 
 # drone
+# UNUSED: PositionNedYaw is imported but never used (position command interface is never invoked)
 from my_mavsdk.mavsdk_client import AttitudeRate, PositionNedYaw
 from interfaces import ControllerInterface
 from mpc.drone_mpc_controller import DroneMpcController
@@ -35,6 +38,9 @@ except ImportError:
     RL_AVAILABLE = False
     print("[WARNING] DroneRLController not available (torch not installed)")
 
+
+# ── Config flags ──
+START_AND_HOVER = True  # If True, auto-hover at 20 cm on launch
 
 # general
 import numpy as np
@@ -56,6 +62,8 @@ class DroneController(Node):
     control_rate: float
     controller_type: str
     thresholds_ : thresholds = thresholds()
+    # UNUSED: declared but never populated from parameters (trajectory_max_desired_velocity.linear/.angular are declared
+    # as ROS params but never retrieved via get_parameter())
     trajectory_max_desired_velocity_linear: float
     trajectory_max_desired_velocity_angular: float
     
@@ -101,6 +109,7 @@ class DroneController(Node):
         self.declare_parameter('threshold.velocity',0.02)
         self.declare_parameter('threshold.angular_velocity',0.02)
         self.declare_parameter('threshold.orientation',0.1)
+        # UNUSED: these parameters are declared but never retrieved via get_parameter()
         self.declare_parameter('trajectory_max_desired_velocity.linear',1)
         self.declare_parameter('trajectory_max_desired_velocity.angular',1)
 
@@ -118,6 +127,7 @@ class DroneController(Node):
         self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)
         self.attitude_command_publisher = self.create_publisher(Float64MultiArray,attitude_command_topic, 10)
         self.rotor_command_publisher = self.create_publisher(Float64MultiArray, '/drone_rotor_cmd', 10)
+        # UNUSED: publisher is created but never called with .publish() anywhere in this file
         self.position_command_publisher = self.create_publisher(Float64MultiArray,position_command_topic, 10)
         self.current_target_publisher = self.create_publisher(PoseStamped, 
                                                               '/drone_current_target', 
@@ -163,12 +173,51 @@ class DroneController(Node):
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
         self.controller.initialize()
-        self.get_logger().info("Controller node initialized")  
+        self.get_logger().info("Controller node initialized")
+
+        if START_AND_HOVER:
+            # Auto-hover at 20 cm above ground (NED: z = -0.2)
+            # Launched in a background thread so executor.spin() can start and process callbacks
+            self.get_logger().info("Auto-hover will start once drone state is available")
+            self._auto_hover_thread = threading.Thread(target=self._wait_for_state_and_hover, daemon=True)
+            self._auto_hover_thread.start()
+
+    def _wait_for_state_and_hover(self):
+        """Wait for valid state from MAVSDK, then start hovering at 20 cm altitude."""
+        # Wait until we receive a non-zero state (meaning MAVSDK is publishing)
+        timeout = 30.0  # seconds
+        start = time.time()
+        while time.time() - start < timeout:
+            with self.state_lock:
+                if np.any(self.state != 0):
+                    break
+            time.sleep(0.1)
+        else:
+            self.get_logger().error("Timeout waiting for drone state. Auto-hover aborted.")
+            return
+
+        # Build hover target: current position but at z = -0.2 (20 cm above ground in NED)
+        with self.state_lock:
+            hover_state = self.state.copy()
+        hover_state[2] = -0.2  # NED: 20 cm above ground
+        hover_state[3:6] = 0.0  # zero velocity
+        hover_state[10:13] = 0.0  # zero angular velocity
+        # Keep current yaw, zero roll/pitch
+        qw, qx, qy, qz = hover_state[6], hover_state[7], hover_state[8], hover_state[9]
+        yaw_rad = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy**2 + qz**2))
+        hover_state[6] = np.cos(yaw_rad / 2)
+        hover_state[7] = 0.0
+        hover_state[8] = 0.0
+        hover_state[9] = np.sin(yaw_rad / 2)
+
+        self.get_logger().info("Starting auto-hover at 20 cm altitude (NED z=-0.2)")
+        t = threading.Thread(target=self.hover_at_currrent_position, args=(hover_state,))
+        t.start()
 
     def waypoint_reached(self ):
         with self.state_lock:
             current_state = self.state.copy()
-        self.current_goal_state
+        self.current_goal_state  # UNUSED: bare attribute reference with no effect (likely a debugging leftover)
 
         pos_error = np.linalg.norm(current_state[0:3] - self.current_goal_state[0:3] )
         vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6] )
