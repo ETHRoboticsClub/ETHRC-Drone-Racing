@@ -85,7 +85,27 @@ Trajectory goals:
 ```sh
 ros2 run drone_control send_trajectory_goal goal_only
 ```
+04/03/2026 Temporary Update:
+To run the simulation toy need to:
 
+First terminal:
+```sh
+cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+```
+Second terminal:
+```sh
+ros2 run drone_control drone_controller_node
+```
+
+Third terminal:
+```sh
+ros2 run my_mavsdk mavsdk_client
+```
+
+Fourth terminal:
+```sh
+ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -1.0 -yaw 0.0
+```
 # Integration with GS and Perception - Seperate Package RoadMap:
 > flags: MWP: minimum working product/ done 
 

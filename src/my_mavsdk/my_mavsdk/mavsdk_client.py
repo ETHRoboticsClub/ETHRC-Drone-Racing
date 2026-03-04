@@ -7,7 +7,7 @@ from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from std_msgs.msg import Float64MultiArray
 from std_srvs.srv import SetBool
 
-
+from px4_msgs.msg import OffboardControlMode, ActuatorMotors
 
 import asyncio
 import threading
@@ -69,7 +69,9 @@ class MavSDKClient(Node):
 
         # parameters
         self.declare_parameter('state_update_rate',200.0)
+        self.declare_parameter('controller_type', 'mpc')
         self.state_update_rate = self.get_parameter('state_update_rate').get_parameter_value().double_value
+        self.controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
 
         #asyncio logic #TODO: verify and discuss
         #start a background thread that manages the asyncio loop, so we asyncronously
@@ -100,12 +102,6 @@ class MavSDKClient(Node):
         await self.drone.action.arm()
         self.armed = True
 
-        # [REQUIRED]Set initial setpoint before starting offboard
-        await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
-        
-        self.get_logger().info("[MAV SDK]: Starting offboard...")
-        await self.drone.offboard.start() 
-
         self.start_telemetry()
 
         self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.state_timer_cb_group)
@@ -117,7 +113,26 @@ class MavSDKClient(Node):
         self.attitude_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_attitude_cmd',self.attitudeRate_cmd_cb,10)
         self.pos_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_position_cmd',self.position_cmd_cb,10)
         self.rotor_cmd_subscriber = self.create_subscription(Float64MultiArray, 'drone_rotor_cmd',self.rotor_cmd_cb,10)
-        
+
+        # DDS publishers for direct actuator control (mpc_rotor mode)
+        self.offboard_control_mode_pub = self.create_publisher(
+            OffboardControlMode, '/fmu/in/offboard_control_mode', 10)
+        self.actuator_motors_pub = self.create_publisher(
+            ActuatorMotors, '/fmu/in/actuator_motors', 10)
+
+        # Start offboard mode
+        if self.controller_type == 'mpc_rotor':
+            # In mpc_rotor mode, PX4 enters offboard automatically when it receives
+            # OffboardControlMode via DDS at >2 Hz. We do NOT use MAVSDK offboard.start()
+            # because it conflicts with DDS-driven offboard (expects its own setpoint type).
+            # Instead: pre-stream safe DDS setpoints, then wait for the controller to take over.
+            self.get_logger().info("[MAV SDK]: mpc_rotor mode — skipping MAVSDK offboard.start()")
+            self.get_logger().info("[MAV SDK]: PX4 will enter offboard when DDS setpoints arrive from controller")
+        else:
+            await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
+            self.get_logger().info("[MAV SDK]: Starting offboard...")
+            await self.drone.offboard.start()
+
         self.arming_server = self.create_service(SetBool, '/arm_drone', self.arm_drone_cb,callback_group=self.secondary_cb_group)
         self.takeoff_server = self.create_service(SetBool, '/takeoff_drone', self.takeoff_drone_cb,callback_group=self.secondary_cb_group)
         
@@ -152,6 +167,17 @@ class MavSDKClient(Node):
 
     def send_AttitudeRate_cmd(self, cmd : AttitudeRate):
         #TODO: verify that it is best way (Michalis)
+        # Publish OffboardControlMode with body_rate=True alongside every attitude command
+        ocm = OffboardControlMode()
+        ocm.position = False
+        ocm.velocity = False
+        ocm.acceleration = False
+        ocm.attitude = False
+        ocm.body_rate = True
+        ocm.actuator = False
+        ocm.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.offboard_control_mode_pub.publish(ocm)
+
         self.run_async(self.drone.offboard.set_attitude_rate(cmd))
 
     # UNUSED: subscribed to /drone_position_cmd but drone_controller_node.py creates the publisher
@@ -180,12 +206,28 @@ class MavSDKClient(Node):
             self.send_Rotor_cmd([u0, u1, u2, u3])
 
     def send_Rotor_cmd(self, u_rotors: list):
-        """Send direct actuator commands to PX4 motors."""
-        # MAVSDK actuator control: set_actuator_control([group0, group1, ...])
-        # group0 = [motor0, motor1, motor2, motor3, ...]
-        # We only control the 4 main rotors
-        actuator_group = [u_rotors[0], u_rotors[1], u_rotors[2], u_rotors[3]]
-        self.run_async(self.drone.offboard.set_actuator_control([actuator_group]))
+        """Send direct actuator commands to PX4 motors via DDS."""
+        # 1. Publish OffboardControlMode with actuator=True (proof-of-life)
+        ocm = OffboardControlMode()
+        ocm.position = False
+        ocm.velocity = False
+        ocm.acceleration = False
+        ocm.attitude = False
+        ocm.body_rate = False
+        ocm.actuator = True
+        ocm.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.offboard_control_mode_pub.publish(ocm)
+
+        # 2. Publish ActuatorMotors: control[0..3] = motor thrusts, [4..11] = NaN
+        am = ActuatorMotors()
+        am.timestamp = ocm.timestamp
+        am.control[0] = float(u_rotors[0])
+        am.control[1] = float(u_rotors[1])
+        am.control[2] = float(u_rotors[2])
+        am.control[3] = float(u_rotors[3])
+        for i in range(4, 12):
+            am.control[i] = float('nan')
+        self.actuator_motors_pub.publish(am)
 
     def run_async(self, coroutine):
         """ 

@@ -281,14 +281,19 @@ class DroneController(Node):
         while rclpy.ok() and (not self.stop_hover.is_set()):
             with self.state_lock:
                 current_state = self.state.copy()
-            attitude_cmd : AttitudeRate  = self.controller.controller_update(current_state,current_goal_state)
 
-            cmd_msg.data = [attitude_cmd.roll_deg_s,attitude_cmd.pitch_deg_s,attitude_cmd.yaw_deg_s,attitude_cmd.thrust_value]
-            self.attitude_command_publisher.publish(cmd_msg)
+            if self.controller_type == 'mpc_rotor':
+                u_rotors = self.controller.controller_update(current_state, current_goal_state)
+                cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
+                self.rotor_command_publisher.publish(cmd_msg)
+            else:
+                attitude_cmd : AttitudeRate = self.controller.controller_update(current_state, current_goal_state)
+                cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
+                self.attitude_command_publisher.publish(cmd_msg)
 
             # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
             # a timer implementation may be better
-            self.controller_rate.sleep() 
+            self.controller_rate.sleep()
         self.stop_hover.clear()  # reset flag so you can start hovering again later
         self.hovering_active = False
 

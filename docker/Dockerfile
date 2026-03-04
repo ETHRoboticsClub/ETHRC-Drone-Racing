@@ -168,6 +168,7 @@ RUN uv pip install --system --no-cache torch torchvision torchaudio stable-basel
 # =========================================================
 FROM shared-mpc-rl-deps AS mpc
 USER drone_dev
+COPY --chown=drone_dev:drone_dev src/px4_msgs ${WORKSPACE}/src/px4_msgs
 COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
 COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
 COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
