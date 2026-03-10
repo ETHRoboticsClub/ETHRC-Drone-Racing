@@ -128,6 +128,11 @@ class MavSDKClient(Node):
             # Instead: pre-stream safe DDS setpoints, then wait for the controller to take over.
             self.get_logger().info("[MAV SDK]: mpc_rotor mode — skipping MAVSDK offboard.start()")
             self.get_logger().info("[MAV SDK]: PX4 will enter offboard when DDS setpoints arrive from controller")
+        elif self.controller_type == 'position_ned':
+            # Position offboard: set initial setpoint at current position before start
+            await self.drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
+            self.get_logger().info("[MAV SDK]: Starting offboard (position_ned mode)...")
+            await self.drone.offboard.start()
         else:
             await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
             self.get_logger().info("[MAV SDK]: Starting offboard...")
@@ -174,24 +179,34 @@ class MavSDKClient(Node):
         ocm.acceleration = False
         ocm.attitude = False
         ocm.body_rate = True
-        ocm.actuator = False
+        ocm.thrust_and_torque = False
+        ocm.direct_actuator = False
         ocm.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.offboard_control_mode_pub.publish(ocm)
 
         self.run_async(self.drone.offboard.set_attitude_rate(cmd))
 
-    # UNUSED: subscribed to /drone_position_cmd but drone_controller_node.py creates the publisher
-    # for that topic and never calls .publish() on it — so this callback is never triggered.
-    def position_cmd_cb(self,msg :Float64MultiArray ):
+    def position_cmd_cb(self, msg: Float64MultiArray):
+        """Handle position commands from drone_controller_node (position_ned controller)."""
         if len(msg.data) == 4:
-            north_m  = msg.data[0]
-            east_m   = msg.data[1]
-            down_m   = msg.data[2]
-            yaw_deg  = msg.data[3]
-            self.send_Position_cmd(PositionNedYaw(north_m,east_m,down_m,yaw_deg))
+            north_m = msg.data[0]
+            east_m = msg.data[1]
+            down_m = msg.data[2]
+            yaw_deg = msg.data[3]
+            self.send_Position_cmd(PositionNedYaw(north_m, east_m, down_m, yaw_deg))
 
-    # UNUSED: only called by position_cmd_cb() above, which is itself never triggered
-    def send_Position_cmd(self, cmd : PositionNedYaw):
+    def send_Position_cmd(self, cmd: PositionNedYaw):
+        """Send PositionNedYaw to PX4 offboard. Publishes OffboardControlMode with position=True."""
+        ocm = OffboardControlMode()
+        ocm.position = True
+        ocm.velocity = False
+        ocm.acceleration = False
+        ocm.attitude = False
+        ocm.body_rate = False
+        ocm.thrust_and_torque = False
+        ocm.direct_actuator = False
+        ocm.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.offboard_control_mode_pub.publish(ocm)
         self.run_async(self.drone.offboard.set_position_ned(cmd))
 
     def rotor_cmd_cb(self, msg: Float64MultiArray):
@@ -214,7 +229,8 @@ class MavSDKClient(Node):
         ocm.acceleration = False
         ocm.attitude = False
         ocm.body_rate = False
-        ocm.actuator = True
+        ocm.thrust_and_torque = False
+        ocm.direct_actuator = True
         ocm.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.offboard_control_mode_pub.publish(ocm)
 

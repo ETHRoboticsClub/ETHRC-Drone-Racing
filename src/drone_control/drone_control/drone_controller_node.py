@@ -24,11 +24,11 @@ from nav2_msgs.action import FollowWaypoints
 from geometry_msgs.msg import PoseStamped, Pose
 
 # drone
-# UNUSED: PositionNedYaw is imported but never used (position command interface is never invoked)
 from my_mavsdk.mavsdk_client import AttitudeRate, PositionNedYaw
 from interfaces import ControllerInterface
 from mpc.drone_mpc_controller import DroneMpcController
 from mpc.drone_mpc_controller_rotor import DroneMpcControllerRotor
+from .drone_position_ned_controller import DronePositionNedController
 
 # Try to import RL controller (optional, requires torch)
 try:
@@ -140,6 +140,9 @@ class DroneController(Node):
         elif self.controller_type == 'mpc_rotor':
             self.controller = DroneMpcControllerRotor()
             self.get_logger().info('Using MPC with direct rotor control')
+        elif self.controller_type == 'position_ned':
+            self.controller = DronePositionNedController()
+            self.get_logger().info('Using MAVSDK PositionNedYaw controller')
         elif self.controller_type == 'rl':
             if not RL_AVAILABLE:
                 self.get_logger().error('RL controller requested but not available (torch not installed). Falling back to MPC.')
@@ -286,6 +289,10 @@ class DroneController(Node):
                 u_rotors = self.controller.controller_update(current_state, current_goal_state)
                 cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
                 self.rotor_command_publisher.publish(cmd_msg)
+            elif self.controller_type == 'position_ned':
+                pos_cmd: PositionNedYaw = self.controller.controller_update(current_state, current_goal_state)
+                cmd_msg.data = [pos_cmd.north_m, pos_cmd.east_m, pos_cmd.down_m, pos_cmd.yaw_deg]
+                self.position_command_publisher.publish(cmd_msg)
             else:
                 attitude_cmd : AttitudeRate = self.controller.controller_update(current_state, current_goal_state)
                 cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
@@ -349,11 +356,15 @@ class DroneController(Node):
             with self.state_lock:
                 current_state = self.state.copy()
             
-            # Direct rotor control for mpc_rotor, attitude control otherwise
+            # Direct rotor control for mpc_rotor, position NED for position_ned, attitude control otherwise
             if self.controller_type == 'mpc_rotor':
                 u_rotors = self.controller.controller_update(current_state, self.current_goal_state)
                 cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
                 self.rotor_command_publisher.publish(cmd_msg)
+            elif self.controller_type == 'position_ned':
+                pos_cmd: PositionNedYaw = self.controller.controller_update(current_state, self.current_goal_state)
+                cmd_msg.data = [pos_cmd.north_m, pos_cmd.east_m, pos_cmd.down_m, pos_cmd.yaw_deg]
+                self.position_command_publisher.publish(cmd_msg)
             else:
                 attitude_cmd : AttitudeRate = self.controller.controller_update(current_state, self.current_goal_state)
                 cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
@@ -449,11 +460,15 @@ class DroneController(Node):
             traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
             self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached.
             
-            # Direct rotor control for mpc_rotor, attitude control otherwise
+            # Direct rotor control for mpc_rotor, position NED for position_ned, attitude control otherwise
             if self.controller_type == 'mpc_rotor':
                 u_rotors = self.controller.trajectory_controller_update(current_state, traj_desired)
                 cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
                 self.rotor_command_publisher.publish(cmd_msg)
+            elif self.controller_type == 'position_ned':
+                pos_cmd: PositionNedYaw = self.controller.trajectory_controller_update(current_state, traj_desired)
+                cmd_msg.data = [pos_cmd.north_m, pos_cmd.east_m, pos_cmd.down_m, pos_cmd.yaw_deg]
+                self.position_command_publisher.publish(cmd_msg)
             else:
                 attitude_cmd : AttitudeRate = self.controller.trajectory_controller_update(current_state, traj_desired)
                 cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]

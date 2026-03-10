@@ -40,7 +40,7 @@ def generate_launch_description():
         DeclareLaunchArgument('plotjuggler', default_value='true',
             description='Launch PlotJuggler alongside the controller'),
         DeclareLaunchArgument('controller_type', default_value='mpc_rotor',
-            description='Controller type: mpc, mpc_rotor, rl'),
+            description='Controller type: mpc, mpc_rotor, position_ned, rl'),
 
         # Start controller first, then mavsdk_client after 3s delay
         # so the controller is ready to send commands when offboard starts
