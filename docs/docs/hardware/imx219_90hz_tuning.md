@@ -1,6 +1,6 @@
 # IMX219 90Hz High-Speed Tuning
 
-This guide provides a professional procedure to enable **90Hz/92Hz** capture with a **Full 155° FOV** on the Jetson Orin NX. 
+This guide provides a procedure to enable **90Hz/92Hz** capture with a **Full 155° FOV** on the Jetson Orin NX. 
 
 > [!NOTE]
 > **Hardware Context**: While this solution was developed and verified using the **Seeed Studio A603 carrier board**, the core sensor and timing modifications are applicable to any standard Jetson Orin NX setup. Users with different carrier boards should primarily verify the Device Tree pinmux and clock assignments.
