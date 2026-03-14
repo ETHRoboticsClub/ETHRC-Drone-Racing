@@ -67,7 +67,7 @@ cd ETHRC-Drone-Racing
 We use Docker to ensure "it works on everyone's machine."
 ```bash
 # Prepare host volumes
-sudo ./scripts/prepare_colcon_volumes.sh
+./scripts/prepare_colcon_volumes.sh
 
 # Start the development container
 xhost +local:root
