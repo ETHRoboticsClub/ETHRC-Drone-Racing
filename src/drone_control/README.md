@@ -14,9 +14,20 @@ docker exec -it erc-aeronautics bash
 ```
 
 ## Terminal 1
-Run gazebo
+Run the simulator (choose one):
+
+**Option A — Gazebo (default):**
 ```bash
 cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+```
+
+**Option B — Isaac Sim + Pegasus:**
+```bash
+# First time only: run setup
+./sim/isaac/setup_pegasus.sh
+
+# Launch PX4 in Isaac Sim (Pegasus handles MAVLink HIL on TCP:4560)
+$ISAACSIM_PYTHON sim/isaac/launch_px4_isaacsim.py
 ```
 ## Terminal 2
 Build ROS, then launch the drone controller
@@ -86,11 +97,14 @@ Trajectory goals:
 ros2 run drone_control send_trajectory_goal goal_only
 ```
 04/03/2026 Temporary Update:
-To run the simulation toy need to:
+To run the simulation you need to:
 
-First terminal:
+First terminal (choose one):
 ```sh
+# Gazebo:
 cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+# OR Isaac Sim:
+$ISAACSIM_PYTHON sim/isaac/launch_px4_isaacsim.py
 ```
 Second terminal:
 ```sh

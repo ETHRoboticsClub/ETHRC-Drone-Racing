@@ -1,0 +1,68 @@
+# =============================================================================
+# Docker Compose for Isaac Sim + Pegasus + PX4 SITL
+#
+# Usage:
+#   docker compose -f docker-compose.isaacsim.yaml build
+#   docker compose -f docker-compose.isaacsim.yaml up -d
+#   docker exec -it erc-isaacsim bash
+#
+# Requires: NVIDIA Container Toolkit (nvidia-docker2)
+# =============================================================================
+services:
+  isaacsim:
+    container_name: erc-isaacsim
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.isaacsim
+      args:
+        ISAACSIM_BASE_IMAGE: ${ISAACSIM_BASE_IMAGE:-nvcr.io/nvidia/isaac-sim:4.2.0}
+        USERNAME: ${CONTAINER_USERNAME:-drone_dev}
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+
+    entrypoint: ["/bin/bash"]
+    stdin_open: true
+    network_mode: host
+    tty: true
+    working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
+
+    environment:
+      # GPU
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+
+      # ROS 2
+      ROS_DOMAIN_ID: 1
+      RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+
+      # Display (X11)
+      DISPLAY: ${DISPLAY}
+      XAUTHORITY: ${XAUTHORITY}
+      QT_X11_NO_MITSHM: "1"
+      XDG_RUNTIME_DIR: ${XDG_RUNTIME_DIR}
+
+      # Pegasus / PX4
+      PX4_DIR: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/px4/PX4-Autopilot
+
+    volumes:
+      # X11
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Source code
+      - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
+      - ./launch:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/launch:rw
+      # Build cache
+      - ./.colcon/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
+      - ./.colcon/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw
+      - ./.colcon/log:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/log:rw
+      # PX4
+      - ./px4:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/px4:rw
+      # Isaac Sim launch scripts
+      - ./sim/isaac:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/sim/isaac:rw
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
