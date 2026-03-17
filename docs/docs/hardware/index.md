@@ -1,6 +1,6 @@
 # Hardware Team
 
-**Page Owner:** [Cordian Lehmann](https://github.com/cordleh)
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
 
 ---
 
