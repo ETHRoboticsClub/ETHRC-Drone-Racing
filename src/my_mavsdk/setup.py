@@ -31,6 +31,10 @@ setup(
     entry_points={
         'console_scripts': [
             'mavsdk_client = my_mavsdk.mavsdk_client:main',
+            'px4_imu_publisher = my_mavsdk.px4_imu_publisher_node:main',
+            'px4_attitude_rate_offboard = my_mavsdk.px4_attitude_rate_offboard_node:main',
+            'px4_motor_torque_publisher = my_mavsdk.px4_motor_torque_publisher_node:main',
+            'sin_thrust_publisher = my_mavsdk.sin_thrust_publisher_node:main',
         ],
     },
 )
