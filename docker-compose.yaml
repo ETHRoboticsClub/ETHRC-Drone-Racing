@@ -16,9 +16,26 @@ services:
     tty: true
     working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
 
+    privileged: true
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0
+      - /dev/ttyACM1:/dev/ttyACM1
+      - /dev/ttyACM2:/dev/ttyACM2
+      - /dev/ttyUSB0:/dev/ttyUSB0
+      - /dev/ttyUSB1:/dev/ttyUSB1
+      - /dev/ttyUSB2:/dev/ttyUSB2
+
+    group_add:
+      - dialout
+      - plugdev
+
     volumes:
       # X11 socket for GUI applications
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # USB bus (for lsusb + some USB access patterns)
+      - /dev/bus/usb:/dev/bus/usb
+      # Stable serial device symlinks (recommended)
+      - /dev/serial/by-id:/dev/serial/by-id:rw
       # Mount source code
       - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
       - ./launch:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/launch:rw

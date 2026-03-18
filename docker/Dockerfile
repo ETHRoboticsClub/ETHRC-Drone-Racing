@@ -5,6 +5,7 @@
 ARG BASE_IMAGE=ros:humble-desktop-full
 FROM ${BASE_IMAGE} AS base
 
+
 ENV DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
@@ -13,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata locales sudo bash-completion ca-certificates curl wget git gnupg2 lsb-release \
     build-essential cmake ninja-build ccache gdb valgrind pkg-config \
     python3-pip python3-venv python3-dev swig \
+    usbutils \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 RUN locale-gen en_US.UTF-8 && update-ca-certificates
@@ -71,6 +73,9 @@ RUN groupadd --gid $USER_GID $USERNAME && \
     useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME && \
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME && chmod 0440 /etc/sudoers.d/$USERNAME
 
+# Allow non-root access to serial devices (e.g. /dev/ttyACM0)
+RUN usermod -aG dialout $USERNAME
+
 ENV WORKSPACE=/home/${USERNAME}/ros_ws
 WORKDIR /home/${USERNAME}
 
@@ -123,7 +128,10 @@ COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-v
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver gazebo_ros_bridges
+#RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to aruco_pose_estimation ov_msckf vicon_receiver gazebo_ros_bridges
+#------------PERCEPTION BUILD------------
+
+
 
 # =========================================================
 # STAGE 5: shared-mpc-rl-deps
@@ -197,10 +205,10 @@ WORKDIR ${WORKSPACE}
 # =========================================================
 FROM rl AS dev
 USER root
-# Copy perception builds from the perception stage
-COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install
-COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build
-# Ensure perception source is present
+# COPY --from=perception ${WORKSPACE}/install ${WORKSPACE}/install
+# COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build 
+#------------PERCEPTION BUILD------------
+
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
@@ -211,5 +219,5 @@ RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "p
 
 USER drone_dev
 WORKDIR ${WORKSPACE}
-RUN echo "source ${WORKSPACE}/install/setup.bash" >> /home/drone_dev/.bashrc
+RUN echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/drone_dev/.bashrc
 CMD ["/bin/bash"]
