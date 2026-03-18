@@ -182,7 +182,7 @@ COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_contro
 COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk mpc
+RUN source /opt/ros/humble/setup.bash && colcon build --packages-select px4_msgs my_mavsdk mpc drone_control --symlink-install
 
 # =========================================================
 # STAGE 7: rl
