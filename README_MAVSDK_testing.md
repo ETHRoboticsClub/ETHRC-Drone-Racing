@@ -23,8 +23,12 @@ lsusb
 ```
 You have to see Holybro PX4 KakuteH7
 
-Every command should be inside docker
+Build the package (Inside docker). Every command should be inside docker
 
+```
+docker compose exec dev bash
+cd ~/ros_ws && colcon build --packages-select my_mavsdk && source install/setup.bash
+```
 
 Terminal 1:
 Run the mavsdk (offboard mode), **replace** ACM with your port.
