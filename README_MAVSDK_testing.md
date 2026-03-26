@@ -3,8 +3,14 @@ Install the new docker:
 ```
 git clone --branch temp/controls --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
 cd ETHRC-Drone-Racing/
-docker compose build
-docker compose up -d
+
+# Prepare host volumes
+sudo ./scripts/prepare_colcon_volumes.sh
+
+# Start the development container
+xhost +local:root
+docker compose up dev -d
+docker compose exec dev bash
 ```
 
 On the host (outside docker)
@@ -50,7 +56,7 @@ Send command topics, you can either run a script that publish topics T=offset+si
 
 ```
 source install/setup.bash
-ros2 run my_mavsdk sin_thrust_publisher --ros-args   -p amplitude:=0.1 -p offset:=0.1 -p frequency:=1
+ros2 run my_mavsdk sin_thrust_publisher --ros-args   -p amplitude:=0.1 -p offset:=0.1 -p frequency:=1.0
 ```
 either send commands directly:
 ```
