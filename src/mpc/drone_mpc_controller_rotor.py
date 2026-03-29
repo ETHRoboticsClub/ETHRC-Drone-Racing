@@ -1,11 +1,12 @@
 from .drone_model_rotor import DroneModelRotor
 from .drone_opt_rotor import DroneOptimizerRotor
 import numpy as np
+from interfaces import ControllerInterface
 
 DEBUG_INFO_PRINTS = True
 
 
-class DroneMpcControllerRotor():
+class DroneMpcControllerRotor(ControllerInterface):
     """
     MPC controller wrapper for per-rotor thrust mode.
     Outputs u_rotors[4] normalized [0, 1] for direct actuator control.

@@ -8,10 +8,8 @@ if src_path not in sys.path:
 # ros related
 import rclpy
 from rclpy.executors import MultiThreadedExecutor
-from rclpy.timer import Rate
-# UNUSED: Timer is imported but never used directly (create_timer() is called via self, not Timer type)
-from rclpy.node import Node, Timer, Publisher, Subscription
-from rclpy.action import ActionServer,CancelResponse, GoalResponse
+from rclpy.node import Node, Publisher, Subscription
+from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.action.server import ServerGoalHandle as GoalHandle
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy
@@ -20,8 +18,7 @@ import time
 # msgs
 from std_msgs.msg import Float64MultiArray
 from nav2_msgs.action import FollowWaypoints
-# UNUSED: Pose is imported but never used (only PoseStamped is used throughout)
-from geometry_msgs.msg import PoseStamped, Pose
+from geometry_msgs.msg import PoseStamped
 
 # drone
 from my_mavsdk.mavsdk_client import AttitudeRate, PositionNedYaw
@@ -30,7 +27,13 @@ from mpc.drone_mpc_controller import DroneMpcController
 from mpc.drone_mpc_controller_rotor import DroneMpcControllerRotor
 from .drone_position_ned_controller import DronePositionNedController
 
-# Try to import RL controller (optional, requires torch)
+try:
+    from mpcc.drone_mpcc_controller import DroneMpccController
+    MPCC_AVAILABLE = True
+except ImportError:
+    MPCC_AVAILABLE = False
+    print("[WARNING] DroneMpccController not available (mpcc package not built)")
+
 try:
     from rl.drone_rl_controller import DroneRLController
     RL_AVAILABLE = True
@@ -38,54 +41,67 @@ except ImportError:
     RL_AVAILABLE = False
     print("[WARNING] DroneRLController not available (torch not installed)")
 
-
 # ── Config flags ──
-START_AND_HOVER = True  # If True, auto-hover at 20 cm on launch
+START_AND_HOVER = True  # If True, auto-hover at 10 cm on launch
 
 # general
 import numpy as np
 import threading
-from typing import Optional, List
-from scipy.spatial.transform import Rotation as R, Slerp
+import yaml
+from typing import Optional
+
 
 class thresholds:
-    position : float = 0.1
-    velocity : float = 0.1
-    angular_velocity : float = 0.1
-    orientation : float = 0.1
+    position: float = 0.1
+    velocity: float = 0.1
+    angular_velocity: float = 0.1
+    orientation: float = 0.1
+
+
+def _build_registry() -> dict:
+    """Build the controller registry from available controller classes."""
+    registry: dict[str, type] = {
+        'mpc':          DroneMpcController,
+        'mpc_rotor':    DroneMpcControllerRotor,
+        'position_ned': DronePositionNedController,
+    }
+    if MPCC_AVAILABLE:
+        registry['mpcc'] = DroneMpccController
+    if RL_AVAILABLE:
+        registry['rl'] = DroneRLController
+    return registry
+
+
+_CONTROLLER_REGISTRY = _build_registry()
+
 
 class DroneController(Node):
 
-    controller : ControllerInterface
+    controller: ControllerInterface
 
     # parameters
     control_rate: float
     controller_type: str
-    thresholds_ : thresholds = thresholds()
-    # UNUSED: declared but never populated from parameters (trajectory_max_desired_velocity.linear/.angular are declared
-    # as ROS params but never retrieved via get_parameter())
-    trajectory_max_desired_velocity_linear: float
-    trajectory_max_desired_velocity_angular: float
-    
+    thresholds_: thresholds = thresholds()
+
     # ros related
-    controller_rate: Rate
     state_subscriber: Subscription
     attitude_command_publisher: Publisher
     rotor_command_publisher: Publisher
+    position_command_publisher: Publisher
     current_target_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
-    
+
     # states & goals
-    state: np.ndarray  = np.zeros(13) 
-    current_goal_state: np.ndarray  = np.zeros(13) 
-    pose_goals : list[PoseStamped] = []
-    active_goal : bool = False
+    state: np.ndarray = np.zeros(13)
+    current_goal_state: np.ndarray = np.zeros(13)
+    active_goal: bool = False
     hovering_active: bool = False
-    stop_hover = threading.Event() 
+    stop_hover = threading.Event()
 
     # Misc
-    state_lock : threading.Lock
+    state_lock: threading.Lock
     active_goal_lock: threading.Lock
 
     def __init__(self):
@@ -94,24 +110,23 @@ class DroneController(Node):
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
         self.state[6] = 1.0
+        self._state_received = False
 
         # cb groups
         self.action_cb_group = MutuallyExclusiveCallbackGroup()
         self.timer_cb_group = MutuallyExclusiveCallbackGroup()
 
         # parameters
-        self.declare_parameter('controller_type', 'mpc')  # 'mpc' or 'rl' TODO: remove hardcoding 
-        self.declare_parameter('state_topic','drone_state_sim')
+        self.declare_parameter('controller_type', 'mpc')
+        self.declare_parameter('waypoints_file', '')
+        self.declare_parameter('state_topic', 'drone_state_sim')
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
-        self.declare_parameter('controller_rate',100.0)
-        self.declare_parameter('threshold.positon',0.1) # TODO: fix typo safely
-        self.declare_parameter('threshold.velocity',0.02)
-        self.declare_parameter('threshold.angular_velocity',0.02)
-        self.declare_parameter('threshold.orientation',0.1)
-        # UNUSED: these parameters are declared but never retrieved via get_parameter()
-        self.declare_parameter('trajectory_max_desired_velocity.linear',1)
-        self.declare_parameter('trajectory_max_desired_velocity.angular',1)
+        self.declare_parameter('controller_rate', 100.0)
+        self.declare_parameter('threshold.positon', 0.1)  # typo kept for backwards compatibility
+        self.declare_parameter('threshold.velocity', 0.02)
+        self.declare_parameter('threshold.angular_velocity', 0.02)
+        self.declare_parameter('threshold.orientation', 0.1)
 
         self.controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
@@ -123,45 +138,44 @@ class DroneController(Node):
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
 
-        #TODO: maybe change to joint_states (Michalis)
-        self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)
-        self.attitude_command_publisher = self.create_publisher(Float64MultiArray,attitude_command_topic, 10)
-        self.rotor_command_publisher = self.create_publisher(Float64MultiArray, '/drone_rotor_cmd', 10)
-        # UNUSED: publisher is created but never called with .publish() anywhere in this file
-        self.position_command_publisher = self.create_publisher(Float64MultiArray,position_command_topic, 10)
-        self.current_target_publisher = self.create_publisher(PoseStamped, 
-                                                              '/drone_current_target', 
-                                                              QoSProfile(
-                                                                            depth=1, 
-                                                                            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
-                                                                        ))
-        if self.controller_type == 'mpc':
-            self.controller = DroneMpcController()
-        elif self.controller_type == 'mpc_rotor':
-            self.controller = DroneMpcControllerRotor()
-            self.get_logger().info('Using MPC with direct rotor control')
-        elif self.controller_type == 'position_ned':
-            self.controller = DronePositionNedController()
-            self.get_logger().info('Using MAVSDK PositionNedYaw controller')
-        elif self.controller_type == 'rl':
-            if not RL_AVAILABLE:
-                self.get_logger().error('RL controller requested but not available (torch not installed). Falling back to MPC.')
-                self.controller = DroneMpcController()
-            else:
-                self.controller = DroneRLController()
-        else:
-            self.get_logger().error(f'Unknown controller_type: {self.controller_type}. Falling back to MPC.')
-            self.controller = DroneMpcController()
-        
-        self.controller_rate =  self.create_rate(self.control_rate)
-        
+        # pub/sub
+        self.state_subscriber = self.create_subscription(
+            Float64MultiArray, state_topic, self.drone_state_cb, 10)
+        self.attitude_command_publisher = self.create_publisher(
+            Float64MultiArray, attitude_command_topic, 10)
+        self.rotor_command_publisher = self.create_publisher(
+            Float64MultiArray, '/drone_rotor_cmd', 10)
+        self.position_command_publisher = self.create_publisher(
+            Float64MultiArray, position_command_topic, 10)
+        self.current_target_publisher = self.create_publisher(
+            PoseStamped, '/drone_current_target',
+            QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
+
+        # ── Controller instantiation via registry ──────────────────────────
+        waypoints_file = self.get_parameter('waypoints_file').get_parameter_value().string_value
+        waypoints = self._load_waypoints(waypoints_file) if waypoints_file else None
+
+        controller_class = _CONTROLLER_REGISTRY.get(self.controller_type)
+        if controller_class is None:
+            self.get_logger().error(
+                f'Unknown or unavailable controller_type: "{self.controller_type}". '
+                f'Falling back to MPC.')
+            controller_class = DroneMpcController
+
+        config = {'waypoints': waypoints}
+        self.controller = controller_class.from_config(config)
+        self.get_logger().info(f'Using controller: {controller_class.__name__}')
+        # ──────────────────────────────────────────────────────────────────
+
+        self.controller_rate = self.create_rate(self.control_rate)
+
         self.position_goal_server = rclpy.action.ActionServer(
             self, FollowWaypoints, 'drone_set_pose_goal',
             callback_group=self.action_cb_group,
             goal_callback=self.pose_goal_accept_callback,
             cancel_callback=self.pose_goal_cancel_callback,
             execute_callback=self.pose_goal_execute_callback)
-        
+
         self.trajectory_goal_server = rclpy.action.ActionServer(
             self, FollowWaypoints, 'drone_set_trajectory_goal',
             callback_group=self.action_cb_group,
@@ -169,43 +183,53 @@ class DroneController(Node):
             cancel_callback=self.trajectory_goal_cancel_callback,
             execute_callback=self.trajectory_goal_execute_callback)
 
+    # ── State callback ────────────────────────────────────────────────────
+
     def drone_state_cb(self, msg: Float64MultiArray):
         with self.state_lock:
             self.state = np.array(msg.data)
+            self._state_received = True
+
+    # ── Lifecycle ─────────────────────────────────────────────────────────
 
     def initialize(self):
-        """ Constructor should return fast, so async operations are moved here. """
+        """Constructor returns fast; heavy initialization (optimizer build) happens here."""
         self.controller.initialize()
+
+        # The initial auto-hover always uses MPC regardless of controller_type.
+        if isinstance(self.controller, DroneMpcController):
+            self._mpc_hover_controller = self.controller
+        else:
+            self._mpc_hover_controller = DroneMpcController()
+            self._mpc_hover_controller.initialize()
+
         self.get_logger().info("Controller node initialized")
 
         if START_AND_HOVER:
-            # Auto-hover at 20 cm above ground (NED: z = -0.2)
-            # Launched in a background thread so executor.spin() can start and process callbacks
             self.get_logger().info("Auto-hover will start once drone state is available")
-            self._auto_hover_thread = threading.Thread(target=self._wait_for_state_and_hover, daemon=True)
+            self._auto_hover_thread = threading.Thread(
+                target=self._wait_for_state_and_hover, daemon=True)
             self._auto_hover_thread.start()
 
     def _wait_for_state_and_hover(self):
-        """Wait for valid state from MAVSDK, then start hovering at 20 cm altitude."""
-        # Wait until we receive a non-zero state (meaning MAVSDK is publishing)
-        timeout = 30.0  # seconds
+        """Wait for a valid state from MAVSDK, then start hovering at 10 cm altitude."""
+        timeout = 60.0
         start = time.time()
         while time.time() - start < timeout:
             with self.state_lock:
-                if np.any(self.state != 0):
+                if self._state_received:
                     break
             time.sleep(0.1)
         else:
             self.get_logger().error("Timeout waiting for drone state. Auto-hover aborted.")
             return
 
-        # Build hover target: current position but at z = -0.2 (20 cm above ground in NED)
         with self.state_lock:
             hover_state = self.state.copy()
-        hover_state[2] = -0.2  # NED: 20 cm above ground
+        hover_state[2] = -0.1   # NED: 10 cm above ground
         hover_state[3:6] = 0.0  # zero velocity
         hover_state[10:13] = 0.0  # zero angular velocity
-        # Keep current yaw, zero roll/pitch
+        # Keep current yaw only (zero roll and pitch)
         qw, qx, qy, qz = hover_state[6], hover_state[7], hover_state[8], hover_state[9]
         yaw_rad = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy**2 + qz**2))
         hover_state[6] = np.cos(yaw_rad / 2)
@@ -213,368 +237,253 @@ class DroneController(Node):
         hover_state[8] = 0.0
         hover_state[9] = np.sin(yaw_rad / 2)
 
-        self.get_logger().info("Starting auto-hover at 20 cm altitude (NED z=-0.2)")
-        t = threading.Thread(target=self.hover_at_currrent_position, args=(hover_state,))
-        t.start()
+        self.get_logger().info("Starting auto-hover at 10 cm altitude (NED z=-0.1)")
+        threading.Thread(
+            target=self.hover_at_currrent_position,
+            args=(hover_state,),
+            kwargs={'controller': self._mpc_hover_controller},
+        ).start()
 
-    def waypoint_reached(self ):
-        with self.state_lock:
-            current_state = self.state.copy()
-        self.current_goal_state  # UNUSED: bare attribute reference with no effect (likely a debugging leftover)
+    # ── Hover ─────────────────────────────────────────────────────────────
 
-        pos_error = np.linalg.norm(current_state[0:3] - self.current_goal_state[0:3] )
-        vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6] )
-        orientation_error = 2.0 * np.arccos( np.dot(self.current_goal_state[6:10] , current_state[6:10]) ) 
-        ang_vel_error = np.linalg.norm(current_state[10:13] - self.current_goal_state[10:13] )
-
-
-        if pos_error > self.thresholds_.position:
-            return False
-        
-        if vel_error > self.thresholds_.velocity:
-            return False
-        
-        if orientation_error > self.thresholds_.orientation:
-            return False
-        
-        if ang_vel_error > self.thresholds_.angular_velocity:
-            return False
-        
-        return True 
-    
     def ensure_not_hovering(self):
         if self.hovering_active:
             self.stop_hover.set()
             while self.hovering_active:
                 time.sleep(5e-4)
 
-            
-    def hover_at_currrent_position(self, hover_state : np.ndarray | None = None):
+    def hover_at_currrent_position(self, hover_state: Optional[np.ndarray] = None,
+                                    controller: Optional[ControllerInterface] = None):
         self.hovering_active = True
         if hover_state is None:
             with self.state_lock:
                 hover_state = self.state.copy()
+        if controller is None:
+            controller = self.controller
 
-        #1. Get projection in yaw, to stabilize
-        qw = hover_state[6]
-        qx = hover_state[7]
-        qy = hover_state[8]
-        qz = hover_state[9]
-
-        # Numerator and Denominator for atan2
-        numerator = 2 * (qw * qz + qx * qy)
-        denominator = 1 - 2 * (qy * qy + qz * qz)
-
-        # Calculate yaw in radians
-        yaw_rad = np.arctan2(numerator, denominator)
-
-        hover_state[6] = np.cos(yaw_rad/2)
+        # Project to yaw-only orientation (zero roll and pitch)
+        qw, qx, qy, qz = hover_state[6], hover_state[7], hover_state[8], hover_state[9]
+        yaw_rad = np.arctan2(2 * (qw * qz + qx * qy), 1 - 2 * (qy * qy + qz * qz))
+        hover_state[6] = np.cos(yaw_rad / 2)
         hover_state[7] = 0.0
         hover_state[8] = 0.0
-        hover_state[9] = np.sin(yaw_rad/2)
-        #2. set velocities to zero:
+        hover_state[9] = np.sin(yaw_rad / 2)
         hover_state[3:6] = 0.0
         hover_state[10:13] = 0.0
-        #3. set current goal state
         current_goal_state = hover_state
-        #----------------
 
-        cmd_msg = Float64MultiArray()
-        
-        while rclpy.ok() and (not self.stop_hover.is_set()):
+        while rclpy.ok() and not self.stop_hover.is_set():
             with self.state_lock:
                 current_state = self.state.copy()
-
-            if self.controller_type == 'mpc_rotor':
-                u_rotors = self.controller.controller_update(current_state, current_goal_state)
-                cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
-                self.rotor_command_publisher.publish(cmd_msg)
-            elif self.controller_type == 'position_ned':
-                pos_cmd: PositionNedYaw = self.controller.controller_update(current_state, current_goal_state)
-                cmd_msg.data = [pos_cmd.north_m, pos_cmd.east_m, pos_cmd.down_m, pos_cmd.yaw_deg]
-                self.position_command_publisher.publish(cmd_msg)
-            else:
-                attitude_cmd : AttitudeRate = self.controller.controller_update(current_state, current_goal_state)
-                cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
-                self.attitude_command_publisher.publish(cmd_msg)
-
-            # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
-            # a timer implementation may be better
+            cmd = controller.controller_update(current_state, current_goal_state)
+            self._publish_command(cmd)
             self.controller_rate.sleep()
-        self.stop_hover.clear()  # reset flag so you can start hovering again later
+
+        self.stop_hover.clear()
         self.hovering_active = False
 
+    # ── Waypoint-reached check ────────────────────────────────────────────
 
-    def pose_goal_accept_callback(self, goal : FollowWaypoints.Goal ):
-        '''
-        This function validates the goal target. 
-        Due to mutually exlusive, this cannot run when having an active goal (trajectory or position).
-        '''
-        self.get_logger().info('[Position Goal] Received goal request')
-        with self.active_goal_lock:
-            if self.active_goal:
-                self.get_logger().error('[Position Goal] Controller already has an active goal. Rejecting goal')
-                return GoalResponse.REJECT
-            self.active_goal = True
-        goal_poses : FollowWaypoints = goal
-        if goal_poses.poses:
-            if len(goal_poses.poses) == 1:
-                # TODO: Add a heuristic to reject goals that are very far way such that mpc will fail **or** switch to traj execution 
-                return GoalResponse.ACCEPT
-            else:
-                self.get_logger().error('[Position Goal] Multiple waypoints received from the goal interface. Use the trajectory interface instead')
-                return GoalResponse.REJECT
-        self.get_logger().error('[Position Goal] Empty goal received')
-        return GoalResponse.REJECT
-
-    def pose_goal_cancel_callback(self, goal : FollowWaypoints.Goal):
-        self.get_logger().info('[Position Goal] Received cancel request')
-        return CancelResponse.ACCEPT
-    
-    def pose_goal_execute_callback(self,goal_handle  : GoalHandle ):
-        goal_poses : FollowWaypoints.Goal= goal_handle.request
-        self.pose_goals.clear()
-        self.pose_goals.append( goal_poses.poses[0] )
-        self.current_target_publisher.publish(self.pose_goals[0])
-
-        self.current_goal_state = np.zeros(13)
-        self.current_goal_state[0] = self.pose_goals[0].pose.position.x
-        self.current_goal_state[1] = self.pose_goals[0].pose.position.y
-        self.current_goal_state[2] = self.pose_goals[0].pose.position.z
-
-        self.current_goal_state[6] = self.pose_goals[0].pose.orientation.w
-        self.current_goal_state[7] = self.pose_goals[0].pose.orientation.x
-        self.current_goal_state[8] = self.pose_goals[0].pose.orientation.y
-        self.current_goal_state[9] = self.pose_goals[0].pose.orientation.z
-
-        result = FollowWaypoints.Result() 
-        result.missed_waypoints = []
-        cmd_msg = Float64MultiArray()
-        self.ensure_not_hovering()
-        
-        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
-            with self.state_lock:
-                current_state = self.state.copy()
-            
-            # Direct rotor control for mpc_rotor, position NED for position_ned, attitude control otherwise
-            if self.controller_type == 'mpc_rotor':
-                u_rotors = self.controller.controller_update(current_state, self.current_goal_state)
-                cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
-                self.rotor_command_publisher.publish(cmd_msg)
-            elif self.controller_type == 'position_ned':
-                pos_cmd: PositionNedYaw = self.controller.controller_update(current_state, self.current_goal_state)
-                cmd_msg.data = [pos_cmd.north_m, pos_cmd.east_m, pos_cmd.down_m, pos_cmd.yaw_deg]
-                self.position_command_publisher.publish(cmd_msg)
-            else:
-                attitude_cmd : AttitudeRate = self.controller.controller_update(current_state, self.current_goal_state)
-                cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
-                self.attitude_command_publisher.publish(cmd_msg)
-
-            # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
-            # a timer implementation may be better
-            self.controller_rate.sleep() 
-        self.get_logger().info('[Position Goal] Exiting Pose Loop')
-        # self.hover_at_currrent_position()
-        t = threading.Thread(target=self.hover_at_currrent_position)
-        t.start()
-        self.get_logger().info('[Position Goal] Hovering at Target')
-        
-        if goal_handle.is_cancel_requested:
-            if not self.waypoint_reached():
-                result.missed_waypoints = [0] # waypoint id, since it is a list
-                goal_handle.canceled()
-                self.get_logger().info('[Trajectory Goal] Request cancelled')
-                self.terminate_action()
-                return result
-                    
-        #TODO: check if hovering successful?
-        goal_handle.succeed()
-        self.get_logger().info('[Position Goal] Goal succeded')
-        self.terminate_action()
-        return result
-
-    def trajectory_goal_accept_callback(self, goal : FollowWaypoints.Goal ):
-        '''
-        This function validates the goal target. 
-        Due to mutually exlusive, this cannot run when having an active goal (trajectory or position).
-        '''
-        self.get_logger().info('[Trajectory Goal] Received goal request')
-        with self.active_goal_lock:
-            if self.active_goal:
-                self.get_logger().error('[Trajectory Goal] Controller already has an active goal. Rejecting goal')
-                return GoalResponse.REJECT
-            goal_poses : FollowWaypoints = goal
-            if goal_poses.poses:
-                if len(goal_poses.poses) >= 1:
-                    self.active_goal = True
-                    return GoalResponse.ACCEPT
-        self.get_logger().error('[Trajectory Goal] Empty goal received')
-        return GoalResponse.REJECT
-    
-    def trajectory_goal_cancel_callback(self, goal : FollowWaypoints.Goal):
-        self.get_logger().info('[Trajectory Goal] Received cancel request')
-        return CancelResponse.ACCEPT
-    
-    def trajectory_goal_execute_callback(self,goal_handle  : GoalHandle ):
-        goal_poses : FollowWaypoints.Goal= goal_handle.request
-
-        self.pose_goals.clear()
-        num_wp = len(goal_poses.poses )+1
-        Xtraj = np.zeros((13,num_wp ))
-        Tdef = np.zeros(num_wp)
-
-        for i in range(1, num_wp):
-            self.pose_goals.append(goal_poses.poses[i-1])
-            self.current_target_publisher.publish(goal_poses.poses[i-1])
-
-            Xtraj[0,i] = goal_poses.poses[i-1].pose.position.x
-            Xtraj[1,i] = goal_poses.poses[i-1].pose.position.y
-            Xtraj[2,i] = goal_poses.poses[i-1].pose.position.z
-            
-            Xtraj[6,i] = goal_poses.poses[i-1].pose.orientation.w
-            Xtraj[7,i] = goal_poses.poses[i-1].pose.orientation.x
-            Xtraj[8,i] = goal_poses.poses[i-1].pose.orientation.y
-            Xtraj[9,i] = goal_poses.poses[i-1].pose.orientation.z
-
-            Tdef[i] = float(goal_poses.poses[i-1].header.stamp.sec + 1e-9* goal_poses.poses[i-1].header.stamp.nanosec)
-
-        # add current state at beggining:
+    def waypoint_reached(self) -> bool:
         with self.state_lock:
             current_state = self.state.copy()
-        Xtraj[:,0] = current_state
 
-        # TODO: we can add a method to interpolate the trajectory to give smoother references (splines etc) 
+        pos_error = np.linalg.norm(current_state[0:3] - self.current_goal_state[0:3])
+        vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6])
+        orientation_error = 2.0 * np.arccos(np.clip(
+            np.dot(self.current_goal_state[6:10], current_state[6:10]), -1.0, 1.0))
+        ang_vel_error = np.linalg.norm(current_state[10:13] - self.current_goal_state[10:13])
 
-        self.current_goal_state = Xtraj[:,1]
+        return (pos_error < self.thresholds_.position and
+                vel_error < self.thresholds_.velocity and
+                orientation_error < self.thresholds_.orientation and
+                ang_vel_error < self.thresholds_.angular_velocity)
 
-        result = FollowWaypoints.Result() 
-        result.missed_waypoints = []
-        cmd_msg = Float64MultiArray()
+    # ── Publishing ────────────────────────────────────────────────────────
 
-        self.ensure_not_hovering()
-        
-        time_expired = 0.0
-        while rclpy.ok() and (not goal_handle.is_cancel_requested) and (not self.waypoint_reached()):
-            with self.state_lock:
-                current_state = self.state.copy()
-            traj_desired = self.sample_trajectory(Xtraj,Tdef,current_state,time_expired)
-            self.current_goal_state = traj_desired[:,-1] # this is for the waypoint reached.
-            
-            # Direct rotor control for mpc_rotor, position NED for position_ned, attitude control otherwise
-            if self.controller_type == 'mpc_rotor':
-                u_rotors = self.controller.trajectory_controller_update(current_state, traj_desired)
-                cmd_msg.data = [float(u_rotors[0]), float(u_rotors[1]), float(u_rotors[2]), float(u_rotors[3])]
-                self.rotor_command_publisher.publish(cmd_msg)
-            elif self.controller_type == 'position_ned':
-                pos_cmd: PositionNedYaw = self.controller.trajectory_controller_update(current_state, traj_desired)
-                cmd_msg.data = [pos_cmd.north_m, pos_cmd.east_m, pos_cmd.down_m, pos_cmd.yaw_deg]
-                self.position_command_publisher.publish(cmd_msg)
-            else:
-                attitude_cmd : AttitudeRate = self.controller.trajectory_controller_update(current_state, traj_desired)
-                cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
-                self.attitude_command_publisher.publish(cmd_msg)
-            
-            # using a rate object means if controller update takes < rate, we keep the hz constant, else, we send immediately after this cmd
-            # a timer implementation may be better
-            time_expired += 1.0/self.control_rate 
-            self.controller_rate.sleep() 
-        self.get_logger().info('[Position Goal] Exiting Pose Loop')
-        # self.hover_at_currrent_position()
-        t = threading.Thread(target=self.hover_at_currrent_position)
-        t.start()
-        self.get_logger().info('[Trajectory Goal] Hovering at Target')
+    def _publish_command(self, cmd) -> None:
+        """
+        Publish a control command to the correct ROS topic.
 
-        if goal_handle.is_cancel_requested:
-            if not self.waypoint_reached():
-                result.missed_waypoints = [0] #TODO: fix waypoint id, since it is a list
-                goal_handle.canceled()
-                self.get_logger().info('[Trajectory Goal] Request cancelled')
-                self.terminate_action()
-                return result
-                    
-        #TODO: check if hovering successful?
-        goal_handle.succeed()
-        self.get_logger().info('[Trajectory Goal] Goal succeded')
-        self.terminate_action()
-        return result
-    
+        Dispatches on the type of cmd:
+          - AttitudeRate    → attitude_command_publisher   (/drone_attitude_cmd)
+          - PositionNedYaw  → position_command_publisher   (/drone_position_cmd)
+          - anything else   → rotor_command_publisher      (/drone_rotor_cmd)
+            (per-rotor thrust: np.ndarray (4,), used by mpc_rotor)
+        """
+        msg = Float64MultiArray()
+        if isinstance(cmd, AttitudeRate):
+            msg.data = [cmd.roll_deg_s, cmd.pitch_deg_s, cmd.yaw_deg_s, cmd.thrust_value]
+            self.attitude_command_publisher.publish(msg)
+        elif isinstance(cmd, PositionNedYaw):
+            msg.data = [cmd.north_m, cmd.east_m, cmd.down_m, cmd.yaw_deg]
+            self.position_command_publisher.publish(msg)
+        else:
+            # Per-rotor thrust: np.ndarray (4,) or similar sequence
+            msg.data = [float(cmd[0]), float(cmd[1]), float(cmd[2]), float(cmd[3])]
+            self.rotor_command_publisher.publish(msg)
+
+    # ── Helpers ───────────────────────────────────────────────────────────
+
+    def _load_waypoints(self, filepath: str) -> Optional[np.ndarray]:
+        """
+        Load waypoints from a YAML file.
+
+        Expected format:
+            waypoints:
+              - {x: 1.0, y: 0.0, z: -1.0}
+              - {x: 2.0, y: 1.0, z: -1.0}
+
+        Returns an (N, 3) float64 array. Returns None if filepath is empty.
+        Raises RuntimeError if the file is missing or malformed.
+        """
+        if not filepath:
+            return None
+        try:
+            with open(filepath, 'r') as f:
+                data = yaml.safe_load(f)
+            pts = data['waypoints']
+            return np.array([[p['x'], p['y'], p['z']] for p in pts], dtype=np.float64)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load waypoints from '{filepath}': {e}")
+
+    def _pose_stamped_to_goal_state(self, pose: PoseStamped) -> np.ndarray:
+        """Convert a PoseStamped message to a 13-dim goal state vector."""
+        goal = np.zeros(13)
+        goal[0] = pose.pose.position.x
+        goal[1] = pose.pose.position.y
+        goal[2] = pose.pose.position.z
+        goal[6] = pose.pose.orientation.w
+        goal[7] = pose.pose.orientation.x
+        goal[8] = pose.pose.orientation.y
+        goal[9] = pose.pose.orientation.z
+        return goal
+
     def terminate_action(self):
         with self.active_goal_lock:
             self.active_goal = False
 
-    def sample_trajectory(self, desired_trajectory : np.ndarray, desired_timestamps: List[float],current_state: np.ndarray,  tcurrent: Optional[float] = None):
+    # ── Action: pose goal (single point) ─────────────────────────────────
+
+    def pose_goal_accept_callback(self, goal: FollowWaypoints.Goal):
+        """Accept a single-point goal. Rejects if another goal is active or if >1 waypoint is sent."""
+        self.get_logger().info('[Pose Goal] Received goal request')
+        with self.active_goal_lock:
+            if self.active_goal:
+                self.get_logger().error('[Pose Goal] Controller already has an active goal. Rejecting.')
+                return GoalResponse.REJECT
+            if not goal.poses:
+                self.get_logger().error('[Pose Goal] Empty goal received.')
+                return GoalResponse.REJECT
+            if len(goal.poses) != 1:
+                self.get_logger().error(
+                    '[Pose Goal] Multiple waypoints received. Use the trajectory interface instead.')
+                return GoalResponse.REJECT
+            self.active_goal = True
+        return GoalResponse.ACCEPT
+
+    def pose_goal_cancel_callback(self, goal: FollowWaypoints.Goal):
+        self.get_logger().info('[Pose Goal] Received cancel request')
+        return CancelResponse.ACCEPT
+
+    def pose_goal_execute_callback(self, goal_handle: GoalHandle):
         """
-        This method performs a linear interpolation to give smooth trajectory references.
-        It runs in the control loop so it should stay minimal
-
-        This takes <1ms for 50 sampling points
+        Mode A — single point: fly to goal and hover there.
+        Calls controller_update() in a loop until waypoint_reached().
         """
-        # TODO: This method is unique to MPC and should not be in this module.
+        goal_poses: FollowWaypoints.Goal = goal_handle.request
+        pose = goal_poses.poses[0]
+        self.current_target_publisher.publish(pose)
+        self.current_goal_state = self._pose_stamped_to_goal_state(pose)
 
-        if tcurrent is None:
-            # TODO: [optional] implement feedback in trajectory tracking. Aim: test what is better
-            # Idea: Find the closes point to the trajectory (that is why signature has current state) and use its 
-            # corresponding timestep (or better interpolated timestep) as the "current time"
-            self.get_logger().error("tcurrent was not provided; calculating default value.")
-            # tcurrent = ... # [wrong] Example default calculation
+        result = FollowWaypoints.Result()
+        result.missed_waypoints = []
+        self.ensure_not_hovering()
 
-        mpc_TH = self.controller.t_H
-        mpc_N = self.controller.Nnodes + 1
-        mpc_DT = mpc_TH/(mpc_N-1.0)
-        T_horizon = tcurrent+mpc_TH
-        
-        number_of_time_samples = mpc_N
-        number_of_constant_samples = 0
+        while rclpy.ok() and not goal_handle.is_cancel_requested and not self.waypoint_reached():
+            with self.state_lock:
+                current_state = self.state.copy()
+            cmd = self.controller.controller_update(current_state, self.current_goal_state)
+            self._publish_command(cmd)
+            self.controller_rate.sleep()
 
-        # this handles the interpolation at the end of the trajectory
-        if T_horizon > desired_timestamps[-1]:
-            number_of_time_samples = int( np.floor ( (desired_timestamps[-1] - tcurrent)/mpc_DT) )+1
-            if number_of_time_samples > 1:
-                number_of_constant_samples = mpc_N - number_of_time_samples
-            else: 
-                number_of_constant_samples = mpc_N - 1
-            T_horizon = (number_of_time_samples-1)*mpc_DT+tcurrent
+        self.get_logger().info('[Pose Goal] Exiting control loop')
+        threading.Thread(target=self.hover_at_currrent_position).start()
 
-        if number_of_time_samples > 1:
-        
-            time_series_mpc = np.linspace(tcurrent,T_horizon,number_of_time_samples)
-            pos_dim = 3
-            quat_dim = 4
+        if goal_handle.is_cancel_requested and not self.waypoint_reached():
+            result.missed_waypoints = [0]
+            goal_handle.canceled()
+            self.get_logger().info('[Pose Goal] Request cancelled')
+            self.terminate_action()
+            return result
 
-            pos_interp = np.vstack([np.interp(time_series_mpc, desired_timestamps, desired_trajectory[i,:]) for i in range(pos_dim)])
-            quat_interp = DroneController.slerp(desired_trajectory[6:10,:],desired_timestamps,time_series_mpc )
+        goal_handle.succeed()
+        self.get_logger().info('[Pose Goal] Goal succeeded')
+        self.terminate_action()
+        return result
 
-            vel_interp = np.diff(pos_interp, axis=1) / mpc_DT
-            vel_interp = np.hstack([vel_interp,vel_interp[:,-1].reshape((3,1))]) #append ending velocity
-        else:
-            pos_interp = desired_trajectory[:3,-1].reshape(3,1)
-            vel_interp = np.zeros((3,1))
-            quat_interp = desired_trajectory[6:10,-1].reshape(4,1)
-            
+    # ── Action: trajectory goal (waypoint sequence) ───────────────────────
 
-        # Stack final target as reference
-        if number_of_constant_samples > 0:
-            pos_interp  = np.hstack([pos_interp,np.tile(desired_trajectory[:3,-1].reshape(3,1),number_of_constant_samples)])
-            vel_interp  = np.hstack([vel_interp,np.zeros((3,number_of_constant_samples))])
-            quat_interp = np.hstack([quat_interp,np.tile(desired_trajectory[6:10,-1].reshape(4,1),number_of_constant_samples)])
+    def trajectory_goal_accept_callback(self, goal: FollowWaypoints.Goal):
+        """Accept a multi-waypoint goal. Rejects if another goal is active."""
+        self.get_logger().info('[Trajectory Goal] Received goal request')
+        with self.active_goal_lock:
+            if self.active_goal:
+                self.get_logger().error(
+                    '[Trajectory Goal] Controller already has an active goal. Rejecting.')
+                return GoalResponse.REJECT
+            if not goal.poses:
+                self.get_logger().error('[Trajectory Goal] Empty goal received.')
+                return GoalResponse.REJECT
+            self.active_goal = True
+        return GoalResponse.ACCEPT
 
-        ang_vel_interp = np.zeros((3,mpc_N))
+    def trajectory_goal_cancel_callback(self, goal: FollowWaypoints.Goal):
+        self.get_logger().info('[Trajectory Goal] Received cancel request')
+        return CancelResponse.ACCEPT
 
-        return np.vstack([pos_interp,vel_interp,quat_interp,ang_vel_interp])
+    def trajectory_goal_execute_callback(self, goal_handle: GoalHandle):
+        """
+        Mode B — waypoint sequence: visit each waypoint in order, looping forever.
+        Restarts from the first waypoint after the last one is reached.
+        Exits only when a cancel request is received.
+        """
+        goal_poses: FollowWaypoints.Goal = goal_handle.request
+        waypoints = goal_poses.poses
 
-    def slerp(desired_trajectory: np.ndarray, desired_timestamps: List[float], query_timestamps: np.ndarray ):
-        
-        desired_quats = desired_trajectory.T        # convert to (N,4)
-        desired_times = desired_timestamps                   # (N,)
+        result = FollowWaypoints.Result()
+        result.missed_waypoints = []
+        self.ensure_not_hovering()
 
-        key_rots = R.from_quat(desired_quats)
-        slerp = Slerp(desired_times, key_rots)
+        lap = 0
+        while rclpy.ok() and not goal_handle.is_cancel_requested:
+            lap += 1
+            self.get_logger().info(f'[Trajectory Goal] Starting lap {lap}')
 
-        interp_rots = slerp(query_timestamps)
-        #TODO: estimate angular velocity from rotation matrices
+            for i, pose in enumerate(waypoints):
+                if goal_handle.is_cancel_requested:
+                    break
 
-        return  interp_rots.as_quat().T             # return shape (4, M)
-        
+                self.current_target_publisher.publish(pose)
+                self.current_goal_state = self._pose_stamped_to_goal_state(pose)
+                self.get_logger().info(
+                    f'[Trajectory Goal] Lap {lap} — waypoint {i + 1}/{len(waypoints)}')
+
+                while rclpy.ok() and not goal_handle.is_cancel_requested and not self.waypoint_reached():
+                    with self.state_lock:
+                        current_state = self.state.copy()
+                    cmd = self.controller.controller_update(current_state, self.current_goal_state)
+                    self._publish_command(cmd)
+                    self.controller_rate.sleep()
+
+        self.get_logger().info('[Trajectory Goal] Cancelled — hovering')
+        threading.Thread(target=self.hover_at_currrent_position).start()
+
+        result.missed_waypoints = [0]
+        goal_handle.canceled()
+        self.terminate_action()
+        return result
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -592,6 +501,7 @@ def main(args=None):
         executor.shutdown()
         node.destroy_node()
         rclpy.shutdown()
+
 
 if __name__ == '__main__':
     main()

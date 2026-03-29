@@ -1,12 +1,31 @@
 /drone_controller_node:
   ros__parameters:
-    controller_type: "mpc_rotor"  # Options: 'mpc', 'mpc_rotor', 'rl'
+    # ── Controller selection ───────────────────────────────────────────
+    # Options:
+    #   'mpc'         — Model Predictive Control, output: attitude rate + thrust
+    #   'mpcc'        — Model Predictive Contouring Control (racing), output: attitude rate + thrust
+    #   'mpc_rotor'   — MPC with direct per-rotor thrust (bypasses PX4 attitude controller)
+    #   'position_ned'— PX4 built-in position controller
+    #   'rl'          — Reinforcement Learning policy
+    controller_type: "mpcc"
+
+    # ── Waypoints file ─────────────────────────────────────────────────
+    # Path to YAML file with waypoints for controllers that need a pre-defined path.
+    # Required when controller_type is 'mpcc'. Ignored by other controllers.
+    # Format: waypoints: [{x: 1.0, y: 0.0, z: -1.0}, ...]
+    waypoints_file: "/home/drone_dev/ros_ws/src/drone_control/config/waypoints.yaml"
+
+    # ── Topics ────────────────────────────────────────────────────────
     state_topic: "drone_state_sim"
     attitude_command_topic: "/drone_attitude_cmd"
     position_command_topic: "/drone_position_cmd"
-    controller_rate: 100.0
+
+    # ── Control loop ──────────────────────────────────────────────────
+    controller_rate: 100.0   # Hz
+
+    # ── Waypoint-reached thresholds ───────────────────────────────────
     threshold:
-      position: 0.1
-      velocity: 0.02
-      angular_velocity: 0.02
-      orientation: 0.1
+      position: 0.1          # m
+      velocity: 0.02         # m/s
+      angular_velocity: 0.02 # rad/s
+      orientation: 0.1       # rad

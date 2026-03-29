@@ -12,7 +12,7 @@
             "qpdunes": "",
             "qpoases": "-lqpOASES_e"
         },
-        "acados_version": "676c1b879",
+        "acados_version": "ec27dd94d",
         "code_export_directory": "/home/drone_dev/ros_ws/src/mpc/c_generated_code",
         "cython_include_dirs": [
             "/usr/local/lib/python3.10/dist-packages/numpy/core/include",
@@ -298,7 +298,7 @@
         "drone_rotor_cost/drone_rotor_cost_ext_cost_e_fun_jac_hess.c",
         "drone_rotor_cost/drone_rotor_cost_ext_cost_e_fun_jac.c"
     ],
-    "hash": "d7301d30701fdccfe143cd00aa6ccd36",
+    "hash": "245c0a504b0f5fec57c666d8d6de281f",
     "model": {
         "con_h_expr": [],
         "con_h_expr_0": [],

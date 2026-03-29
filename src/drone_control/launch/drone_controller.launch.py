@@ -17,14 +17,21 @@ def generate_launch_description():
     mavsdk_client_params = PathJoinSubstitution(
         [FindPackageShare('my_mavsdk'), "config", "mavsdk_client_config.yaml"]
     )
+    default_waypoints_file = PathJoinSubstitution(
+        [FindPackageShare('drone_control'), "config", "waypoints.yaml"]
+    )
 
     controller_type = LaunchConfiguration('controller_type')
+    waypoints_file = LaunchConfiguration('waypoints_file')
 
     controller_node = Node(
         package="drone_control",
         executable="drone_controller_node",
         name="drone_controller_node",
-        parameters=[controller_params, {'controller_type': controller_type}],
+        parameters=[controller_params, {
+            'controller_type': controller_type,
+            'waypoints_file': waypoints_file,
+        }],
         output="screen",
     )
 
@@ -39,11 +46,12 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('plotjuggler', default_value='true',
             description='Launch PlotJuggler alongside the controller'),
-        DeclareLaunchArgument('controller_type', default_value='mpc_rotor',
-            description='Controller type: mpc, mpc_rotor, position_ned, rl'),
+        DeclareLaunchArgument('controller_type', default_value='mpcc',
+            description='Controller type: mpc, mpcc, mpc_rotor, position_ned, rl'),
+        DeclareLaunchArgument('waypoints_file', default_value=default_waypoints_file,
+            description='Path to YAML file with waypoints for the controller'),
 
         # Start controller first, then mavsdk_client after 3s delay
-        # so the controller is ready to send commands when offboard starts
         controller_node,
         TimerAction(period=3.0, actions=[mavsdk_node]),
 

@@ -19,6 +19,7 @@
   <depend>nav2_msgs</depend>
   <depend>my_mavsdk</depend>
   <depend>mpc</depend>
+  <depend>mpcc</depend>
   <exec_depend>plotjuggler</exec_depend>
   <exec_depend>plotjuggler_ros</exec_depend>
 
