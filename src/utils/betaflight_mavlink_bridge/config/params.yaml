@@ -1,0 +1,20 @@
+bridge_node:
+  ros__parameters:
+    device: "/dev/ttyTHS1"
+    baud: 115200
+    # Channel mappings (1-indexed for convenience in Betaflight)
+    # AETR = Roll: 1, Pitch: 2, Throttle: 3, Yaw: 4
+    chan_roll: 1
+    chan_pitch: 2
+    chan_throttle: 3
+    chan_yaw: 4
+    
+    # Mode switch configuration
+    # switch_index: index in Joy buttons array (0-indexed)
+    auto_switch_index: 4  # Example: L1 button (usually index 4 on DualShock/Xbox)
+    # mode_channel: RC channel to signal mode to FC (1-indexed)
+    mode_channel: 6
+    # arm_channel: RC channel for arming (1-indexed)
+    arm_channel: 5
+    # arm_switch_index: index in Joy buttons array (0-indexed)
+    arm_switch_index: 5   # Example: R1 button

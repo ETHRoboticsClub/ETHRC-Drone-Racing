@@ -103,14 +103,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN uv pip install --system --no-cache numpy==1.24.4 scipy==1.10.1
 
 # =========================================================
-# STAGE 3: docs
-# Minimal stage for MkDocs only
+# STAGE 3: docs (standalone)
+# Minimal, disjoint stage for MkDocs only
 # =========================================================
-FROM base AS docs
-RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+FROM python:3.10-slim AS docs
+RUN pip install --no-cache-dir "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
 EXPOSE 8000
-COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
-CMD ["mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000"]
+COPY docs /docs
+WORKDIR /docs
+CMD ["mkdocs", "serve", "-a", "0.0.0.0:8000"]
 
 # =========================================================
 # STAGE 4: perception

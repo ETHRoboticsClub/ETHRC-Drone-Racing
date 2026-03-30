@@ -72,12 +72,15 @@ services:
 
       # --- Documentation Team ---
   docs:
-    extends: dev
     build:
       context: .
       dockerfile: docker/Dockerfile
       target: docs
-    command: [ "mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000" ]
+    network_mode: host
+    working_dir: /docs
+    volumes:
+      - ./docs:/docs:rw
+    command: [ "mkdocs", "serve", "-a", "0.0.0.0:8000" ]
 
   # --- Perception Team ---
   perception:
