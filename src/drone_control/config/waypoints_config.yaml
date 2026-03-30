@@ -1,434 +1,78 @@
 # waypoints_config.yaml
-# Figure-8 trajectory repeated 10 times
-# 
-# Configuration:
-#   dt = 1.5 seconds (time step between waypoints)
-#   Each lap duration: 8 waypoints × 1.5s = 12 seconds
-#   Total duration: 10 laps × 12s = 120 seconds
-#   Altitude: z = -1.0m (1 meter above origin in NED frame)
+# ETH Sprint Circuit — race-style track (NED frame, z negative = altitude)
 #
-# To regenerate with custom parameters:
-#   python3 generate_waypoints.py waypoints_config.yaml
+# Layout (top view):
+#
+#       G8(-5, 4)      G1(0,0)      G2(10,3)
+#           \           |           /
+#        G7(-8,-5)    start    G3(20,0)   ← main straight, climb to 5m
+#               \                /
+#             G6(0,-10)    G4(18,-8)
+#                    \    /
+#                  G5(10,-12)          ← hairpin, lowest point
+#
+# Altitude profile (NED z):
+#   G1: -3.0 m  → G2: -4.0 m  → G3: -5.0 m  (climb on main straight)
+#   G3: -5.0 m  → G4: -4.0 m  → G5: -3.0 m  (dive into hairpin)
+#   G5: -3.0 m  → G6: -2.5 m  → G7: -3.5 m  → G8: -4.0 m  (technical back section)
+#   G8 → G1: return, dropping back to 3m
+#
+# time_from_beginning is required by the client but ignored by the controller
+# (node advances on waypoint_reached, not on time). The controller loops forever.
 
 waypoints:
-  # ===== LAP 1 =====
-  - x: 1.0
-    y: 1.0
+  # G1 — start / finish line
+  - x:  0.0
+    y:  0.0
     z: -3.0
     yaw_deg: 0.0
-    time_from_beginning: 1.5  
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 3.0  
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 4.5  
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 6.0  
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 7.5  
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 9.0  
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 10.5 
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 12.0  
+    time_from_beginning: 2.0
 
-  # ===== LAP 2 =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
+  # G2 — entry to main straight, climbing
+  - x:  10.0
+    y:   3.0
+    z: -4.0
     yaw_deg: 0.0
-    time_from_beginning: 13.5 
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 15.0 
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 16.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 18.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 19.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 21.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 22.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 24.0
+    time_from_beginning: 4.0
 
-  # ===== LAP 3=====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
+  # G3 — far end of main straight, max altitude
+  - x:  20.0
+    y:   0.0
+    z: -5.0
     yaw_deg: 0.0
-    time_from_beginning: 25.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 27.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 28.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 30.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 31.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 33.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 34.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 36.0
+    time_from_beginning: 6.0
 
-  # ===== LAP 4 (t = 24*dt to 32*dt) =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
+  # G4 — sweeping right, beginning the dive
+  - x:  18.0
+    y:  -8.0
+    z: -4.0
     yaw_deg: 0.0
-    time_from_beginning: 37.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 39.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 40.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 42.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 43.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 45.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 46.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 48.0
+    time_from_beginning: 8.0
 
-  # ===== LAP 5 (t = 32*dt to 40*dt) =====
-  - x: 1.0
-    y: 1.0
+  # G5 — hairpin apex, lowest point on return
+  - x:  10.0
+    y: -12.0
     z: -3.0
     yaw_deg: 0.0
-    time_from_beginning: 49.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 51.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 52.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 54.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 55.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 57.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 58.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 60.0
+    time_from_beginning: 10.0
 
-  # ===== LAP 6 =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
+  # G6 — back chicane, flat and fast
+  - x:   0.0
+    y: -10.0
+    z: -2.5
     yaw_deg: 0.0
-    time_from_beginning: 61.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 63.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 64.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 66.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 67.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 69.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 70.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 72.0
+    time_from_beginning: 12.0
 
-  # ===== LAP 7 =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
+  # G7 — technical left turn, climbing
+  - x:  -8.0
+    y:  -5.0
+    z: -3.5
     yaw_deg: 0.0
-    time_from_beginning: 73.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 75.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 76.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 78.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 79.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 81.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 82.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 84.0
+    time_from_beginning: 14.0
 
-  # ===== LAP 8 =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
+  # G8 — return gate, high before diving back to start
+  - x:  -5.0
+    y:   4.0
+    z: -4.0
     yaw_deg: 0.0
-    time_from_beginning: 85.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 87.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 88.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 90.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 91.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 93.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 94.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 96.0
-
-  # ===== LAP 9 =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 97.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 99.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 100.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 102.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 103.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 105.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 106.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 108.0
-
-  # ===== LAP 10 =====
-  - x: 1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 109.5
-  - x: 2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 111.0
-  - x: 1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 112.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 114.0
-  - x: -1.0
-    y: 1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 115.5
-  - x: -2.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 117.0
-  - x: -1.0
-    y: -1.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 118.5
-  - x: 0.0
-    y: 0.0
-    z: -3.0
-    yaw_deg: 0.0
-    time_from_beginning: 120.0
- 
-
+    time_from_beginning: 16.0

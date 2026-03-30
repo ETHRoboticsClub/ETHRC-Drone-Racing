@@ -23,7 +23,7 @@ class DroneMpcControllerRotor(ControllerInterface):
 
     # drone state
     x_current: np.ndarray
-    goal_postion: np.ndarray
+    goal_position: np.ndarray
 
     # debug
     mpc_iter: int = 0
@@ -66,11 +66,11 @@ class DroneMpcControllerRotor(ControllerInterface):
             u_rotors: np.ndarray[4] normalized [0, 1] per-rotor commands
         """
         self.x_current = x_current
-        self.goal_postion = goal_state
+        self.goal_position = goal_state
 
         try:
             u0 = self.opt.compute_control_once(
-                self.x_current, self.goal_postion)
+                self.x_current, self.goal_position)
 
             self.consecutive_failures = 0
 
@@ -100,7 +100,7 @@ class DroneMpcControllerRotor(ControllerInterface):
             u_rotors: np.ndarray[4] normalized [0, 1]
         """
         self.x_current = x_current
-        self.goal_postion = goal_trajectory[:, -1]
+        self.goal_position = goal_trajectory[:, -1]
 
         try:
             u0 = self.opt.compute_control_once(
@@ -130,6 +130,6 @@ class DroneMpcControllerRotor(ControllerInterface):
         if self.mpc_iter % 10 == 0:
             print(f"[MPC-Rotor iter {self.mpc_iter}] "
                   f"pos=({self.x_current[0]:.2f},{self.x_current[1]:.2f},{self.x_current[2]:.2f}) "
-                  f"goal=({self.goal_postion[0]:.2f},{self.goal_postion[1]:.2f},{self.goal_postion[2]:.2f})")
+                  f"goal=({self.goal_position[0]:.2f},{self.goal_position[1]:.2f},{self.goal_position[2]:.2f})")
             print(f"  u_rotors=[{u0[0]:.4f}, {u0[1]:.4f}, {u0[2]:.4f}, {u0[3]:.4f}]"
                   f"  (hover={self.hover_normalized:.4f})")

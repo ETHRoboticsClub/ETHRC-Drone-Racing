@@ -64,8 +64,8 @@ class DroneOptimizerMpcc:
     _DEFAULTS = dict(
         ql=10.0,
         Qw=0.1,
-        r_dvt=0.01,
-        R_df=0.001,
+        r_dvt=0.1,
+        R_df=0.01,
         mu=10.0,
     )
 

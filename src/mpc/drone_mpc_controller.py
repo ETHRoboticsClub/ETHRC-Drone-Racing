@@ -24,7 +24,7 @@ class DroneMpcController(ControllerInterface):
 
     #drone_state
     x_current: np.ndarray
-    goal_postion: np.ndarray
+    goal_position: np.ndarray
     # last_cmd: np.ndarray
 
 
@@ -68,7 +68,7 @@ class DroneMpcController(ControllerInterface):
     def trajectory_controller_update(self, x_current :np.ndarray, goal_trajectory :np.ndarray):
         # TODO: bad, 2 change
         self.x_current = x_current
-        self.goal_postion = goal_trajectory[:,-1]
+        self.goal_position = goal_trajectory[:,-1]
 
         # Solve OCP
         # TODO: Handle mpc failure more explicitely
@@ -145,7 +145,7 @@ class DroneMpcController(ControllerInterface):
         if self.mpc_iter % 10 == 0: 
             print(f"[MPC iter {self.mpc_iter}] "
                     f"pos=({self.x_current[0]:.2f},{self.x_current[1]:.2f},{self.x_current[2]:.2f}) "
-                    f"goal=({self.goal_postion[0]:.2f},{self.goal_postion[1]:.2f},{self.goal_postion[2]:.2f})")
+                    f"goal=({self.goal_position[0]:.2f},{self.goal_position[1]:.2f},{self.goal_position[2]:.2f})")
             # u0 is [thrust_N, wx, wy, wz]
             print(f"  u=[T={float(u0[0]):.2f}N, "
                     f"wx={float(u0[1]):.3f}, wy={float(u0[2]):.3f}, wz={float(u0[3]):.3f}]")

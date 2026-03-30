@@ -85,7 +85,8 @@ class DroneMpccController(ControllerInterface):
         self._weights = weights
 
         # Internal state: carried between control steps
-        self._theta:   float      = 0.0
+        self._theta:       float      = 0.0
+        self._theta_solve: float      = 0.0   # theta after projection, before OCP advance
         self._vtheta:  float      = 0.0
         self._f_state: np.ndarray = self._model.f_hover.copy()   # rotor thrusts [N]
         self._lap:     int        = 0
@@ -168,9 +169,27 @@ class DroneMpccController(ControllerInterface):
     # ------------------------------------------------------------------
 
     @property
+    def last_predicted_positions(self) -> 'np.ndarray | None':
+        """(N+1, 3) predicted positions in NED from the last OCP solve, or None."""
+        pred = getattr(self, '_last_x_pred', None)
+        if pred is None:
+            return None
+        return pred[:, 0:3]
+
+    def sample_reference_path(self, n: int = 300) -> np.ndarray:
+        """Return (n, 3) NED positions sampled uniformly along the reference spline."""
+        thetas = np.linspace(0.0, self._path.total_length, n)
+        return np.array([self._path.position(t) for t in thetas])
+
+    @property
     def current_theta(self) -> float:
         """Current arc-length progress [m]."""
         return self._theta
+
+    @property
+    def current_path_position(self) -> np.ndarray:
+        """NED position on the reference path projected from the drone (used as OCP reference)."""
+        return self._path.position(self._theta_solve)
 
     @property
     def path_length(self) -> float:
@@ -197,6 +216,7 @@ class DroneMpccController(ControllerInterface):
 
         # Project current position onto path (Algorithm 1)
         self._theta = self._path.find_closest_theta(x_aug[0:3], self._theta)
+        self._theta_solve = self._theta   # save for external visualisation
 
         # Lap detection — wrap θ to restart (closed-loop track)
         if self._path.total_length - self._theta < 0.3:
@@ -214,6 +234,7 @@ class DroneMpccController(ControllerInterface):
 
         # Solve MPCC OCP
         u_opt, x_pred, info = self._opt.solve(x_aug, stage_params)
+        self._last_x_pred = x_pred   # expose for external debug / visualisation
 
         # Update internal f-state from predicted next step
         self._f_state = np.clip(

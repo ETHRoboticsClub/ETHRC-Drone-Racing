@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*launch.[pxy][yma]*')),
         (os.path.join('share', package_name, 'config'), glob('config/*')),
+        (os.path.join('share', package_name, 'rviz'), glob('rviz/*')),
     ],
     install_requires=['setuptools', 'mavsdk'],
     zip_safe=True,
@@ -31,6 +32,7 @@ setup(
             'drone_controller_node = drone_control.drone_controller_node:main',
             'send_pose_goal = drone_control.send_pose_goal:main',
             'send_trajectory_goal = drone_control.send_trajectory_goal:main',
+            'waypoint_visualizer = drone_control.waypoint_visualizer:main',
         ],
     },
 )

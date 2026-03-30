@@ -18,7 +18,8 @@ import time
 # msgs
 from std_msgs.msg import Float64MultiArray
 from nav2_msgs.action import FollowWaypoints
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Point, PoseStamped
+from visualization_msgs.msg import Marker, MarkerArray
 
 # drone
 from my_mavsdk.mavsdk_client import AttitudeRate, PositionNedYaw
@@ -90,6 +91,8 @@ class DroneController(Node):
     rotor_command_publisher: Publisher
     position_command_publisher: Publisher
     current_target_publisher: Publisher
+    mpcc_ref_path_publisher: Publisher
+    mpcc_horizon_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
 
@@ -150,6 +153,14 @@ class DroneController(Node):
         self.current_target_publisher = self.create_publisher(
             PoseStamped, '/drone_current_target',
             QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
+        self.mpcc_ref_path_publisher = self.create_publisher(
+            MarkerArray, '/mpcc/reference_path',
+            QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
+        self.mpcc_horizon_publisher = self.create_publisher(
+            MarkerArray, '/mpcc/predicted_horizon', 10)
+        self.mpcc_progress_point_publisher = self.create_publisher(
+            MarkerArray, '/mpcc/progress_point', 10)
+        self._mpcc_pub_counter = 0
 
         # ── Controller instantiation via registry ──────────────────────────
         waypoints_file = self.get_parameter('waypoints_file').get_parameter_value().string_value
@@ -204,6 +215,9 @@ class DroneController(Node):
             self._mpc_hover_controller.initialize()
 
         self.get_logger().info("Controller node initialized")
+
+        if isinstance(self.controller, DroneMpccController):
+            self._publish_mpcc_reference_path()
 
         if START_AND_HOVER:
             self.get_logger().info("Auto-hover will start once drone state is available")
@@ -301,6 +315,94 @@ class DroneController(Node):
 
     # ── Publishing ────────────────────────────────────────────────────────
 
+    def _publish_mpcc_reference_path(self) -> None:
+        """Publish the MPCC reference spline once as a latching MarkerArray."""
+        pts = self.controller.sample_reference_path(n=300)
+        m = Marker()
+        m.header.frame_id = 'world'
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.ns = 'mpcc_reference'
+        m.id = 0
+        m.type = Marker.LINE_STRIP
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = 0.06
+        m.color.r, m.color.g, m.color.b, m.color.a = 0.8, 0.0, 1.0, 0.9
+        for p in pts:
+            m.points.append(Point(x=float(p[1]), y=float(p[0]), z=float(-p[2])))
+        markers = MarkerArray()
+        markers.markers.append(m)
+        self.mpcc_ref_path_publisher.publish(markers)
+
+    def _publish_mpcc_horizon(self) -> None:
+        """Publish the MPCC predicted horizon at ~10 Hz (throttled)."""
+        self._mpcc_pub_counter += 1
+        if self._mpcc_pub_counter % 10 != 0:
+            return
+        pred = self.controller.last_predicted_positions
+        if pred is None:
+            return
+        m = Marker()
+        m.header.frame_id = 'world'
+        m.header.stamp = self.get_clock().now().to_msg()
+        m.ns = 'mpcc_horizon'
+        m.id = 0
+        m.type = Marker.LINE_STRIP
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = 0.1
+        m.color.r, m.color.g, m.color.b, m.color.a = 0.1, 1.0, 0.3, 0.9
+        for p in pred:
+            m.points.append(Point(x=float(p[1]), y=float(p[0]), z=float(-p[2])))
+        markers = MarkerArray()
+        markers.markers.append(m)
+        self.mpcc_horizon_publisher.publish(markers)
+
+    def _publish_mpcc_progress_point(self) -> None:
+        """Publish the path reference point and contouring error line at every control step."""
+        path_pos = self.controller.current_path_position  # NED (3,)
+
+        now = self.get_clock().now().to_msg()
+        markers = MarkerArray()
+
+        # Yellow sphere at the path reference point
+        sphere = Marker()
+        sphere.header.frame_id = 'world'
+        sphere.header.stamp = now
+        sphere.ns = 'mpcc_progress'
+        sphere.id = 0
+        sphere.type = Marker.SPHERE
+        sphere.action = Marker.ADD
+        sphere.pose.position.x = float(path_pos[1])    # NED east  → RViz x
+        sphere.pose.position.y = float(path_pos[0])    # NED north → RViz y
+        sphere.pose.position.z = float(-path_pos[2])   # NED down  → RViz z
+        sphere.pose.orientation.w = 1.0
+        sphere.scale.x = sphere.scale.y = sphere.scale.z = 0.2
+        sphere.color.r, sphere.color.g, sphere.color.b, sphere.color.a = 1.0, 1.0, 0.0, 1.0
+        markers.markers.append(sphere)
+
+        # Orange line: drone position → path reference point (contouring error)
+        with self.state_lock:
+            drone_pos = self.state[0:3].copy()
+
+        line = Marker()
+        line.header.frame_id = 'world'
+        line.header.stamp = now
+        line.ns = 'mpcc_progress'
+        line.id = 1
+        line.type = Marker.LINE_LIST
+        line.action = Marker.ADD
+        line.pose.orientation.w = 1.0
+        line.scale.x = 0.03
+        line.color.r, line.color.g, line.color.b, line.color.a = 1.0, 0.5, 0.0, 0.9
+        line.points.append(Point(
+            x=float(drone_pos[1]), y=float(drone_pos[0]), z=float(-drone_pos[2])))
+        line.points.append(Point(
+            x=float(path_pos[1]), y=float(path_pos[0]), z=float(-path_pos[2])))
+        markers.markers.append(line)
+
+        self.mpcc_progress_point_publisher.publish(markers)
+
     def _publish_command(self, cmd) -> None:
         """
         Publish a control command to the correct ROS topic.
@@ -311,6 +413,10 @@ class DroneController(Node):
           - anything else   → rotor_command_publisher      (/drone_rotor_cmd)
             (per-rotor thrust: np.ndarray (4,), used by mpc_rotor)
         """
+        if isinstance(self.controller, DroneMpccController):
+            self._publish_mpcc_horizon()
+            self._publish_mpcc_progress_point()
+
         msg = Float64MultiArray()
         if isinstance(cmd, AttitudeRate):
             msg.data = [cmd.roll_deg_s, cmd.pitch_deg_s, cmd.yaw_deg_s, cmd.thrust_value]
