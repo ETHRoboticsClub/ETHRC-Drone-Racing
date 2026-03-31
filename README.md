@@ -66,7 +66,7 @@ cd ETHRC-Drone-Racing
 ### 2. Launch Environment
 We use Docker to ensure "it works on everyone's machine."
 ```bash
-# Prepare host volumes
+# Prepare host volumes (Fixes 'Permission Denied' errors in Docker)
 sudo ./scripts/prepare_colcon_volumes.sh
 
 # Start the development container
