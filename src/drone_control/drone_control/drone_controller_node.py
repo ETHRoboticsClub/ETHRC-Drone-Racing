@@ -49,6 +49,7 @@ START_AND_HOVER = True  # If True, auto-hover at 10 cm on launch
 import numpy as np
 import threading
 import yaml
+from enum import Enum
 from typing import Optional
 
 
@@ -57,6 +58,19 @@ class thresholds:
     velocity: float = 0.1
     angular_velocity: float = 0.1
     orientation: float = 0.1
+
+
+class StateType(Enum):
+    POSE_STAMPED = 'PoseStamped'
+    FLOAT64_MULTI_ARRAY = 'Float64MultiArray'
+
+
+def _parse_state_type(state_msg_type: str) -> StateType:
+    if state_msg_type == 'PoseStamped':
+        return StateType.POSE_STAMPED
+    if state_msg_type == 'Float64MultiArray':
+        return StateType.FLOAT64_MULTI_ARRAY
+    return StateType.POSE_STAMPED
 
 
 def _build_registry() -> dict:
@@ -123,6 +137,7 @@ class DroneController(Node):
         self.declare_parameter('controller_type', 'mpc')
         self.declare_parameter('waypoints_file', '')
         self.declare_parameter('state_topic', 'drone_state_sim')
+        self.declare_parameter('state_msg_type', 'PoseStamped')
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
@@ -133,6 +148,11 @@ class DroneController(Node):
 
         self.controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
+        state_msg_type = self.get_parameter('state_msg_type').get_parameter_value().string_value
+        self.state_type = _parse_state_type(state_msg_type)
+        if self.state_type.value != state_msg_type:
+            self.get_logger().warn(
+                f'Unknown state_msg_type: "{state_msg_type}". Falling back to PoseStamped.')
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
@@ -142,8 +162,12 @@ class DroneController(Node):
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
 
         # pub/sub
-        self.state_subscriber = self.create_subscription(
-            Float64MultiArray, state_topic, self.drone_state_cb, 10)
+        if self.state_type == StateType.POSE_STAMPED:
+            self.state_subscriber = self.create_subscription(
+                PoseStamped, state_topic, self.drone_state_pose_stamped_cb, 10)
+        else:
+            self.state_subscriber = self.create_subscription(
+                Float64MultiArray, state_topic, self.drone_state_float64_multi_array_cb, 10)
         self.attitude_command_publisher = self.create_publisher(
             Float64MultiArray, attitude_command_topic, 10)
         self.rotor_command_publisher = self.create_publisher(
@@ -196,9 +220,24 @@ class DroneController(Node):
 
     # ── State callback ────────────────────────────────────────────────────
 
-    def drone_state_cb(self, msg: Float64MultiArray):
+    def drone_state_float64_multi_array_cb(self, msg: Float64MultiArray):
         with self.state_lock:
             self.state = np.array(msg.data)
+            self._state_received = True
+
+    def drone_state_pose_stamped_cb(self, msg: PoseStamped):
+        with self.state_lock:
+            state = np.zeros(13, dtype=np.float64)
+            state[0] = msg.pose.position.x
+            state[1] = msg.pose.position.y
+            state[2] = msg.pose.position.z
+            state[6] = msg.pose.orientation.w
+            state[7] = msg.pose.orientation.x
+            state[8] = msg.pose.orientation.y
+            state[9] = msg.pose.orientation.z
+            state[3:6] = 0.0
+            state[10:13] = 0.0
+            self.state = state
             self._state_received = True
 
     # ── Lifecycle ─────────────────────────────────────────────────────────

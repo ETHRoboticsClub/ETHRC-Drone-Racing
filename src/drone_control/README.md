@@ -2,16 +2,23 @@
 
 Clone this branch recursively and build+run the docker container. When rebuilding, delete the old image and clear the cache (```docker system prune```).
 ```bash
-git clone --branch temp/controls --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
-cd ETHRC-Drone-Racing/
-docker compose build
-docker compose up -d
-```
+git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
+cd ETHRC-Drone-Racing
+# Prepare host volumes
+./scripts/prepare_colcon_volumes.sh
+
+# Start the development container
+xhost +local:root
+docker compose up mpc -d
+docker compose exec mpc bash
 
 Open 4 terminals and enter the container in each one.
 ```bash
 docker exec -it erc-aeronautics bash
 ```
+
+### Simulation vs Hardware deployment
+Modify the [config](config/drone_controller_config.yaml) file to use the correct topic and message type for state updates, depending if we are on simulation or real hardware: 
 
 ## Terminal 1
 Run gazebo
@@ -30,7 +37,10 @@ ros2 launch drone_control drone_controller.launch.py
 Send the goal to lift off (x=0, y=0, z<=-2)
 ```bash
 source install/setup.bash
+# pose goal
 ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -2.0 -yaw 0.0
+# traj goal
+ros2 run drone_control send_trajectory_goal goal_only
 ```
 
 ## Terminal 4
