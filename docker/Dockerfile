@@ -1,5 +1,5 @@
-<<<<<<< HEAD
 ARG BASE_IMAGE=ros:humble-desktop-full
+ARG PERCEPTION_CONTROLS_BASE=shared-perception-controls-deps
 
 # =========================================================
 # STAGE 1: docs (standalone)
@@ -116,9 +116,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN uv pip install --system --no-cache numpy==1.24.4 scipy==1.10.1
-
-# Integration point: Prioritize ECR base images for CI/CD and native deployment
-ARG PERCEPTION_CONTROLS_BASE=916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
 
 # =========================================================
 # STAGE 4: perception
