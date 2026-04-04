@@ -1,0 +1,197 @@
+# =========================================================
+# Push changed Docker images to AWS ECR
+# =========================================================
+# Build targets and triggers are defined in
+# .github/workflows/auto_build_targets.json
+# =========================================================
+
+name: AWS ECR Push
+
+on:
+  push:
+    branches: [main, feature/*, temp/controls, temp/ecr]
+  workflow_dispatch:
+    inputs:
+      force_all:
+        description: "Rebuild and push ALL targets regardless of changes"
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write   # OIDC for AWS
+  contents: read
+  actions: read     # needed to query last successful run SHA
+
+env:
+  AWS_REGION: us-east-2
+  # Base ECR path; image repos land at aeronautics/droneracing/<branch>/<image_name>
+  ECR_REPO_BASE: aeronautics/droneracing/${{ github.ref_name }}
+
+# ─────────────────────────────────────────────────────────
+# Job 1: Figure out which targets need building
+# ─────────────────────────────────────────────────────────
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+      has_targets: ${{ steps.build-matrix.outputs.has_targets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history needed to diff against last successful run
+
+      - name: Load build targets and detect changes
+        id: build-matrix
+        run: |
+          set -euo pipefail
+
+          CONFIG=".github/workflows/auto_build_targets.json"
+          if [[ ! -f "$CONFIG" ]]; then
+            echo "::error::Missing $CONFIG"
+            exit 1
+          fi
+
+          # Find the last successful run's commit SHA on this branch.
+          # Diffing against it (rather than HEAD~1) means a failed run never
+          # causes changes to be silently skipped on the next push.
+          LAST_SUCCESS=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/aws_ecr.yml/runs?branch=${{ github.ref_name }}&status=success&per_page=1" \
+            2>/dev/null | jq -r '.workflow_runs[0].head_sha // empty' 2>/dev/null || true)
+
+          if [[ -z "$LAST_SUCCESS" ]]; then
+            echo "No previous successful run found — building all targets"
+            FORCE_ALL=true
+          else
+            echo "Diffing against last successful run: $LAST_SUCCESS"
+          fi
+
+          CHANGED=$(git diff --name-only "${LAST_SUCCESS:-HEAD~1}" HEAD)
+          echo "--- changed files ---"
+          echo "$CHANGED"
+          echo "---------------------"
+
+          MATRIX=$(jq -c --arg changed "$CHANGED" --argjson force "${FORCE_ALL:-false}" '
+            [ .targets[] | select(
+                $force or
+                any(.trigger_paths[];
+                  . as $prefix | ($changed | split("\n") | any(startswith($prefix)))
+                )
+            )]
+          ' "$CONFIG")
+
+          COUNT=$(echo "$MATRIX" | jq 'length')
+          echo "Matched $COUNT target(s)"
+
+          if [[ "$COUNT" -eq 0 ]]; then
+            echo "has_targets=false" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":[]}" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_targets=true" >> "$GITHUB_OUTPUT"
+            echo "matrix={\"include\":$MATRIX}" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          FORCE_ALL: ${{ inputs.force_all || 'false' }}
+          GH_TOKEN: ${{ github.token }}
+
+  # ─────────────────────────────────────────────────────────
+  # Job 2: Build & push each matched target in parallel
+  # ─────────────────────────────────────────────────────────
+  build-and-push:
+    name: "${{ matrix.image_name }} (${{ matrix.dockerfile }})"
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_targets == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache
+          df -h
+
+      - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.AERONAUTICS_UTILITY_DEPLOY_KEY }}
+
+      - name: Init submodules
+        run: git submodule update --init --recursive
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare tags
+        id: tags
+        run: |
+          IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPO_BASE }}/${{ matrix.image_name }}"
+          echo "sha_tag=${IMAGE}:${GITHUB_SHA::6}"   >> "$GITHUB_OUTPUT"
+          echo "latest_tag=${IMAGE}:latest"           >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}"                       >> "$GITHUB_OUTPUT"
+
+      - name: Ensure ECR repository exists with lifecycle policy
+        run: |
+          REPO="${{ env.ECR_REPO_BASE }}/${{ matrix.image_name }}"
+          aws ecr describe-repositories --repository-names "$REPO" 2>/dev/null || \
+          aws ecr create-repository \
+            --repository-name "$REPO" \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+          # Keep only 1 buildcache image and 3 real images
+          aws ecr put-lifecycle-policy \
+            --repository-name "$REPO" \
+            --lifecycle-policy-text '{
+              "rules": [
+                {
+                  "rulePriority": 1,
+                  "description": "Keep only 1 buildcache image",
+                  "selection": {
+                    "tagStatus": "tagged",
+                    "tagPrefixList": ["buildcache"],
+                    "countType": "imageCountMoreThan",
+                    "countNumber": 1
+                  },
+                  "action": { "type": "expire" }
+                },
+                {
+                  "rulePriority": 2,
+                  "description": "Keep only 3 most recent images (+ 1 buildcache)",
+                  "selection": {
+                    "tagStatus": "any",
+                    "countType": "imageCountMoreThan",
+                    "countNumber": 4
+                  },
+                  "action": { "type": "expire" }
+                }
+              ]
+            }'
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target || '' }}
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.sha_tag }}
+            ${{ steps.tags.outputs.latest_tag }}
+          cache-from: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache,mode=max
+          provenance: false
