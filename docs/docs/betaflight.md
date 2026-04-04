@@ -31,78 +31,123 @@ This document describes the configuration required to enable 2000Hz IMU streamin
 
 ## Betaflight CLI Configuration (4.5.x)
 
-For Betaflight 4.5.x, use the following commands to ensure the IMU stream matches the driver's parser:
+For Betaflight 4.5.x, use the following CLI commands to configure high-rate Blackbox streaming while manually stripping unnecessary parameters to reduce the UART payload size:
 
 ```bash
 feature BLACKBOX
 set blackbox_device = SERIAL
-set blackbox_sample_rate = 1/1  # Renamed from blackbox_rate_denom in 4.5
 set blackbox_mode = ALWAYS
 
-# Configure UART1 (Serial 0) for 1.5Mbps
-# '128' = Blackbox; '1500000' = Baud
-serial 0 128 115200 57600 115200 1500000
+# Disable unwanted data to save bandwidth and simplify parsing
+set blackbox_disable_pids = ON
+set blackbox_disable_rc = ON
+set blackbox_disable_setpoint = ON
+set blackbox_disable_bat = ON
+set blackbox_disable_alt = ON
+set blackbox_disable_rssi = ON
+set blackbox_disable_debug = ON
+set blackbox_disable_motors = ON
+set blackbox_disable_gps = ON
+set blackbox_disable_rpm = ON
+set blackbox_disable_attitude = ON  # Replaces 'mag' in newer versions
+
+# Set the Blackbox rate (assuming 8kHz PID loop)
+set blackbox_sample_rate = 1/1  # Target 2kHz on 8kHz loop (or 1/1 for max rate)
+set blackbox_rate_num = 1
+set blackbox_rate_denom = 4
+
+# Configure UART1 (Serial 0) for 1.5Mbps for Blackbox
+# Note: While MSP can be enabled, Betaflight prioritizes Blackbox when armed.
+serial 0 128 1500000 57600 115200 1500000
 
 save
 ```
 
-## Common Pitfalls & Troubleshooting
+### 🏗️ Deployment Architecture
 
-### 1. Serial Port Silence (0 bytes)
-- **Problem**: `cat /dev/ttyTHS1` returns nothing.
-- **Fix**: Verify `serial` and `blackbox` settings in the CLI. Always run `save`. Check if the drone is Armed (some versions only stream when armed).
+The system utilizes a distributed ROS 2 graph to achieve low-latency perception and high-frequency control. The following diagram illustrates the data flow between hardware producers, processing nodes, and the flight controller.
 
-### 2. Synchronization Garbage (`00 10 05` sequence)
-- **Problem**: `xxd` shows repeating `00 10 05` or similar.
-- **Fix**: Re-run the `echo 80000000 > ...` command.
+```mermaid
+graph TD
+    subgraph "External Producers"
+        Vicon[Vicon System] -- "Ethernet (UDP)" --> ViconNode
+        Radio[Manual Radio/Joy] -- "USB/HID" --> Bridge
+    end
 
-### 3. Missing Accelerometer Data
-- **Problem**: Gyro updates, but Accel is zero.
-- **Fix**: Ensure `blackbox_sample_rate = 1/1`. Ensure the driver's `is_intra` check (`0x49`) is not too restrictive on frame size.
+    subgraph "Jetson Orin NX (ROS 2 Stack)"
+        direction TB
+        BB[blackbox_driver_node] -- "/imu0 (2kHz)" --> Ctrl
+        ViconNode[vicon_client] -- "Pose/Odom" --> Ctrl
+        
+        Ctrl[drone_controller] -- "/drone_attitude_cmd" --> Bridge
+        JoySub[/joy] -- "Override Toggle" --> Bridge
+        
+        Bridge[msp_bridge]
+    end
 
-### 4. UART Buffer Overrun
-- **Problem**: High CPU usage or dropped frames.
-- **Fix**: Enforce `jetson_clocks`.
+    subgraph "Betaflight Flight Controller"
+        FC[STM32 FC] -- "UART1 (1.5Mbps)" --> BB
+        Bridge -- "USB-VCP (MSP)" --> FC
+    end
 
-## WiFi Connectivity
-
-The Jetson uses an RTL8812BU USB WiFi adapter. 
-
-### Connecting to WiFi
-Use `nmcli` to manage connections:
-```bash
-# Scan for networks
-nmcli device wifi list
-
-# Connect to ETHRC-Aero
-sudo nmcli device wifi connect ETHRC-Aero password strongpass
+    style Bridge fill:#f96,stroke:#333Msg,stroke-width:2px
+    style FC fill:#bbf,stroke:#333,stroke-width:2px
+    style Ctrl fill:#dfd,stroke:#333,stroke-width:2px
 ```
 
-### Troubleshooting
-If the WiFi is connected but the internet is unreachable:
-1. **Check Routing**: Ensure the default route via the WiFi gateway (`192.168.0.1`) has a lower metric than the USB bridge (`192.168.55.100`).
-2. **Re-connect**: Sometimes a stale connection needs to be re-activated:
-   ```bash
-   sudo nmcli connection up ETHRC-Aero
-   ```
-3. **Verify IP**: Check for a valid IP in the `192.168.0.x` range on the `wlx...` interface.
+### Data Flow Logic
+1.  **Perception**: High-rate IMU data is streamed via UART1 and processed by the C++ `blackbox_driver_node`. This node identifies 'I' and 'P' frames to reconstruct the state.
+2.  **State Estimation**: The `drone_controller` fuses IMU telemetry with Vicon ground truth (or ArUco estimation) to compute optimal actuator commands.
+3.  **Control Injection**: The `msp_bridge` node acts as a virtual RX. It consumes attitude rate commands and injects them into the FC via the MSP protocol over USB, bypassing the serial priority constraints of the primary UART.
 
-## Diagnostic Scripts
+---
 
-A set of Python scripts is provided in `scripts/perception/betaflight/` for low-level verification:
+## 🚀 System Launch & Configuration
 
-- **`record_imu.py`**: Records raw binary data from `/dev/ttyTHS1`.
-- **`parse_blackbox.py`**: Counts 'I' and 'P' frames in a recorded binary file.
-- **`see_data.py`**: Decodes and prints active IMU samples from 'I' frames.
+The primary entry point for the flight stack is the `racing_bringup.launch.py`. This launch file orchestrates the initialization of all hardware interfaces and control logic.
 
-### Usage Example:
+### Standard Execution
 ```bash
-# On Jetson
-python3 record_imu.py blackbox.bin
-python3 parse_blackbox.py blackbox.bin
-python3 see_data.py blackbox.bin
+ros2 launch drone_control racing_bringup.launch.py
 ```
 
-Remote tools in `scripts/tools/remote/`:
-- **`ssh_exec.py`**: Run commands on the Jetson via the USB-C bridge (`192.168.55.1`).
-- **`deploy_jetson.py`**: Robustly transfer files to the Jetson using Base64 chunking.
+### Launch Arguments & Options
+
+| Argument | Default | Description |
+| :--- | :--- | :--- |
+| `shared_port` | `/dev/ttyTHS1` | Primary UART for high-rate Blackbox telemetry. |
+| `rc_sim_port` | `/dev/ttyACM0` | USB-VCP port for the MSP Control Bridge. |
+| `use_rc_sim` | `true` | Enables the `msp_bridge` node for autonomous control. |
+| `use_vicon` | `true` | Enables the Vicon receiver for indoor ground truth. |
+| `use_mavsdk` | `false` | Enables MAVSDK (Requires MAVLink-to-MSP gateway). |
+
+### Overriding Parameters
+You can override hardware ports or toggle features directly from the CLI:
+```bash
+ros2 launch drone_control racing_bringup.launch.py rc_sim_port:=/dev/ttyUSB0 use_vicon:=false
+```
+
+---
+
+## 🛠️ Operational Modes & Safety
+
+### Manual Override (AUX2)
+The `msp_bridge` node respects a safety switch mapped to **AUX2**. 
+*   **Manual Mode (AUX2 LOW)**: The `msp_bridge` passes through joystick/radio inputs to the flight controller. This is the recommended state for take-off and landing.
+*   **Autonomous Mode (AUX2 HIGH)**: The node ignores manual stick inputs and injects commands from the ROS `/drone_attitude_cmd` topic.
+
+### Monitoring & Diagnostics
+The `msp_bridge` provides a periodic heartbeat log at **1Hz** to confirm active command injection:
+```text
+[INFO] [msp_bridge]: Sending MSP RC: R:1500 P:1500 T:1140 Y:1500 A1:2000 A2:2000 (OVERRIDE)
+```
+If the indicator shows `(MANUAL)`, the drone will not respond to autonomous commands even if the node is running.
+
+---
+
+## 🛡️ Troubleshooting Refined
+
+If the `msp_bridge` fails to connect:
+1.  Check the USB connection to the Betaflight FC. It must appear as `/dev/ttyACM0`.
+2.  Ensure the user is in the `dialout` group: `sudo usermod -aG dialout $USER`.
+3.  Verify the port isn't locked by another process (e.g., Betaflight Configurator).

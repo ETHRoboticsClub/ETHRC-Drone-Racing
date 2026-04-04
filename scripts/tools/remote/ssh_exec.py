@@ -6,15 +6,16 @@ def execute_command(command, host, user="aero", password="strongpass"):
     child = pexpect.spawn(ssh_cmd, encoding='utf-8')
     
     try:
-        i = child.expect(['password:', pexpect.EOF, pexpect.TIMEOUT], timeout=15)
+        i = child.expect(['password:', pexpect.EOF, pexpect.TIMEOUT], timeout=30)
         if i == 0:
             child.sendline(password)
-            child.expect(pexpect.EOF)
+            # Use a very long timeout for the command execution itself (e.g., 1 hour)
+            child.expect(pexpect.EOF, timeout=3600)
             return child.before
         elif i == 1:
             return child.before
         else:
-            return "Timeout"
+            return "Timeout during password prompt"
     except Exception as e:
         return str(e)
 

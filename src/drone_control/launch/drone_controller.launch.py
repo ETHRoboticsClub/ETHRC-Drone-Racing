@@ -21,6 +21,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('plotjuggler', default_value='true',
             description='Launch PlotJuggler alongside the controller'),
+        DeclareLaunchArgument('use_mavsdk', default_value='true',
+            description='Whether to launch the MAVSDK client'),
 
         Node(
             package="my_mavsdk",
@@ -28,6 +30,7 @@ def generate_launch_description():
             name="mavsdk_client",
             parameters=[mavsdk_client_params],
             output="screen",
+            condition=IfCondition(LaunchConfiguration('use_mavsdk')),
         ),
         Node(
             package="drone_control",

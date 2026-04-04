@@ -6,7 +6,7 @@ services:
       target: dev
       network: host
       args:
-        BASE_IMAGE: osrf/ros:humble-desktop
+        BASE_IMAGE: ros:humble-ros-base
         WORKSPACE: ${PWD}
         USERNAME: ${CONTAINER_USERNAME:-drone_dev}
         USER_UID: ${USER_UID:-1000}

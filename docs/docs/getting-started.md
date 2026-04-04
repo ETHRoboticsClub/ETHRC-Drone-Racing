@@ -220,10 +220,44 @@ source install/setup.bash
 
 ---
 
+---
+
+## Native Execution (Non-Docker)
+
+While Docker is great for simulation and development on a workstation, you may want to run part of the stack **natively** on your companion computer (e.g., Jetson Orin NX) to reduce overhead or access specific hardware pins.
+
+### 1. Prerequisites
+Ensure you have ROS 2 installed on your host system (this project targets **Humble**, though it is compatible with **Jazzy**). 
+```bash
+# Example for installing colcon
+sudo apt update && sudo apt install python3-colcon-common-extensions
+```
+
+### 2. Build the Workspace
+From the project root:
+```bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+### 3. Fast Bringup (The "Big Button")
+Once built, you can launch the entire racing stack across all modules (Comms, Perception, and Control) using the unified bringup script:
+
+```bash
+source install/setup.bash
+ros2 launch drone_control racing_bringup.launch.py msp_port:=/dev/ttyTHS1
+```
+
+### 4. Configuration Tips
+- **Serial Ports:** If you are using a USB-to-Serial adapter instead of the internal UART, use `msp_port:=/dev/ttyUSB0`.
+- **Persisting Settings:** You can edit the default parameters in `src/betaflight_msp_controller/config/msp_params.yaml` so you don't have to pass them every time.
+
+---
+
 ## Next Steps
 
 Now that your environment is set up, explore the following resources:
 
 *   [**Perception Modules**](perception/index.md): Learn about VIO, ArUco tracking, and state estimation.
 *   [**Control Algorithms**](controls/index.md): Understand MPC and RL-based drone control.
+*   [**Betaflight MSP Control**](controls/msp_control.md): Deep dive into the hardware bridge and serial configuration.
 *   [**Development Guidelines**](guidelines.md): Review our coding standards and Git workflow.

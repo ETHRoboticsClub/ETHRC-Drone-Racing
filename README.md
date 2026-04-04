@@ -108,5 +108,28 @@ Are you passionate about robotics, computer vision, or control theory? We are al
 ---
 
 <p align="center">
-  Proudly developed by the <b>ETH Robotics Club - Aeronautics Division</b>
+    Proudly developed by the <b>ETH Robotics Club - Aeronautics Division</b>
 </p>
+
+---
+
+## ⚡ High-Rate Betaflight IMU & Control
+
+We support 2kHz IMU streaming and low-latency autonomous control via a dedicated dual-port architecture:
+-   **Telemetry (UART)**: 1.5 Mbps stream from Betaflight to `blackbox_driver_node` for high-rate VIO (OpenVINS).
+-   **Control (USB)**: Bidirectional MSP bridge (`msp_bridge`) for RC simulation and attitude command injection.
+-   **Sync**: Hardware Timestamping Engine (HTE) on Jetson Pin 16 for microsecond-accurate alignment.
+
+### Quick Deploy
+```bash
+# Launch the full real-world stack on the Jetson
+ros2 launch drone_control racing_bringup.launch.py
+```
+For detailed hardware wiring and CLI configuration, see [docs/docs/betaflight.md](docs/docs/betaflight.md).
+
+---
+
+## 🏗 Hardware-Specific Build Notes
+
+### Jetson Orin NX (Boreas)
+The simulation stack (Gazebo Harmonic and the ROS 2 Gazebo bridge) is conditionally skipped when building on `arm64` (Jetson) to optimize build time and avoid missing architecture-specific binary dependencies. Onboard systems for perception, control, and MAVSDK are still fully built and supported.

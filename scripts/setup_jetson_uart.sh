@@ -1,20 +1,36 @@
 #!/bin/bash
-# Script to configure Jetson UART for Betaflight Blackbox streaming
+# setup_jetson_uart.sh
 
-# 1. Set Parent Clock to 80MHz for high speed (up to 5Mbps)
-if [ -f /sys/kernel/debug/bpmp/debug/clk/uarti/rate ]; then
-    echo "Setting UART clock to 80MHz..."
-    echo 80000000 | sudo tee /sys/kernel/debug/bpmp/debug/clk/uarti/rate
-else
-    echo "Could not find uarti clock rate file."
-fi
+# 1. Jetson High-Speed UART Configuration (BPMP clock)
+echo "Configuring Jetson UART for 1.5Mbps..."
+echo 80000000 | sudo -S tee /sys/kernel/debug/bpmp/debug/clk/uarti/rate <<CLKEF
+strongpass
+CLKEF
 
-# 2. Set low latency flag for reduced jitter
-if [ -e /dev/ttyTHS1 ]; then
-    echo "Configuring /dev/ttyTHS1 to low_latency..."
-    sudo setserial /dev/ttyTHS1 low_latency
-else
-    echo "Warning: /dev/ttyTHS1 not found."
-fi
+# 2. Performance Mode
+echo "Setting Jetson to MAXN performance mode..."
+sudo -S nvpmodel -m 0 <<NPEF
+strongpass
+NPEF
+sudo -S jetson_clocks <<CLEF
+strongpass
+CLEF
 
-echo "Jetson UART tuning complete."
+# 3. Kill existing driver
+echo "Stopping existing blackbox driver..."
+pkill -f blackbox_driver_node || true
+
+# 4. Build the workspace
+PROJECT_DIR="/home/aero/proj/ETHRC-Drone-Racing"
+echo "Building the workspace at $PROJECT_DIR..."
+cd "$PROJECT_DIR"
+source /opt/ros/humble/setup.bash
+colcon build --packages-select betaflight_blackbox_driver --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+# 5. Provide instructions
+echo "------------------------------------------------"
+echo "Setup Complete."
+echo "To start the driver, run:"
+echo "source install/setup.bash"
+echo "ros2 run betaflight_blackbox_driver blackbox_driver_node --ros-args -p port:=/dev/ttyTHS1 -p baud:=1500000"
+echo "------------------------------------------------"

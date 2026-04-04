@@ -80,11 +80,15 @@ nav:
   - Controls:
     - Overview: controls/index.md
     - Drone Control: controls/drone_control.md
+    - Betaflight MSP Control: controls/msp_control.md
     - MAVSDK: controls/mavsdk.md
     - MPC: controls/mpc.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md
-  - Hardware: hardware/index.md
+  - Hardware:
+    - Overview: hardware/index.md
+    - VIO Synchronization: hardware/vio_synchronization.md
+    - Betaflight Setup: betaflight.md
   - Groundstation: groundstation/index.md
   - Contributors: contributors.md
 

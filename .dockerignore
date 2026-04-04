@@ -1,6 +1,42 @@
+# Git metadata
 .git
-px4/PX4-Autopilot/.git
+**/ .git
+
+# ROS 2 Build Artifacts
+.colcon/
+build/
+install/
+log/
+**/build/
+**/install/
+**/log/
+
+# Documentation Build Artifacts
+docs/site/
+**/site/
+
+# PX4 Build Artifacts
 px4/PX4-Autopilot/build*/
 px4/PX4-Autopilot/Tools/simulation/gazebo-classic/build*/
+
+# Python Build Artifacts
 **/__pycache__/
 **/*.pyc
+**/*.pyo
+**/*.pyd
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

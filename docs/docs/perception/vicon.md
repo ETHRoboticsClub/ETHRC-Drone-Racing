@@ -91,8 +91,13 @@ For each tracked object (subject + segment pair defined in Vicon Tracker), the n
 ### Pose
 - **Topic**: `/vicon/<SubjectName>/<SegmentName>`
 - **Type**: `geometry_msgs/msg/PoseStamped`
-- **Description**: 6-DOF pose of the tracked object expressed in the world (`map`) frame. Position is in meters; orientation is a quaternion.
+- **Description**: 6-DOF pose of the tracked object expressed in the world (`map`) frame. Position is in meters; orientation is a quaternion. Header stamp is the estimated capture time.
 - **Example**: `/vicon/drone/drone`
+
+### Latency
+- **Topic**: `/vicon/latency`
+- **Type**: `std_msgs/msg/Float64`
+- **Description**: Total Vicon pipeline latency in seconds for each received frame (`GetLatencyTotal()`).
 
 ### Transforms (TF)
 - **`/tf`** — Dynamic transform from the `vicon` frame to each `<SubjectName>_<SegmentName>` frame, broadcast every frame.
@@ -131,3 +136,16 @@ In **Vicon Tracker** software on the Vicon PC:
 1. Create a new object in Vicon Tracker, assign the markers, and give it a name (e.g. `drone`).
 3. The segment name defaults to the same as the subject name.
 4. The resulting ROS topic will be `/vicon/drone/drone`.
+
+## Latency Compensation
+
+To achieve high-accuracy sensor fusion (e.g., in `robot_localization` EKF), the `vicon_receiver` node implements sub-millisecond latency compensation.
+
+### Implementation
+The node calls `GetLatencyTotal()` from the Vicon DataStream SDK to retrieve the total transmission and processing delay of the current frame. This latency is subtracted from the node's current system time to calculate the exact **capture time** of the pose.
+
+### Usage in EKF
+The EKF node is configured with `smooth_lagged_data: true` to correctly process these delayed measurements. This ensures that the global pose estimatate remains consistent even during high-acceleration maneuvers where latency jitter would normally cause divergence.
+
+---
+**Branch**: `feature/timesync`
