@@ -28,10 +28,7 @@ def generate_launch_description():
         package="drone_control",
         executable="drone_controller_node",
         name="drone_controller_node",
-        parameters=[controller_params, {
-            'controller_type': controller_type,
-            'waypoints_file': waypoints_file,
-        }],
+        parameters=[controller_params],
         output="screen",
     )
 
@@ -39,17 +36,13 @@ def generate_launch_description():
         package="my_mavsdk",
         executable="mavsdk_client",
         name="mavsdk_client",
-        parameters=[mavsdk_client_params, {'controller_type': controller_type}],
+        parameters=[mavsdk_client_params],
         output="screen",
     )
 
     return LaunchDescription([
         DeclareLaunchArgument('plotjuggler', default_value='true',
             description='Launch PlotJuggler alongside the controller'),
-        DeclareLaunchArgument('controller_type', default_value='mpcc',
-            description='Controller type: mpc, mpcc, mpc_rotor, position_ned, rl'),
-        DeclareLaunchArgument('waypoints_file', default_value=default_waypoints_file,
-            description='Path to YAML file with waypoints for the controller'),
 
         # Start controller first, then mavsdk_client after 3s delay
         controller_node,

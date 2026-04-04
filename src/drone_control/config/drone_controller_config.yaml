@@ -7,7 +7,7 @@
     #   'mpc_rotor'   — MPC with direct per-rotor thrust (bypasses PX4 attitude controller)
     #   'position_ned'— PX4 built-in position controller
     #   'rl'          — Reinforcement Learning policy
-    controller_type: "mpcc"
+    controller_type: "mpc"
 
     # ── Waypoints file ─────────────────────────────────────────────────
     # Path to YAML file with waypoints for controllers that need a pre-defined path.
