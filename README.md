@@ -96,23 +96,6 @@ Our system is composed of several high-performance subsystems working in harmony
 ![System Architecture](docs/docs/images/Interfaces.drawio.png)
 
 ---
-
-## 🤝 Join the Race
-
-Are you passionate about robotics, computer vision, or control theory? We are always looking for motivated engineers to join the ETHRC Aeronautics division.
-
-- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs -d`)
-- 📝 **Guidelines (with Coding Agents):** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
-- 💬 **Get Involved:** Reach out to the team on Discord or Open an Issue!
-
----
-
-<p align="center">
-    Proudly developed by the <b>ETH Robotics Club - Aeronautics Division</b>
-</p>
-
----
-
 ## ⚡ High-Rate Betaflight IMU & Control
 
 We support 2kHz IMU streaming and low-latency autonomous control via a dedicated dual-port architecture:
@@ -131,5 +114,21 @@ For detailed hardware wiring and CLI configuration, see [docs/docs/betaflight.md
 
 ## 🏗 Hardware-Specific Build Notes
 
-### Jetson Orin NX (Boreas)
+### Jetson Orin NX (Zephyrus, Boreas)
 The simulation stack (Gazebo Harmonic and the ROS 2 Gazebo bridge) is conditionally skipped when building on `arm64` (Jetson) to optimize build time and avoid missing architecture-specific binary dependencies. Onboard systems for perception, control, and MAVSDK are still fully built and supported.
+
+## 🤝 Join the Race
+
+Are you passionate about robotics, computer vision, or control theory? We are always looking for motivated engineers to join the ETHRC Aeronautics division.
+
+- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs -d`)
+- 📝 **Guidelines (with Coding Agents):** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
+- 💬 **Get Involved:** Reach out to the team on Discord or Open an Issue!
+
+---
+
+<p align="center">
+    Proudly developed by the <b>ETH Robotics Club - Aeronautics Division</b>
+</p>
+
+---
