@@ -98,10 +98,6 @@ class MavSDKClient(Node):
             self.get_logger().info("Vehicle not armable")
             return
         
-        self.get_logger().info("[MAV SDK]: Arming...")
-        await self.drone.action.arm()
-        self.armed = True
-
         self.start_telemetry()
 
         self.state_update_timer = self.create_timer(1.0/self.state_update_rate, self._state_timer_callback,self.state_timer_cb_group)
@@ -120,28 +116,10 @@ class MavSDKClient(Node):
         self.actuator_motors_pub = self.create_publisher(
             ActuatorMotors, '/fmu/in/actuator_motors', 10)
 
-        # Start offboard mode
-        if self.controller_type == 'mpc_rotor':
-            # In mpc_rotor mode, PX4 enters offboard automatically when it receives
-            # OffboardControlMode via DDS at >2 Hz. We do NOT use MAVSDK offboard.start()
-            # because it conflicts with DDS-driven offboard (expects its own setpoint type).
-            # Instead: pre-stream safe DDS setpoints, then wait for the controller to take over.
-            self.get_logger().info("[MAV SDK]: mpc_rotor mode — skipping MAVSDK offboard.start()")
-            self.get_logger().info("[MAV SDK]: PX4 will enter offboard when DDS setpoints arrive from controller")
-        elif self.controller_type == 'position_ned':
-            # Position offboard: set initial setpoint at current position before start
-            await self.drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
-            self.get_logger().info("[MAV SDK]: Starting offboard (position_ned mode)...")
-            await self.drone.offboard.start()
-        else:
-            await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
-            self.get_logger().info("[MAV SDK]: Starting offboard...")
-            await self.drone.offboard.start()
-
         self.arming_server = self.create_service(SetBool, '/arm_drone', self.arm_drone_cb,callback_group=self.secondary_cb_group)
         self.takeoff_server = self.create_service(SetBool, '/takeoff_drone', self.takeoff_drone_cb,callback_group=self.secondary_cb_group)
-        
-        self._logger.info("Initialized")
+
+        self._logger.info("Initialized — waiting for arm signal from controller node")
 
     # UNUSED: timer is scheduled every 0.5s but this callback is completely empty (only pass).
     # Intended for battery/debug telemetry publishing but never implemented.
@@ -349,8 +327,8 @@ class MavSDKClient(Node):
         req = request.data
         try:
             if req:
-                future = self.run_async(self.arm())
-                future.result(timeout=10.0)
+                future = self.run_async(self._arm_and_start_offboard())
+                future.result(timeout=15.0)
                 response.success = True
                 response.message = 'Arm command sent successfully'
                 self.armed = True
@@ -370,6 +348,23 @@ class MavSDKClient(Node):
                 response.message = f'Disarming failed: {str(e)}'
 
         return response
+
+    async def _arm_and_start_offboard(self):
+        """Arm the drone and start offboard mode (called via /arm_drone service)."""
+        self.get_logger().info("[MAV SDK]: Arming...")
+        await self.drone.action.arm()
+
+        if self.controller_type == 'mpc_rotor':
+            self.get_logger().info("[MAV SDK]: mpc_rotor mode — skipping MAVSDK offboard.start()")
+            self.get_logger().info("[MAV SDK]: PX4 will enter offboard when DDS setpoints arrive from controller")
+        elif self.controller_type == 'position_ned':
+            await self.drone.offboard.set_position_ned(PositionNedYaw(0.0, 0.0, 0.0, 0.0))
+            self.get_logger().info("[MAV SDK]: Starting offboard (position_ned mode)...")
+            await self.drone.offboard.start()
+        else:
+            await self.drone.offboard.set_attitude_rate(AttitudeRate(0.0, 0.0, 0.0, 0.0))
+            self.get_logger().info("[MAV SDK]: Starting offboard...")
+            await self.drone.offboard.start()
 
     async def disarm(self):
         """Disarm the drone."""

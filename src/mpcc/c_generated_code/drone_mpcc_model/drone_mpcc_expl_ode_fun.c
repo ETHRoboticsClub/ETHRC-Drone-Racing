@@ -75,11 +75,11 @@ void casadi_clear(casadi_real* x, casadi_int n) {
 
 static const casadi_int casadi_s0[3] = {19, 1, 1};
 static const casadi_int casadi_s1[3] = {5, 1, 1};
-static const casadi_int casadi_s2[3] = {7, 1, 1};
+static const casadi_int casadi_s2[3] = {15, 1, 1};
 
 static const casadi_real casadi_c0[3] = {0., 0., 9.8100000000000005e+00};
 
-/* drone_mpcc_expl_ode_fun:(i0[19],i1[5],i2[7])->(o0[19]) */
+/* drone_mpcc_expl_ode_fun:(i0[19],i1[5],i2[15])->(o0[19]) */
 static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw, casadi_real* w, int mem) {
   casadi_int i, j, k;
   casadi_real *rr, *w00=w+3, w01, w02, *w03=w+8, w04, w05, w06, w07, w08, w09, w10;

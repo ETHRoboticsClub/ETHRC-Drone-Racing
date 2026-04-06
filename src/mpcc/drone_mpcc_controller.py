@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 MPCC controller wrapper — integrates DroneMpccModel, DroneOptimizerMpcc,
-and RacingPath into the project's ControllerInterface.
+and RacingPath / GatedRacingPath into the project's ControllerInterface.
 
 Interfaces
 ──────────
@@ -19,6 +19,14 @@ External 13-dim (existing project):
 MPCC augmented 19-dim (paper eq. 15):
   [p(3), q(4), v(3), ω(3), f(4), θ(1), vθ(1)]
    0:3   3:7   7:10  10:13  13:17  17    18
+
+Gate-based MPCC
+───────────────
+When `gates` are provided (the preferred mode for sim.launch.py with
+controller_type='mpcc'), a GatedRacingPath is built and the Track
+Constraint is active in the OCP.  When `waypoints` are provided
+(backwards-compatible fallback), a plain RacingPath is used and the
+Track Constraint is effectively disabled (W=H=1000 m by default).
 """
 
 import numpy as np
@@ -27,49 +35,64 @@ from interfaces import ControllerInterface
 
 from .drone_model import DroneMpccModel
 from .drone_opt import DroneOptimizerMpcc
-from .path_utils import RacingPath
+from .path_utils import RacingPath, GatedRacingPath
 
 _MAX_RATE_DEG = 200.0   # safety clip for attitude-rate output [deg/s]
 
 
 class DroneMpccController(ControllerInterface):
     """
-    MPCC controller for time-optimal waypoint traversal.
+    MPCC controller for time-optimal gate traversal.
 
-    When used via drone_controller_node (controller_type='mpcc'), call
-    controller_update() — it runs the full MPCC optimisation and converts
-    the predicted next state into an AttitudeRate command for PX4.
+    Preferred usage (gates YAML):
+        config = {'gates': [...], 'track': {...}}
+        ctrl = DroneMpccController.from_config(config)
 
-    When used via the standalone race node, call mpcc_update() — it returns
-    normalised per-rotor thrust (4,) for direct actuator control.
+    Backwards-compatible usage (waypoints array):
+        ctrl = DroneMpccController(waypoints=np.array(...))
 
     Args:
-        waypoints:      (N, 3) array of 3D gate positions (NED frame).
-        gate_positions: (M, 3) gate centres for dynamic qc. Defaults to waypoints.
-        t_horizon:      OCP prediction horizon [s].
-        n_nodes:        Number of shooting nodes N.
-        weights:        Dict to override DroneOptimizerMpcc default weights.
-        sigma:          Gaussian half-width for dynamic contouring weight [m].
+        waypoints:    (N, 3) array of 3D positions, NED. Used when no gates.
+        gate_positions: (M, 3) gate centres for dynamic qc (waypoints mode).
+        gates:        List of gate dicts {x,y,z,yaw_deg,width,height,name}.
+        track_params: Dict with tunnel params (W_nominal, H_nominal, …).
+        t_horizon:    OCP prediction horizon [s].
+        n_nodes:      Number of shooting nodes N.
+        weights:      Dict to override DroneOptimizerMpcc default weights.
+        sigma:        Gaussian half-width for dynamic qc weight [m] (waypoints mode).
     """
 
     needs_waypoints: bool = True
 
     @classmethod
     def from_config(cls, config: dict) -> 'DroneMpccController':
-        waypoints = config.get('waypoints')
-        if waypoints is None:
-            raise ValueError(
-                "DroneMpccController requires 'waypoints' in the config dict. "
-                "Set 'waypoints_file' in drone_controller_config.yaml."
-            )
-        return cls(waypoints=waypoints)
+        """
+        Factory method.  Detects gates vs waypoints format automatically.
 
-    # Expose t_H and Nnodes for compatibility with DroneController.sample_trajectory
+        Expects config to contain either:
+          {'gates': [...], 'track': {...}}   ← from gates_config.yaml
+          {'waypoints': np.ndarray}          ← legacy waypoints format
+        """
+        if config.get('gates') is not None:
+            return cls(gates=config['gates'],
+                       track_params=config.get('track', {}))
+        waypoints = config.get('waypoints')
+        if waypoints is not None:
+            return cls(waypoints=waypoints)
+        raise ValueError(
+            "DroneMpccController.from_config: config must contain "
+            "'gates' (for gate-based MPCC with Track Constraint) or "
+            "'waypoints' (legacy mode, no tunnel constraint)."
+        )
+
+    # Expose t_H and Nnodes for compatibility with DroneController
     t_H: float
     Nnodes: int
 
-    def __init__(self, waypoints: np.ndarray,
+    def __init__(self, waypoints: np.ndarray = None,
                  gate_positions: np.ndarray = None,
+                 gates: list = None,
+                 track_params: dict = None,
                  t_horizon: float = 1.0,
                  n_nodes: int = 20,
                  weights: dict = None,
@@ -79,17 +102,48 @@ class DroneMpccController(ControllerInterface):
         self._dt    = t_horizon / n_nodes
 
         self._model = DroneMpccModel()
-        self._path  = RacingPath(waypoints, gate_positions=gate_positions, sigma=sigma)
         self._opt: DroneOptimizerMpcc = None   # built lazily in initialize()
-
         self._weights = weights
+
+        tp = track_params or {}
+
+        if gates is not None:
+            # ── Gate-based mode: Track Constraint active ──────────────────
+            self._path = GatedRacingPath(
+                gates,
+                W_nominal  = tp.get('W_nominal',  3.0),
+                H_nominal  = tp.get('H_nominal',  3.0),
+                sigma_gate = tp.get('sigma_gate', 2.0),
+                sigma_qc   = tp.get('sigma_qc',   0.5),
+            )
+            # Merge track_weight from YAML into weights dict for the OCP
+            if 'track_weight' in tp and self._weights is None:
+                self._weights = {'track_weight': tp['track_weight']}
+            elif 'track_weight' in tp:
+                self._weights.setdefault('track_weight', tp['track_weight'])
+        elif waypoints is not None:
+            # ── Waypoints fallback: Track Constraint inactive (W=H=1000) ──
+            self._path = RacingPath(waypoints,
+                                    gate_positions=gate_positions,
+                                    sigma=sigma)
+        else:
+            raise ValueError(
+                "DroneMpccController requires either 'gates' or 'waypoints'.")
+
+        # Store qc params from track config for the control loop
+        self._qc_nom  = tp.get('qc_nom',  0.5)
+        self._qc_gate = tp.get('qc_gate', 10.0)
 
         # Internal state: carried between control steps
         self._theta:       float      = 0.0
-        self._theta_solve: float      = 0.0   # theta after projection, before OCP advance
-        self._vtheta:  float      = 0.0
-        self._f_state: np.ndarray = self._model.f_hover.copy()   # rotor thrusts [N]
+        self._theta_solve: float      = 0.0
+        self._vtheta:      float      = 0.0
+        self._f_state: np.ndarray = self._model.f_hover.copy()
         self._lap:     int        = 0
+        self._debug_counter: int  = 0
+
+        # Debug flag — set externally (e.g. from drone_controller_node via VERBOSE_INPUT)
+        self.verbose: bool = False
 
         # Normalised hover thrust for fallback commands
         self._hover_thrust_norm = float(
@@ -108,17 +162,19 @@ class DroneMpccController(ControllerInterface):
             weights=self._weights,
             enable_logging=True,
         )
-        print("[DroneMpccController] Optimizer ready. "
-              f"Path length: {self._path.total_length:.2f} m")
+        mode = ("GatedRacingPath (Track Constraint active)"
+                if isinstance(self._path, GatedRacingPath)
+                else "RacingPath (Track Constraint inactive)")
+        print(f"[DroneMpccController] Optimizer ready. "
+              f"Path: {mode}, length: {self._path.total_length:.2f} m")
 
     def controller_update(self, x_current: np.ndarray,
                           goal_position: np.ndarray) -> AttitudeRate:
         """
         Run MPCC optimisation and return an AttitudeRate command.
 
-        The goal_position argument is ignored — MPCC follows the internal
-        racing path, not a single waypoint.  Falls back to hover if the
-        optimizer has not been initialised yet.
+        goal_position is ignored — MPCC follows the internal racing path.
+        Falls back to hover if the optimizer has not been initialised yet.
         """
         if self._opt is None:
             return self._hover_attitude_cmd()
@@ -134,8 +190,7 @@ class DroneMpccController(ControllerInterface):
         """
         Run MPCC optimisation and return an AttitudeRate command.
 
-        The goal_trajectory argument is ignored — MPCC follows the internal
-        racing path.  Falls back to hover if the optimizer is not ready.
+        goal_trajectory is ignored — MPCC follows the internal racing path.
         """
         if self._opt is None:
             return self._hover_attitude_cmd()
@@ -188,7 +243,7 @@ class DroneMpccController(ControllerInterface):
 
     @property
     def current_path_position(self) -> np.ndarray:
-        """NED position on the reference path projected from the drone (used as OCP reference)."""
+        """NED position on the reference path projected from the drone."""
         return self._path.position(self._theta_solve)
 
     @property
@@ -209,14 +264,15 @@ class DroneMpccController(ControllerInterface):
         """
         Core MPCC step shared by controller_update and mpcc_update.
 
-        Updates internal theta / vtheta / f_state and returns
-        (u_opt, x_pred, info) from the ACADOS solver.
+        Uses get_tunnel_params() which provides the full 15-column parameter
+        matrix for the Track-Constraint OCP.  For plain RacingPath (no gates),
+        get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
         x_aug = self._to_augmented(x_ext)
 
         # Project current position onto path (Algorithm 1)
         self._theta = self._path.find_closest_theta(x_aug[0:3], self._theta)
-        self._theta_solve = self._theta   # save for external visualisation
+        self._theta_solve = self._theta
 
         # Lap detection — wrap θ to restart (closed-loop track)
         if self._path.total_length - self._theta < 0.3:
@@ -224,17 +280,28 @@ class DroneMpccController(ControllerInterface):
             self._lap  += 1
             self._opt._warm = False   # force cold start after lap wrap
 
-        # Compute path parameters for the OCP horizon
-        stage_params = self._path.get_horizon_params(
-            theta=self._theta,
-            n_stages=self.Nnodes + 1,
-            dt=self._dt,
-            vtheta_guess=max(self._vtheta, 1.0),
+        # Compute path + tunnel parameters for the OCP horizon (15 columns)
+        stage_params = self._path.get_tunnel_params(
+            theta        = self._theta,
+            n_stages     = self.Nnodes + 1,
+            dt           = self._dt,
+            vtheta_guess = max(self._vtheta, 1.0),
+            qc_nom       = self._qc_nom,
+            qc_gate      = self._qc_gate,
         )
 
         # Solve MPCC OCP
         u_opt, x_pred, info = self._opt.solve(x_aug, stage_params)
-        self._last_x_pred = x_pred   # expose for external debug / visualisation
+        self._last_x_pred = x_pred   # expose for debug / visualisation
+
+        self._debug_counter += 1
+        if self.verbose and self._debug_counter % 50 == 0:
+            f_raw = x_pred[1, 13:17]
+            thrust_raw = float(np.sum(f_raw) / (4.0 * self._model.F_MAX))
+            print(f"[DEBUG] MPCC solver: theta={self._theta:.3f} m, "
+                  f"vtheta={self._vtheta:.3f} m/s, lap={self._lap}, "
+                  f"f_rotor={np.round(f_raw, 3).tolist()}, "
+                  f"thrust_norm={thrust_raw:.3f}")
 
         # Update internal f-state from predicted next step
         self._f_state = np.clip(
@@ -268,6 +335,11 @@ class DroneMpccController(ControllerInterface):
         f_next = np.clip(x_pred[1, 13:17], self._model.F_MIN, self._model.F_MAX)
         thrust_norm = float(np.clip(
             np.sum(f_next) / (4.0 * self._model.F_MAX), 0.0, 1.0))
+
+        if self.verbose and self._debug_counter % 50 == 0:
+            print(f"[DEBUG] MPCC AttitudeRate: thrust={thrust_norm:.3f}, "
+                  f"wx={roll_deg_s:.1f} deg/s, wy={pitch_deg_s:.1f} deg/s, "
+                  f"wz={yaw_deg_s:.1f} deg/s")
 
         return AttitudeRate(roll_deg_s, pitch_deg_s, yaw_deg_s, thrust_norm)
 

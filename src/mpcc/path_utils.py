@@ -13,6 +13,29 @@ Given a sequence of 3D waypoints:
   3. Evaluates position p^d(θ) and unit tangent t(θ) = dp^d/dθ.
   4. Computes the dynamic contouring weight qc(p^d(θ)) (Section IV-C).
   5. Projects a given position onto the path to update θ (Algorithm 1).
+
+GatedRacingPath extends RacingPath with the Track Constraint from:
+  Krinner et al., "MPCC++: Model Predictive Contouring Control for
+  Time-Optimal Flight with Safety Constraints", RSS 2024.
+
+The Track Constraint (Section IV-A, eq. 7) defines a prismatic tunnel
+centred on the reference path:
+  p_0(θ) = p^d(θ) - W(θ)·n(θ) - H(θ)·b(θ)   [bottom-left corner]
+
+  (p - p_0)·n  ≥ 0          left wall
+  2W - (p-p_0)·n  ≥ 0       right wall   } total width  = 2W(θ)
+  (p - p_0)·b  ≥ 0          bottom wall
+  2H - (p-p_0)·b  ≥ 0       top wall     } total height = 2H(θ)
+
+Simplifying with e_n = (p - p^d)·n  and  e_b = (p - p^d)·b:
+  |e_n| ≤ W(θ)   and   |e_b| ≤ H(θ)
+
+W(θ) and H(θ) shrink near each gate (enforcing safe passage) and
+widen between gates (freedom for time-optimal flight).
+
+Local frame (NED, for vertical racing gates):
+  n(θ) = normalize([-t_y, t_x, 0])   — horizontal right direction
+  b(θ) = [0, 0, -1]                  — NED "up" (vertical)
 """
 
 import numpy as np
@@ -141,6 +164,51 @@ class RacingPath:
             th = min(th + vtheta_guess * dt, self.total_length)
         return params
 
+    def get_tunnel_params(self, theta: float, n_stages: int, dt: float,
+                          vtheta_guess: float = 3.0,
+                          qc_nom: float = 0.5,
+                          qc_gate: float = 10.0,
+                          W_default: float = 1000.0,
+                          H_default: float = 1000.0) -> np.ndarray:
+        """
+        15-column stage parameters compatible with the Track-Constraint OCP.
+
+        This default implementation uses very large W and H (1000 m) so the
+        track constraint is inactive.  GatedRacingPath overrides this method
+        with real gate geometry.
+
+        Returns:
+            params: (n_stages, 15) — columns:
+              [0:3]   p_ref  reference position
+              [3:6]   t_ref  unit tangent
+              [6]     qc     contouring weight
+              [7:10]  n_ref  horizontal tunnel normal  (right direction)
+              [10:13] b_ref  vertical   tunnel normal  (up direction)
+              [13]    W      tunnel half-width
+              [14]    H      tunnel half-height
+        """
+        params = np.zeros((n_stages, 15))
+        th = theta
+        for k in range(n_stages):
+            pd = self.position(th)
+            td = self.tangent(th)
+            qc = self.contouring_weight(th, qc_nom, qc_gate)
+            # Default local frame
+            horiz = np.array([-td[1], td[0], 0.0])
+            norm = np.linalg.norm(horiz)
+            n = horiz / norm if norm > 1e-8 else np.array([1.0, 0.0, 0.0])
+            b = np.array([0.0, 0.0, -1.0])
+
+            params[k,  0:3]  = pd
+            params[k,  3:6]  = td
+            params[k,  6]    = qc
+            params[k,  7:10] = n
+            params[k, 10:13] = b
+            params[k, 13]    = W_default
+            params[k, 14]    = H_default
+            th = min(th + vtheta_guess * dt, self.total_length)
+        return params
+
     # ------------------------------------------------------------------
     # Closest-point projection (Algorithm 1: update θ from position)
     # ------------------------------------------------------------------
@@ -172,3 +240,218 @@ class RacingPath:
 
     def _clip(self, theta: float) -> float:
         return float(np.clip(theta, 0.0, self.total_length))
+
+
+# ======================================================================
+# GatedRacingPath — Track Constraint extension (MPCC++ paper, RSS 2024)
+# ======================================================================
+
+class GatedRacingPath(RacingPath):
+    """
+    Arc-length parameterized path with gate-aware tunnel constraints.
+
+    Extends RacingPath with:
+      - Gate positions, yaw angles, and inner aperture dimensions.
+      - Arc-length-varying tunnel half-extents W(θ) and H(θ).
+      - Local tunnel frame n(θ), b(θ) for halfspace constraints.
+      - get_tunnel_params() returning the full 15-column parameter matrix
+        expected by DroneOptimizerMpcc when the Track Constraint is active.
+
+    Track Constraint (MPCC++ paper, Section IV-A, eq. 7):
+    --------------------------------------------------------
+    The tunnel cross-section at arc-length θ is a rectangle of size
+    2W(θ) × 2H(θ) centred at the reference path p^d(θ).
+
+    Bottom-left corner:
+        p_0 = p^d − W·n − H·b
+
+    Halfspace inequalities (all must be ≥ 0 for safe passage):
+        h1 = (p − p_0)·n         ≥ 0
+        h2 = 2W − (p − p_0)·n   ≥ 0
+        h3 = (p − p_0)·b         ≥ 0
+        h4 = 2H − (p − p_0)·b   ≥ 0
+
+    Equivalently (after simplification):
+        h1 = W + e_n             where e_n = (p − p^d)·n
+        h2 = W − e_n
+        h3 = H + e_b             where e_b = (p − p^d)·b
+        h4 = H − e_b
+
+    All four are ≥ 0 iff  |e_n| ≤ W  and  |e_b| ≤ H.
+
+    W(θ) / H(θ) parameterization:
+    --------------------------------
+    Wide between gates (W_nominal) and narrow at each gate (W_gate_i):
+
+        W(θ) = W_n + Σ_i (W_gate_i − W_n) · exp(−½(θ − θ_gate_i)² / σ²)
+
+    Since W_gate_i < W_n, each term is negative → W decreases near gates.
+    The result is clamped to [min_gate_half_width, W_n].
+
+    Local frame (NED, vertical racing gates):
+    ------------------------------------------
+        n(θ) = normalize([−t_y, t_x, 0])  — horizontal right (gate width axis)
+        b(θ) = [0, 0, −1]                 — NED up         (gate height axis)
+
+    Args:
+        gates:       List of gate dicts: {x, y, z, yaw_deg, width, height, name}.
+        W_nominal:   Tunnel half-width  between gates [m].
+        H_nominal:   Tunnel half-height between gates [m].
+        sigma_gate:  Gaussian σ for W/H transitions [m].
+        sigma_qc:    Gaussian σ for contouring-weight transitions [m].
+    """
+
+    def __init__(self, gates: list,
+                 W_nominal: float = 3.0,
+                 H_nominal: float = 3.0,
+                 sigma_gate: float = 2.0,
+                 sigma_qc: float = 0.5):
+
+        assert len(gates) >= 2, "At least 2 gates required."
+
+        # Gate centre positions (NED)
+        positions = np.array(
+            [[g['x'], g['y'], g['z']] for g in gates], dtype=np.float64)
+
+        # Inner half-extents (half of the aperture dimension)
+        self._gate_half_widths  = np.array(
+            [g.get('width',  2.0) / 2.0 for g in gates], dtype=np.float64)
+        self._gate_half_heights = np.array(
+            [g.get('height', 2.0) / 2.0 for g in gates], dtype=np.float64)
+
+        self._W_n        = float(W_nominal)
+        self._H_n        = float(H_nominal)
+        self._sigma_gate = float(sigma_gate)
+        self._min_gate_half_w = float(np.min(self._gate_half_widths))
+        self._min_gate_half_h = float(np.min(self._gate_half_heights))
+
+        # Closed-loop path: append first gate to close the circuit
+        positions_closed = np.vstack([positions, positions[0]])
+
+        # Compute gate arc-length knots BEFORE calling super().__init__
+        # so they align exactly with the spline knots the parent will build.
+        diffs = np.diff(positions_closed, axis=0)
+        seg_lengths = np.linalg.norm(diffs, axis=1)
+        arc = np.concatenate([[0.0], np.cumsum(seg_lengths)])
+        # arc[i] = θ at gate i; arc[-1] = total_length (= θ at G1 after wrap)
+        self._gate_thetas = arc[:-1].copy()   # shape (n_gates,)
+
+        # Initialise parent with closed positions; gate centres used for qc.
+        super().__init__(positions_closed, gate_positions=positions, sigma=sigma_qc)
+
+    # ------------------------------------------------------------------
+    # Tunnel geometry
+    # ------------------------------------------------------------------
+
+    def tunnel_width(self, theta: float) -> float:
+        """
+        W(θ): tunnel half-width at arc-length θ.
+
+        Gaussian transitions between W_nominal and W_gate_i.
+        Wrap-around is handled by taking the nearest periodic equivalent.
+        """
+        theta = self._clip(theta)
+        L = self.total_length
+        W = self._W_n
+        for th_g, W_g in zip(self._gate_thetas, self._gate_half_widths):
+            d = theta - th_g
+            d -= L * round(d / L)   # shortest periodic distance
+            W += (W_g - self._W_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
+        return float(np.clip(W, self._min_gate_half_w, self._W_n))
+
+    def tunnel_height(self, theta: float) -> float:
+        """
+        H(θ): tunnel half-height at arc-length θ.
+        """
+        theta = self._clip(theta)
+        L = self.total_length
+        H = self._H_n
+        for th_g, H_g in zip(self._gate_thetas, self._gate_half_heights):
+            d = theta - th_g
+            d -= L * round(d / L)
+            H += (H_g - self._H_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
+        return float(np.clip(H, self._min_gate_half_h, self._H_n))
+
+    def normal_binormal(self, theta: float) -> tuple:
+        """
+        Local tunnel frame at arc-length θ.
+
+        Returns:
+            n  (3,) — horizontal right direction (gate width axis)
+            b  (3,) — NED up direction           (gate height axis)
+
+        Derivation (NED frame, x=North, y=East, z=Down):
+          For tangent t = [tx, ty, tz]:
+            n = normalize([−ty, tx, 0])  →  right when facing t
+            b = [0, 0, −1]              →  NED up
+          Verification:
+            t=[1,0,0] (North) → n=[0,1,0] (East = right of North) ✓
+            t=[0,1,0] (East)  → n=[−1,0,0] (South = right of East in NED) ✓
+        """
+        t = self.tangent(theta)
+        horiz = np.array([-t[1], t[0], 0.0])
+        norm = np.linalg.norm(horiz)
+        if norm < 1e-8:
+            # Degenerate: nearly vertical path — use world-x as fallback
+            n = np.array([1.0, 0.0, 0.0])
+        else:
+            n = horiz / norm
+        b = np.array([0.0, 0.0, -1.0])
+        return n, b
+
+    # ------------------------------------------------------------------
+    # 15-column horizon parameters (overrides RacingPath default)
+    # ------------------------------------------------------------------
+
+    def get_tunnel_params(self, theta: float, n_stages: int, dt: float,
+                          vtheta_guess: float = 3.0,
+                          qc_nom: float = 0.5,
+                          qc_gate: float = 10.0,
+                          **kwargs) -> np.ndarray:
+        """
+        Pre-compute ACADOS stage parameters including tunnel geometry.
+
+        Returns:
+            params: (n_stages, 15) with columns:
+              [0:3]   p_ref  — reference path position     p^d(θ)
+              [3:6]   t_ref  — unit tangent                t(θ)
+              [6]     qc     — dynamic contouring weight   qc(θ)
+              [7:10]  n_ref  — horizontal tunnel normal    n(θ)
+              [10:13] b_ref  — vertical   tunnel normal    b(θ)
+              [13]    W      — tunnel half-width           W(θ)
+              [14]    H      — tunnel half-height          H(θ)
+        """
+        params = np.zeros((n_stages, 15))
+        th = theta
+        for k in range(n_stages):
+            pd = self.position(th)
+            td = self.tangent(th)
+            qc = self.contouring_weight(th, qc_nom, qc_gate)
+            n, b = self.normal_binormal(th)
+            W = self.tunnel_width(th)
+            H = self.tunnel_height(th)
+
+            params[k,  0:3]  = pd
+            params[k,  3:6]  = td
+            params[k,  6]    = qc
+            params[k,  7:10] = n
+            params[k, 10:13] = b
+            params[k, 13]    = W
+            params[k, 14]    = H
+
+            th = min(th + vtheta_guess * dt, self.total_length)
+        return params
+
+    # ------------------------------------------------------------------
+    # Convenience: gate arc-length positions
+    # ------------------------------------------------------------------
+
+    @property
+    def gate_thetas(self) -> np.ndarray:
+        """Arc-length (θ) at each gate centre. Shape (n_gates,)."""
+        return self._gate_thetas.copy()
+
+    @property
+    def n_gates(self) -> int:
+        """Number of gates."""
+        return len(self._gate_thetas)

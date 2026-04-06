@@ -39,7 +39,7 @@
 #define DRONE_MPCC_NX     19
 #define DRONE_MPCC_NZ     0
 #define DRONE_MPCC_NU     5
-#define DRONE_MPCC_NP     7
+#define DRONE_MPCC_NP     15
 #define DRONE_MPCC_NP_GLOBAL     0
 #define DRONE_MPCC_NBX    8
 #define DRONE_MPCC_NBX0   19

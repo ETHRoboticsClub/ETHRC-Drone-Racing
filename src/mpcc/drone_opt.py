@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-ACADOS OCP solver for MPCC — eq. (17) of Romero et al., T-RO 2022.
+ACADOS OCP solver for MPCC with Track Constraint.
 
-Cost function (per stage k = 0 … N):
+Stage cost (per stage k = 0 … N):
 
   L_k = ql · el(θk)²
       + qc(θk) · ‖ec(θk)‖²
@@ -10,23 +10,44 @@ Cost function (per stage k = 0 … N):
       + rΔv · Δvθ,k²
       + RΔf · ‖Δfk‖²
       − μ · vθ,k
+      + track_weight · Σ_{i=1}^{4} p(h_i(θk))   ← Track Constraint (new)
 
 where
   e(θk)  = pk − p^d(θk)                     position error
   el(θk) = t(θk)ᵀ · e(θk)                   lag error (scalar,  eq. 10)
   ec(θk) = e(θk) − el(θk) · t(θk)           contouring error (3D, eq. 11)
 
-Stage parameters (7 values, set per stage):
-  [p_ref_x, p_ref_y, p_ref_z,   ← p^d(θk)
-   t_ref_x, t_ref_y, t_ref_z,   ← unit tangent t(θk)
-   qc]                           ← dynamic contouring weight
+Track Constraint (MPCC++ paper, Section IV-A, eq. 7):
+  e_n = (pk − p^d)·n(θk)   — error in gate-width  direction
+  e_b = (pk − p^d)·b(θk)   — error in gate-height direction
+
+  h1 = W(θk) + e_n   ≥ 0   (inside left  wall)
+  h2 = W(θk) − e_n   ≥ 0   (inside right wall)
+  h3 = H(θk) + e_b   ≥ 0   (inside bottom wall)
+  h4 = H(θk) − e_b   ≥ 0   (inside top   wall)
+
+Soft barrier (paper eq. 14):  p(h) = log(1 + exp(−α·h)),  α = 100
+
+Stage parameters (15 values, set per stage):
+  [p_ref_x, p_ref_y, p_ref_z,   ← p^d(θk)        indices 0:3
+   t_ref_x, t_ref_y, t_ref_z,   ← unit tangent     indices 3:6
+   qc,                           ← contouring wt    index  6
+   n_ref_x, n_ref_y, n_ref_z,   ← horiz normal     indices 7:10
+   b_ref_x, b_ref_y, b_ref_z,   ← vert  normal     indices 10:13
+   W,                            ← half-width       index  13
+   H]                            ← half-height      index  14
 
 The SQP_RTI scheme is used as in the paper (Section VII-A).
 Warm-starting shifts the previous trajectory by one step (RTI practice).
+
+Note: changing NP from 7 to 15 invalidates any previously compiled
+      ACADOS C code.  ACADOS regenerates c_generated_code/ automatically
+      on the first call to DroneOptimizerMpcc().
 """
 
 import os
 import errno
+import hashlib
 import numpy as np
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
@@ -43,7 +64,7 @@ def _makedirs(path: str):
 
 class DroneOptimizerMpcc:
     """
-    ACADOS RTI solver for the MPCC OCP.
+    ACADOS RTI solver for the MPCC OCP with Track Constraint.
 
     Args:
         model:          DroneMpccModel instance.
@@ -54,11 +75,12 @@ class DroneOptimizerMpcc:
 
     Default weights
     ───────────────
-    ql      — lag weight (high value forces accurate gate traversal)
-    Qw      — body-rate regularisation (scalar, applied as Qw·I₃)
-    r_dvt   — progress-acceleration cost (prevents noisy vθ)
-    R_df    — rotor thrust-rate cost (scalar, applied as R_df·I₄)
-    mu      — progress reward (higher → faster flight)
+    ql           — lag weight (forces accurate gate traversal)
+    Qw           — body-rate regularisation (scalar, applied as Qw·I₃)
+    r_dvt        — progress-acceleration cost (prevents noisy vθ)
+    R_df         — rotor thrust-rate cost (scalar, applied as R_df·I₄)
+    mu           — progress reward (higher → faster flight)
+    track_weight — penalty weight for track constraint log-barrier terms
     """
 
     _DEFAULTS = dict(
@@ -67,10 +89,18 @@ class DroneOptimizerMpcc:
         r_dvt=0.1,
         R_df=0.01,
         mu=10.0,
+        track_weight=10.0,   # Track Constraint soft-barrier weight
     )
 
-    # Number of parameters per stage: [p_ref(3), t_ref(3), qc(1)]
-    NP = 7
+    # Number of parameters per stage (extended for Track Constraint)
+    # [p_ref(3), t_ref(3), qc(1), n_ref(3), b_ref(3), W(1), H(1)]
+    NP = 15
+
+    # Log-barrier steepness.
+    # Paper uses α=100 but that causes exp(205) overflow during cold-start
+    # when the drone is at ground level (z≈0) and the path is at z=-3 m.
+    # α=5 keeps gradients O(5) — comparable to other cost terms.
+    _ALPHA_TRACK = 5.0
 
     def __init__(self, model, t_horizon: float = 1.0, n_nodes: int = 20,
                  weights: dict = None, enable_logging: bool = True):
@@ -92,11 +122,16 @@ class DroneOptimizerMpcc:
         ocp.solver_options.N_horizon = self.N
         ocp.solver_options.tf = self.T
 
-        # ── Per-stage parameters: [p_ref(3), t_ref(3), qc(1)] ──────────
-        p_ref = ca.MX.sym('p_ref', 3)
-        t_ref = ca.MX.sym('t_ref', 3)
-        qc    = ca.MX.sym('qc',    1)
-        params = ca.vertcat(p_ref, t_ref, qc)    # 7 × 1
+        # ── Per-stage parameters (15 × 1) ──────────────────────────────
+        p_ref = ca.MX.sym('p_ref', 3)   # reference position       [0:3]
+        t_ref = ca.MX.sym('t_ref', 3)   # unit tangent             [3:6]
+        qc    = ca.MX.sym('qc',    1)   # contouring weight        [6]
+        n_ref = ca.MX.sym('n_ref', 3)   # horiz tunnel normal      [7:10]
+        b_ref = ca.MX.sym('b_ref', 3)   # vert  tunnel normal      [10:13]
+        W     = ca.MX.sym('W',     1)   # tunnel half-width        [13]
+        H     = ca.MX.sym('H',     1)   # tunnel half-height       [14]
+
+        params = ca.vertcat(p_ref, t_ref, qc, n_ref, b_ref, W, H)   # 15 × 1
 
         ocp.dims.np          = self.NP
         ocp.model.p          = params
@@ -118,6 +153,30 @@ class DroneOptimizerMpcc:
         el = ca.dot(t_ref, e)              # lag error (scalar)
         ec = e - el * t_ref                # contouring error (3D)
 
+        # ── Track Constraint — log-barrier (MPCC++ Section IV-A) ────────
+        # Project position error onto local gate frame
+        e_n = ca.dot(n_ref, e)   # error in gate-width  direction
+        e_b = ca.dot(b_ref, e)   # error in gate-height direction
+
+        # 4 halfspace margins: ≥ 0 when drone is inside the tunnel
+        h1 = W + e_n   # inside left  wall  (e_n ≥ −W)
+        h2 = W - e_n   # inside right wall  (e_n ≤  W)
+        h3 = H + e_b   # inside bottom wall (e_b ≥ −H)
+        h4 = H - e_b   # inside top   wall  (e_b ≤  H)
+
+        # Numerically stable log-barrier: p(h) = log(1 + exp(-α·h))
+        # Written as softplus(-α·h) = max(-α·h, 0) + log(1 + exp(-|α·h|))
+        # This avoids exp overflow regardless of h magnitude.
+        alpha = self._ALPHA_TRACK
+
+        def _barrier(h):
+            z = -alpha * h
+            return ca.fmax(z, 0.0) + ca.log(1.0 + ca.exp(-ca.fabs(z)))
+
+        cost_track = w['track_weight'] * (
+            _barrier(h1) + _barrier(h2) + _barrier(h3) + _barrier(h4)
+        )
+
         # ── Stage cost ──────────────────────────────────────────────────
         cost_lag      = w['ql']    * el**2
         cost_contour  = qc         * ca.dot(ec, ec)
@@ -127,13 +186,15 @@ class DroneOptimizerMpcc:
         cost_progress = -w['mu']   * vt_k
 
         stage_cost = (cost_lag + cost_contour + cost_omega
-                      + cost_dvt + cost_df + cost_progress)
+                      + cost_dvt + cost_df + cost_progress
+                      + cost_track)
 
         # ── Terminal cost (state-only: no control increments) ────────────
         terminal_cost = (w['ql'] * el**2
                          + qc * ca.dot(ec, ec)
                          + w['Qw'] * ca.dot(w_k, w_k)
-                         - w['mu'] * vt_k)
+                         - w['mu'] * vt_k
+                         + cost_track)
 
         ocp.cost.cost_type   = 'EXTERNAL'
         ocp.cost.cost_type_e = 'EXTERNAL'
@@ -187,8 +248,38 @@ class DroneOptimizerMpcc:
         if hasattr(ocp.solver_options, 'qp_solver_warm_start'):
             ocp.solver_options.qp_solver_warm_start = 1
 
+        # ── Build-cache: skip recompilation when nothing changed ────────
+        model_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'drone_model.py')
+        with open(model_file, 'rb') as _f:
+            model_hash = hashlib.md5(_f.read()).hexdigest()
+
+        config_str = (f"{self.T}:{self.N}:{self.nx}:{self.nu}:{self.NP}:"
+                      f"{self._ALPHA_TRACK}:{sorted(w.items())}:"
+                      f"{lbu.tolist()}:{ubu.tolist()}:{lbx.tolist()}:{ubx.tolist()}:"
+                      f"{model_hash}")
+        config_hash = hashlib.md5(config_str.encode()).hexdigest()
+
+        hash_file = './c_generated_code/.ocp_config_hash'
+        lib_file  = './c_generated_code/libacados_ocp_solver_drone_mpcc.so'
+
+        existing_hash = ''
+        if os.path.exists(hash_file):
+            with open(hash_file) as _f:
+                existing_hash = _f.read().strip()
+
+        needs_rebuild = (config_hash != existing_hash) or not os.path.exists(lib_file)
+        # ────────────────────────────────────────────────────────────────
+
         json_file = './drone_mpcc_acados_ocp.json'
-        self.solver = AcadosOcpSolver(ocp, json_file=json_file)
+        self.solver = AcadosOcpSolver(
+            ocp, json_file=json_file,
+            generate=needs_rebuild,
+            build=needs_rebuild,
+        )
+
+        if needs_rebuild:
+            with open(hash_file, 'w') as _f:
+                _f.write(config_hash)
 
         # Warm-start cache
         self._x_pred: np.ndarray = None   # (N+1, nx)
@@ -197,11 +288,16 @@ class DroneOptimizerMpcc:
         self._f_hover = model.f_hover.copy()
 
         if enable_logging:
+            if needs_rebuild:
+                print(f"DroneOptimizerMpcc: solver rebuilt (config hash: {config_hash[:8]})")
+            else:
+                print(f"DroneOptimizerMpcc: reusing cached solver (config hash: {config_hash[:8]})")
             print(f"DroneOptimizerMpcc: N={self.N}, T={self.T} s, "
                   f"dt={self.T/self.N:.3f} s")
             print(f"  nx={self.nx}, nu={self.nu}, np={self.NP}")
             print(f"  Weights: ql={w['ql']}, mu={w['mu']}, "
-                  f"Qw={w['Qw']}, r_dvt={w['r_dvt']}, R_df={w['R_df']}")
+                  f"Qw={w['Qw']}, r_dvt={w['r_dvt']}, R_df={w['R_df']}, "
+                  f"track_weight={w['track_weight']}")
 
     # ------------------------------------------------------------------
     # Public interface
@@ -213,8 +309,10 @@ class DroneOptimizerMpcc:
 
         Args:
             x0:           Current augmented state (19,).
-            stage_params: Path parameters for all N+1 stages, shape (N+1, 7).
-                          Columns: [p_ref(3), t_ref(3), qc(1)].
+            stage_params: Path + tunnel parameters for all N+1 stages.
+                          Shape (N+1, 15).
+                          Columns: [p_ref(3), t_ref(3), qc(1),
+                                    n_ref(3), b_ref(3), W(1), H(1)].
 
         Returns:
             u_opt:  First optimal control (5,) = [Δvθ, Δf1..4].

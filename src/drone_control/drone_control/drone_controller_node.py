@@ -18,6 +18,7 @@ import time
 # msgs
 from std_msgs.msg import Float64MultiArray
 from nav2_msgs.action import FollowWaypoints
+from std_srvs.srv import SetBool
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -141,6 +142,7 @@ class DroneController(Node):
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
+        self.declare_parameter('verbose_input', False)
         self.declare_parameter('threshold.positon', 0.1)  # typo kept for backwards compatibility
         self.declare_parameter('threshold.velocity', 0.02)
         self.declare_parameter('threshold.angular_velocity', 0.02)
@@ -156,6 +158,8 @@ class DroneController(Node):
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
+        self._verbose = self.get_parameter('verbose_input').get_parameter_value().bool_value
+        self._publish_debug_counter = 0
         self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
         self.thresholds_.velocity = self.get_parameter('threshold.velocity').get_parameter_value().double_value
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
@@ -188,7 +192,7 @@ class DroneController(Node):
 
         # ── Controller instantiation via registry ──────────────────────────
         waypoints_file = self.get_parameter('waypoints_file').get_parameter_value().string_value
-        waypoints = self._load_waypoints(waypoints_file) if waypoints_file else None
+        config = self._load_track_config(waypoints_file) if waypoints_file else {}
 
         controller_class = _CONTROLLER_REGISTRY.get(self.controller_type)
         if controller_class is None:
@@ -197,9 +201,10 @@ class DroneController(Node):
                 f'Falling back to MPC.')
             controller_class = DroneMpcController
 
-        config = {'waypoints': waypoints}
         self.controller = controller_class.from_config(config)
         self.get_logger().info(f'Using controller: {controller_class.__name__}')
+        if hasattr(self.controller, 'verbose'):
+            self.controller.verbose = self._verbose
         # ──────────────────────────────────────────────────────────────────
 
         self.controller_rate = self.create_rate(self.control_rate)
@@ -258,11 +263,43 @@ class DroneController(Node):
         if isinstance(self.controller, DroneMpccController):
             self._publish_mpcc_reference_path()
 
+        threading.Thread(target=self._arm_when_ready, daemon=True).start()
+
         if START_AND_HOVER:
             self.get_logger().info("Auto-hover will start once drone state is available")
             self._auto_hover_thread = threading.Thread(
                 target=self._wait_for_state_and_hover, daemon=True)
             self._auto_hover_thread.start()
+
+    def _arm_when_ready(self):
+        """
+        Background thread: call /arm_drone service once the executor is running.
+
+        Waits up to 60 s for the MavSDKClient arming service to appear, then
+        arms the drone (which also starts offboard mode).  Must run in a thread
+        rather than directly in initialize() because the ROS executor has not
+        started yet when initialize() is called.
+        """
+        arm_client = self.create_client(SetBool, '/arm_drone')
+        deadline = time.time() + 60.0
+        while not arm_client.service_is_ready() and time.time() < deadline:
+            time.sleep(0.2)
+        if not arm_client.service_is_ready():
+            self.get_logger().error(
+                '[DroneController] /arm_drone service not available after 60 s — drone not armed')
+            return
+        req = SetBool.Request()
+        req.data = True
+        future = arm_client.call_async(req)
+        deadline2 = time.time() + 15.0
+        while not future.done() and time.time() < deadline2:
+            time.sleep(0.05)
+        resp = future.result()
+        if resp and resp.success:
+            self.get_logger().info('[DroneController] Drone armed and offboard started')
+        else:
+            self.get_logger().error(
+                f'[DroneController] Arm failed: {getattr(resp, "message", "no response")}')
 
     def _wait_for_state_and_hover(self):
         """Wait for a valid state from MAVSDK, then start hovering at 10 cm altitude."""
@@ -290,12 +327,54 @@ class DroneController(Node):
         hover_state[8] = 0.0
         hover_state[9] = np.sin(yaw_rad / 2)
 
-        self.get_logger().info("Starting auto-hover at 10 cm altitude (NED z=-0.1)")
-        threading.Thread(
-            target=self.hover_at_currrent_position,
-            args=(hover_state,),
-            kwargs={'controller': self._mpc_hover_controller},
-        ).start()
+        if self.controller_type == 'mpcc':
+            self.get_logger().info(
+                "MPCC mode: hovering 3 s to stabilise, then starting racing loop")
+            threading.Thread(
+                target=self._mpcc_auto_start,
+                args=(hover_state,),
+                daemon=True,
+            ).start()
+        else:
+            self.get_logger().info("Starting auto-hover at 10 cm altitude (NED z=-0.1)")
+            threading.Thread(
+                target=self.hover_at_currrent_position,
+                args=(hover_state,),
+                kwargs={'controller': self._mpc_hover_controller},
+            ).start()
+
+    # ── MPCC auto-start ───────────────────────────────────────────────────
+
+    def _mpcc_auto_start(self, hover_state: np.ndarray):
+        """Hover 3 s with MPC to stabilise, then hand off to the MPCC racing loop."""
+        self.hovering_active = True
+
+        # Phase 1: 3 s of MPC hover to stabilise before handing off to MPCC
+        deadline = time.time() + 3.0
+        while rclpy.ok() and time.time() < deadline and not self.stop_hover.is_set():
+            with self.state_lock:
+                current_state = self.state.copy()
+            cmd = self._mpc_hover_controller.controller_update(current_state, hover_state)
+            self._publish_command(cmd)
+            self.controller_rate.sleep()
+
+        if not rclpy.ok() or self.stop_hover.is_set():
+            self.stop_hover.clear()
+            self.hovering_active = False
+            return
+
+        self.get_logger().info("MPCC: stabilisation done, starting racing loop")
+
+        # Phase 2: MPCC racing loop — runs until stop_hover is set externally
+        while rclpy.ok() and not self.stop_hover.is_set():
+            with self.state_lock:
+                current_state = self.state.copy()
+            cmd = self.controller.controller_update(current_state, current_state)
+            self._publish_command(cmd)
+            self.controller_rate.sleep()
+
+        self.stop_hover.clear()
+        self.hovering_active = False
 
     # ── Hover ─────────────────────────────────────────────────────────────
 
@@ -456,6 +535,24 @@ class DroneController(Node):
             self._publish_mpcc_horizon()
             self._publish_mpcc_progress_point()
 
+        if self._verbose:
+            self._publish_debug_counter += 1
+            if self._publish_debug_counter % 50 == 0:
+                if isinstance(cmd, AttitudeRate):
+                    print(f"[DEBUG] to MAVSDK (AttitudeRate): "
+                          f"thrust={cmd.thrust_value:.3f}, "
+                          f"roll={cmd.roll_deg_s:.1f} deg/s, "
+                          f"pitch={cmd.pitch_deg_s:.1f} deg/s, "
+                          f"yaw={cmd.yaw_deg_s:.1f} deg/s")
+                elif isinstance(cmd, PositionNedYaw):
+                    print(f"[DEBUG] to MAVSDK (PositionNedYaw): "
+                          f"N={cmd.north_m:.3f} m, E={cmd.east_m:.3f} m, "
+                          f"D={cmd.down_m:.3f} m, yaw={cmd.yaw_deg:.1f} deg")
+                else:
+                    print(f"[DEBUG] to MAVSDK (rotor cmd): "
+                          f"f=[{float(cmd[0]):.3f}, {float(cmd[1]):.3f}, "
+                          f"{float(cmd[2]):.3f}, {float(cmd[3]):.3f}]")
+
         msg = Float64MultiArray()
         if isinstance(cmd, AttitudeRate):
             msg.data = [cmd.roll_deg_s, cmd.pitch_deg_s, cmd.yaw_deg_s, cmd.thrust_value]
@@ -470,27 +567,47 @@ class DroneController(Node):
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
-    def _load_waypoints(self, filepath: str) -> Optional[np.ndarray]:
+    def _load_track_config(self, filepath: str) -> dict:
         """
-        Load waypoints from a YAML file.
+        Load a track configuration YAML and return a unified config dict.
 
-        Expected format:
+        Supports two formats:
+
+        Gates format (gates_config.yaml — preferred for MPCC):
+            track: {W_nominal: 3.0, ...}
+            gates:
+              - {name: G1, x: 0.0, y: 0.0, z: -3.0, yaw_deg: 0.0, width: 2.0, height: 2.0}
+
+        Waypoints format (waypoints_config.yaml — legacy):
             waypoints:
               - {x: 1.0, y: 0.0, z: -1.0}
-              - {x: 2.0, y: 1.0, z: -1.0}
 
-        Returns an (N, 3) float64 array. Returns None if filepath is empty.
-        Raises RuntimeError if the file is missing or malformed.
+        Returns a dict with keys:
+          'gates'     — list of gate dicts (only for gates format)
+          'track'     — tunnel parameter dict (only for gates format)
+          'waypoints' — (N, 3) float64 array (always present; for gates format
+                        this contains the gate centres so non-MPCC controllers
+                        can still use it as a waypoint list)
         """
         if not filepath:
-            return None
+            return {}
         try:
             with open(filepath, 'r') as f:
                 data = yaml.safe_load(f)
-            pts = data['waypoints']
-            return np.array([[p['x'], p['y'], p['z']] for p in pts], dtype=np.float64)
+            if 'gates' in data:
+                gates = data['gates']
+                track = data.get('track', {})
+                waypoints = np.array(
+                    [[g['x'], g['y'], g['z']] for g in gates], dtype=np.float64)
+                return {'gates': gates, 'track': track, 'waypoints': waypoints}
+            elif 'waypoints' in data:
+                pts = data['waypoints']
+                waypoints = np.array(
+                    [[p['x'], p['y'], p['z']] for p in pts], dtype=np.float64)
+                return {'waypoints': waypoints}
+            return {}
         except Exception as e:
-            raise RuntimeError(f"Failed to load waypoints from '{filepath}': {e}")
+            raise RuntimeError(f"Failed to load track config from '{filepath}': {e}")
 
     def _pose_stamped_to_goal_state(self, pose: PoseStamped) -> np.ndarray:
         """Convert a PoseStamped message to a 13-dim goal state vector."""
