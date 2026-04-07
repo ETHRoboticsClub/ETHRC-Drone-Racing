@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ros:humble-desktop-full
+ARG BASE_IMAGE=ros:humble-ros-base
 ARG PERCEPTION_CONTROLS_BASE=shared-perception-controls-deps
 
 # =========================================================
