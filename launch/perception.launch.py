@@ -15,11 +15,11 @@ def generate_launch_description():
         )
     )
 
-    # Vision (ArUco pose estimation)
-    aruco_launch = IncludeLaunchDescription(
+    # Vision (Gate Detection - WIP)
+    gate_detection_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
-                [FindPackageShare("aruco_pose_estimation"), "launch", "aruco_pose_estimation.launch.py"]
+                [FindPackageShare("gate_detection"), "launch", "gate_detection.launch.py"]
             )
         )
     )
@@ -54,7 +54,8 @@ def generate_launch_description():
     return LaunchDescription(
         [
             camera_bridge_launch,
-            aruco_launch,
+            # aruco_launch, # Archived
+            gate_detection_launch,
             ekf_launch,
             vio_launch,
         ]

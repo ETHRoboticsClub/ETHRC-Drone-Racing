@@ -1,6 +1,10 @@
-# ArUco Pose Estimation
+# ArUco Pose Estimation (ARCHIVED)
 
-**Page Owner:** [Xander Yap](https://github.com/xandaaaa) & [Jules Schmutz](https://github.com/juliomathis)
+> [!WARNING]
+> **This module is currently archived and replaced by the [Gate Detection](gate_detection.md) system.**
+> The documentation below is kept for historical reference and in case the module needs to be reactivated for specific marker-based missions.
+
+**Page Owner:** [Xander Yap](https://github.com/xanderyap) & [Jules Schmutz](https://github.com/juliomathis)
 
 ## Overview
 
