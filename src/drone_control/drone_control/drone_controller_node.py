@@ -371,6 +371,10 @@ class DroneController(Node):
                 current_state = self.state.copy()
             cmd = self.controller.controller_update(current_state, current_state)
             self._publish_command(cmd)
+            # Republish reference path once after lead-in is added (first step)
+            if isinstance(self.controller, DroneMpccController) and self.controller.path_updated:
+                self._publish_mpcc_reference_path()
+                self.controller.path_updated = False
             self.controller_rate.sleep()
 
         self.stop_hover.clear()
@@ -421,6 +425,12 @@ class DroneController(Node):
             current_state = self.state.copy()
 
         pos_error = np.linalg.norm(current_state[0:3] - self.current_goal_state[0:3])
+
+        # MPCC flies at racing speed — only check position (drone passes through
+        # gate waypoints at high velocity; velocity/orientation checks never trigger).
+        if isinstance(self.controller, DroneMpccController):
+            return pos_error < self.thresholds_.position
+
         vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6])
         orientation_error = 2.0 * np.arccos(np.clip(
             np.dot(self.current_goal_state[6:10], current_state[6:10]), -1.0, 1.0))
@@ -716,6 +726,11 @@ class DroneController(Node):
         result = FollowWaypoints.Result()
         result.missed_waypoints = []
         self.ensure_not_hovering()
+
+        # Reset MPCC so it rebuilds the lead-in from the current drone position
+        # (handles the case where _mpcc_auto_start already advanced θ past G1).
+        if isinstance(self.controller, DroneMpccController):
+            self.controller.reset()
 
         lap = 0
         while rclpy.ok() and not goal_handle.is_cancel_requested:

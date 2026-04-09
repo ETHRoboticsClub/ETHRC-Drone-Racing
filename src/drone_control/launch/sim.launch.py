@@ -7,7 +7,7 @@ from launch_ros.substitutions import FindPackageShare
 # ── Visualization toggles ──────────────────────────────────────────────────────
 ENABLE_RVIZ        = True   # RViz2 waypoint/trajectory visualizer
 ENABLE_PLOTJUGGLER = False   # PlotJuggler real-time signal plotter
-VERBOSE_INPUT    = True     # Print verbose input information
+VERBOSE_INPUT    = False     # Print verbose input information
 # ──────────────────────────────────────────────────────────────────────────────
 
 

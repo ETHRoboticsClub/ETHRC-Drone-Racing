@@ -107,6 +107,11 @@ class DroneMpccController(ControllerInterface):
 
         tp = track_params or {}
 
+        # Save gates config for deferred path rebuild with drone start position
+        self._gates_config  = gates
+        self._track_params  = tp
+        self._needs_start_position = gates is not None  # only for gate-based mode
+
         if gates is not None:
             # ── Gate-based mode: Track Constraint active ──────────────────
             self._path = GatedRacingPath(
@@ -141,6 +146,9 @@ class DroneMpccController(ControllerInterface):
         self._f_state: np.ndarray = self._model.f_hover.copy()
         self._lap:     int        = 0
         self._debug_counter: int  = 0
+
+        # Set to True after path rebuild (lead-in); node can check and republish.
+        self.path_updated: bool = False
 
         # Debug flag — set externally (e.g. from drone_controller_node via VERBOSE_INPUT)
         self.verbose: bool = False
@@ -268,15 +276,42 @@ class DroneMpccController(ControllerInterface):
         matrix for the Track-Constraint OCP.  For plain RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
+        # On the first call in gate-based mode: rebuild path with drone start
+        # position so the reference trajectory begins at the drone, not gate 1.
+        if self._needs_start_position:
+            drone_pos = np.asarray(x_ext[0:3], dtype=np.float64)
+            tp = self._track_params
+            self._path = GatedRacingPath(
+                self._gates_config,
+                W_nominal    = tp.get('W_nominal',  3.0),
+                H_nominal    = tp.get('H_nominal',  3.0),
+                sigma_gate   = tp.get('sigma_gate', 2.0),
+                sigma_qc     = tp.get('sigma_qc',   0.5),
+                start_position = drone_pos,
+            )
+            self._theta   = 0.0
+            self._vtheta  = 0.0
+            self._needs_start_position = False
+            self.path_updated = True   # signal to node to republish the path
+            print(f"[DroneMpccController] Lead-in: start at "
+                  f"({drone_pos[0]:.2f}, {drone_pos[1]:.2f}, {drone_pos[2]:.2f}), "
+                  f"circuit starts at θ={self._path.circuit_start_theta:.2f} m")
+
         x_aug = self._to_augmented(x_ext)
 
         # Project current position onto path (Algorithm 1)
         self._theta = self._path.find_closest_theta(x_aug[0:3], self._theta)
         self._theta_solve = self._theta
+        # Pin OCP initial θ to the projected value (not the stale vθ-advanced value
+        # that _to_augmented set). This keeps x_aug and stage_params consistent.
+        x_aug[17] = self._theta
 
-        # Lap detection — wrap θ to restart (closed-loop track)
+        # Lap detection — wrap θ to gate 1 (skip lead-in on subsequent laps)
         if self._path.total_length - self._theta < 0.3:
-            self._theta = 0.0
+            circuit_start = (self._path.circuit_start_theta
+                             if isinstance(self._path, GatedRacingPath)
+                             else 0.0)
+            self._theta = circuit_start
             self._lap  += 1
             self._opt._warm = False   # force cold start after lap wrap
 

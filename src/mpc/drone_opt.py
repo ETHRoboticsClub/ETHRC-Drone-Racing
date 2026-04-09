@@ -101,16 +101,16 @@ class DroneOptimizer(object):
 
         # Stage cost weights
         Q_pos = 5.0
-        Q_vel = 0.5
+        Q_vel = 2.0    # increased for velocity damping (reduces hover oscillations)
         Q_quat = 0.5
-        Q_omega = 0.1
+        Q_omega = 0.2  # increased for angular rate damping
         R_rotor = 0.01  # penalty on deviation from hover per rotor
 
         # Terminal weights
         Q_pos_term = 5.0
-        Q_vel_term = 0.5
+        Q_vel_term = 2.0   # increased for velocity damping
         Q_quat_term = 0.2
-        Q_omega_term = 0.02
+        Q_omega_term = 0.05
 
         # Position error cost
         pos_error = x[0:3] - x_ref_param[0:3]

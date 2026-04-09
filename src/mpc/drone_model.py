@@ -8,11 +8,14 @@ Internally optimizes over per-rotor inputs with full Euler rigid-body dynamics,
 respecting individual rotor thrust limits. The optimizer outputs [thrust_N, wx, wy, wz]
 (same interface as attitude_rate mode) via the mixing matrix.
 
-Rotor geometry from PX4 X500 airframe (4001_gz_x500), FRD body frame:
-  Rotor 0: PX=+0.13  PY=+0.22  KM=+0.05  rear-right,  CCW
-  Rotor 1: PX=-0.13  PY=-0.20  KM=+0.05  front-left,  CCW
-  Rotor 2: PX=+0.13  PY=-0.22  KM=-0.05  rear-left,   CW
-  Rotor 3: PX=-0.13  PY=+0.20  KM=-0.05  front-right, CW
+Physical parameters match the Zephyros 5-inch racing quadrotor (4023_gz_zephyros).
+Same parameters as mpcc/drone_model.py — keep in sync.
+
+Rotor geometry (FRD body frame):
+  Rotor 0: PX=+0.0884  PY=+0.0720  KM=+0.05  front-right, CCW
+  Rotor 1: PX=-0.0822  PY=-0.0680  KM=+0.05  back-left,   CCW
+  Rotor 2: PX=+0.0886  PY=-0.0680  KM=-0.05  front-left,  CW
+  Rotor 3: PX=-0.0818  PY=+0.0718  KM=-0.05  back-right,  CW
 
 Sign conventions (FRD/NED):
   Roll+  = right wing down (rotation about +X body)
@@ -29,34 +32,36 @@ class DroneModel(object):
         model = AcadosModel()
         constraint = ca.types.SimpleNamespace()
 
-        # Physical parameters (X500 from SDF)
-        self.I_xx = 0.02166666666666667  # kg*m^2
-        self.I_yy = 0.02166666666666667  # kg*m^2
-        self.I_zz = 0.0400               # kg*m^2
-        self.m = 2.5372                  # kg
+        # Physical parameters (Zephyros 5-inch racing quadrotor — from SDF + MPCC model)
+        # Total mass: 969 g measured (base_link 0.9551 kg + 4 props ~0.01389 kg)
+        self.I_xx = 0.002207             # kg*m^2
+        self.I_yy = 0.003338             # kg*m^2
+        self.I_zz = 0.002977             # kg*m^2
+        self.m = 0.969                   # kg
         self.g = 9.81                    # m/s^2
         self.I = np.diag([self.I_xx, self.I_yy, self.I_zz])
         self.I_inv = np.diag([1.0/self.I_xx, 1.0/self.I_yy, 1.0/self.I_zz])
 
-        self.motorConstant = 8.54858e-6   # N/(rad/s)^2
-        self.maxRotVelocity = 1000.0      # rad/s
-        self.maxSingleRotorThrust = self.motorConstant * self.maxRotVelocity**2  # ~8.55 N
-        self.maxThrust = 4 * self.maxSingleRotorThrust  # ~34.19 N total
+        # Motor parameters (from Zephyros SDF: motorConstant=3.422e-6, maxRotVelocity=1500)
+        # max thrust/motor = 3.422e-6 * 1500^2 = 7.6995 N ≈ 7.7 N
+        self.motorConstant = 3.422e-6    # N/(rad/s)^2
+        self.maxRotVelocity = 1500.0     # rad/s
+        self.maxSingleRotorThrust = self.motorConstant * self.maxRotVelocity**2  # ~7.7 N
+        self.maxThrust = 4 * self.maxSingleRotorThrust  # ~30.8 N total
 
-        # Aerodynamic drag coefficient
+        # Aerodynamic drag coefficient (set to 0 as in MPCC model)
         self.k_drag = 0.0
 
-        # X500 rotor geometry (FRD body frame)
-        self.rotor_px = np.array([+0.13, -0.13, +0.13, -0.13])
-        self.rotor_py = np.array([+0.22, -0.20, -0.22, +0.20])
-        self.rotor_km = np.array([+0.05, +0.05, -0.05, -0.05])
+        # Zephyros rotor geometry (FRD body frame) — same as mpcc/drone_model.py
+        self.rotor_px = np.array([+0.0884, -0.0822, +0.0886, -0.0818])
+        self.rotor_py = np.array([+0.0720, -0.0680, -0.0680, +0.0718])
+        self.rotor_km = np.array([+0.05,   +0.05,   -0.05,   -0.05  ])
 
         # Hover values
         self.hover_thrust_per_rotor_N = self.m * self.g / 4.0
-        self.hover_normalized = self.hover_thrust_per_rotor_N / self.maxSingleRotorThrust  # ~0.727
+        self.hover_normalized = self.hover_thrust_per_rotor_N / self.maxSingleRotorThrust
 
         # Mixing matrix: maps per-rotor normalized inputs [0,1] -> [T_N, Mx, My, Mz]
-        # (multiply by kf so input is normalized)
         kf = self.maxSingleRotorThrust
         self.B_mix = np.array([
             [1.0,               1.0,               1.0,               1.0              ],
@@ -66,16 +71,15 @@ class DroneModel(object):
         ]) * kf
 
         # Constraint alias for compatibility with drone_opt.py
-        # (thrust_max used for normalizing output)
         self.constraint_thrust_max = self.maxThrust
 
         # ============================================
         # Control inputs: per-rotor normalized thrust [0, 1]
         # ============================================
-        u0 = ca.MX.sym('u0', 1)  # rotor 0 (rear-right, CCW)
-        u1 = ca.MX.sym('u1', 1)  # rotor 1 (front-left, CCW)
-        u2 = ca.MX.sym('u2', 1)  # rotor 2 (rear-left, CW)
-        u3 = ca.MX.sym('u3', 1)  # rotor 3 (front-right, CW)
+        u0 = ca.MX.sym('u0', 1)  # rotor 0 (front-right, CCW)
+        u1 = ca.MX.sym('u1', 1)  # rotor 1 (back-left,   CCW)
+        u2 = ca.MX.sym('u2', 1)  # rotor 2 (front-left,  CW)
+        u3 = ca.MX.sym('u3', 1)  # rotor 3 (back-right,  CW)
 
         controls = ca.vertcat(u0, u1, u2, u3)
 
@@ -129,10 +133,7 @@ class DroneModel(object):
         F_thrust_ned = R_bn @ F_body
         g_ned = ca.vertcat(0, 0, self.g)
 
-        v_norm = ca.sqrt(ca.dot(v, v) + 1e-6)
-        F_drag = self.k_drag * v_norm * v
-
-        v_dot = (-F_thrust_ned + self.m * g_ned - F_drag) / self.m
+        v_dot = (-F_thrust_ned + self.m * g_ned) / self.m
 
         # 3. Quaternion kinematics: q_dot = 0.5 * q ⊗ [0, w]
         q_dot = 0.5 * ca.vertcat(
@@ -199,7 +200,7 @@ class DroneModel(object):
         self.constraint = constraint
         self.f = f
 
-        print(f"DroneModel initialized: nx={states.size1()}, nu={controls.size1()}")
+        print(f"DroneModel (Zephyros): nx={states.size1()}, nu={controls.size1()}")
         print(f"  Mass: {self.m} kg, Max single rotor thrust: {self.maxSingleRotorThrust:.2f} N")
         print(f"  Hover per-rotor (normalized): {self.hover_normalized:.4f}")
         print(f"  Output interface: [thrust_N, wx, wy, wz] (attitude_rate compatible)")

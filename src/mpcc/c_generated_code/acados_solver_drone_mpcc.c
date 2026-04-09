@@ -560,14 +560,14 @@ void drone_mpcc_acados_setup_nlp_in(drone_mpcc_solver_capsule* capsule, const in
     // change only the non-zero elements:
     lbx0[3] = 1;
     ubx0[3] = 1;
-    lbx0[13] = 6.222483;
-    ubx0[13] = 6.222483;
-    lbx0[14] = 6.222483;
-    ubx0[14] = 6.222483;
-    lbx0[15] = 6.222483;
-    ubx0[15] = 6.222483;
-    lbx0[16] = 6.222483;
-    ubx0[16] = 6.222483;
+    lbx0[13] = 2.3764725;
+    ubx0[13] = 2.3764725;
+    lbx0[14] = 2.3764725;
+    ubx0[14] = 2.3764725;
+    lbx0[15] = 2.3764725;
+    ubx0[15] = 2.3764725;
+    lbx0[16] = 2.3764725;
+    ubx0[16] = 2.3764725;
 
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, 0, "idxbx", idxbx0);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, 0, "lbx", lbx0);
@@ -666,10 +666,10 @@ void drone_mpcc_acados_setup_nlp_in(drone_mpcc_solver_capsule* capsule, const in
     ubx[1] = 3.141592653589793;
     lbx[2] = -3.141592653589793;
     ubx[2] = 3.141592653589793;
-    ubx[3] = 8.54858;
-    ubx[4] = 8.54858;
-    ubx[5] = 8.54858;
-    ubx[6] = 8.54858;
+    ubx[3] = 7.7;
+    ubx[4] = 7.7;
+    ubx[5] = 7.7;
+    ubx[6] = 7.7;
     ubx[7] = 8;
 
     for (int i = 1; i < N; i++)
@@ -715,10 +715,10 @@ void drone_mpcc_acados_setup_nlp_in(drone_mpcc_solver_capsule* capsule, const in
     ubx_e[1] = 3.141592653589793;
     lbx_e[2] = -3.141592653589793;
     ubx_e[2] = 3.141592653589793;
-    ubx_e[3] = 8.54858;
-    ubx_e[4] = 8.54858;
-    ubx_e[5] = 8.54858;
-    ubx_e[6] = 8.54858;
+    ubx_e[3] = 7.7;
+    ubx_e[4] = 7.7;
+    ubx_e[5] = 7.7;
+    ubx_e[6] = 7.7;
     ubx_e[7] = 8;
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "idxbx", idxbx_e);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "lbx", lbx_e);
@@ -896,10 +896,10 @@ void drone_mpcc_acados_set_nlp_out(drone_mpcc_solver_capsule* capsule)
 
     // initialize with x0
     x0[3] = 1;
-    x0[13] = 6.222483;
-    x0[14] = 6.222483;
-    x0[15] = 6.222483;
-    x0[16] = 6.222483;
+    x0[13] = 2.3764725;
+    x0[14] = 2.3764725;
+    x0[15] = 2.3764725;
+    x0[16] = 2.3764725;
 
 
     double* u0 = xu0 + NX;

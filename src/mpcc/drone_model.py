@@ -25,8 +25,8 @@ Control indices
    0    Δvθ — progress acceleration [m/s²]
   1:5   Δf  — per-rotor thrust rate [N/s]
 
-Physical parameters match the X500 quadrotor used in the existing mpc/.
-Frame convention: FRD body, NED inertial (same as existing mpc/drone_model.py).
+Physical parameters match the Zephyros 5-inch racing quadrotor.
+Frame convention: FRD body, NED inertial.
 """
 
 import numpy as np
@@ -37,25 +37,32 @@ from acados_template import AcadosModel
 class DroneMpccModel:
     """CasADi / ACADOS augmented model for MPCC."""
 
-    # ── Physical constants (X500 quadrotor, same as mpc/drone_model.py) ──
-    MASS = 2.5372              # kg
+    # ── Physical constants (Zephyros 5-inch racing quadrotor) ─────────────
+    # Total mass: 969 g (measured), max total thrust: 30.8 N → T/W = 3.24
+    # Inertia: SolidWorks frame-only values (ixx=0.001021, iyy=0.001544,
+    #   izz=0.001377) scaled by 955.1/441.8 = 2.162 to account for full
+    #   drone mass (motors, ESC, battery, FC). Refine with real measurements.
+    MASS = 0.969               # kg
     G    = 9.81                # m/s²
-    I_XX = 0.02166666667       # kg·m²
-    I_YY = 0.02166666667       # kg·m²
-    I_ZZ = 0.0400              # kg·m²
+    I_XX = 0.002207            # kg·m²
+    I_YY = 0.003338            # kg·m²
+    I_ZZ = 0.002977            # kg·m²
 
     # Per-rotor thrust limits [N]
+    # max = 30.8 N / 4 motors = 7.7 N per motor
     F_MIN = 0.0
-    F_MAX = 8.54858            # motorConstant * maxRotVelocity² (N)
+    F_MAX = 7.7                # N
 
-    # Rotor geometry in FRD body frame (from X500 SDF, same as mpc/)
-    #   Rotor 0: rear-right  CCW  PX=+0.13  PY=+0.22  KM=+0.05
-    #   Rotor 1: front-left  CCW  PX=-0.13  PY=-0.20  KM=+0.05
-    #   Rotor 2: rear-left   CW   PX=+0.13  PY=-0.22  KM=-0.05
-    #   Rotor 3: front-right CW   PX=-0.13  PY=+0.20  KM=-0.05
-    ROTOR_PX = np.array([+0.13, -0.13, +0.13, -0.13])
-    ROTOR_PY = np.array([+0.22, -0.20, -0.22, +0.20])
-    ROTOR_KM = np.array([+0.05, +0.05, -0.05, -0.05])
+    # Rotor geometry in FRD body frame (from Zephyros airframe 4023_gz_zephyros)
+    # Positions from SolidWorks URDF (x-forward, y-right).
+    # KM sign: + = CCW (looking from above), - = CW.
+    #   Rotor 0: front-right  CCW  PX=+0.0884  PY=+0.0720  KM=+0.05
+    #   Rotor 1: back-left    CCW  PX=-0.0822  PY=-0.0680  KM=+0.05
+    #   Rotor 2: front-left   CW   PX=+0.0886  PY=-0.0680  KM=-0.05
+    #   Rotor 3: back-right   CW   PX=-0.0818  PY=+0.0718  KM=-0.05
+    ROTOR_PX = np.array([+0.0884, -0.0822, +0.0886, -0.0818])
+    ROTOR_PY = np.array([+0.0720, -0.0680, -0.0680, +0.0718])
+    ROTOR_KM = np.array([+0.05,   +0.05,   -0.05,   -0.05  ])
 
     # Drag coefficients — linear drag in body frame (eq. 14), set to 0
     DRAG = np.zeros(3)
@@ -197,7 +204,7 @@ class DroneMpccModel:
         self.nx = int(states.size1())    # 19
         self.nu = int(controls.size1())  # 5
 
-        self.f_hover = np.full(4, self.MASS * self.G / 4.0)   # ≈ 6.22 N each
+        self.f_hover = np.full(4, self.MASS * self.G / 4.0)   # ≈ 2.38 N each
 
         print(f"DroneMpccModel: nx={self.nx}, nu={self.nu}")
         print(f"  f_hover per rotor: {self.f_hover[0]:.3f} N  "

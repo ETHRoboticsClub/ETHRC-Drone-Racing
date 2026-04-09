@@ -97,10 +97,10 @@ int main()
     x_current[10] = 0;
     x_current[11] = 0;
     x_current[12] = 0;
-    x_current[13] = 6.222483;
-    x_current[14] = 6.222483;
-    x_current[15] = 6.222483;
-    x_current[16] = 6.222483;
+    x_current[13] = 2.3764725;
+    x_current[14] = 2.3764725;
+    x_current[15] = 2.3764725;
+    x_current[16] = 2.3764725;
     x_current[17] = 0;
     x_current[18] = 0;
     

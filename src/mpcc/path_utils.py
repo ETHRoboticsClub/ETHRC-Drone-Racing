@@ -305,7 +305,8 @@ class GatedRacingPath(RacingPath):
                  W_nominal: float = 3.0,
                  H_nominal: float = 3.0,
                  sigma_gate: float = 2.0,
-                 sigma_qc: float = 0.5):
+                 sigma_qc: float = 0.5,
+                 start_position: np.ndarray = None):
 
         assert len(gates) >= 2, "At least 2 gates required."
 
@@ -325,16 +326,29 @@ class GatedRacingPath(RacingPath):
         self._min_gate_half_w = float(np.min(self._gate_half_widths))
         self._min_gate_half_h = float(np.min(self._gate_half_heights))
 
-        # Closed-loop path: append first gate to close the circuit
-        positions_closed = np.vstack([positions, positions[0]])
+        # Optional lead-in: prepend drone start position before gate 1.
+        # The circuit still closes at gate 1 (not the start position).
+        if start_position is not None:
+            sp = np.asarray(start_position, dtype=np.float64).reshape(1, 3)
+            positions_with_start = np.vstack([sp, positions])
+        else:
+            positions_with_start = positions
 
-        # Compute gate arc-length knots BEFORE calling super().__init__
+        # Closed-loop path: append first gate to close the circuit
+        positions_closed = np.vstack([positions_with_start, positions[0]])
+
+        # Compute arc-length knots BEFORE calling super().__init__
         # so they align exactly with the spline knots the parent will build.
         diffs = np.diff(positions_closed, axis=0)
         seg_lengths = np.linalg.norm(diffs, axis=1)
         arc = np.concatenate([[0.0], np.cumsum(seg_lengths)])
-        # arc[i] = θ at gate i; arc[-1] = total_length (= θ at G1 after wrap)
-        self._gate_thetas = arc[:-1].copy()   # shape (n_gates,)
+
+        if start_position is not None:
+            # arc[0] = θ at start_position; arc[1..n_gates] = θ at each gate
+            self._gate_thetas = arc[1:-1].copy()   # shape (n_gates,)
+        else:
+            # arc[0..n_gates-1] = θ at each gate
+            self._gate_thetas = arc[:-1].copy()    # shape (n_gates,)
 
         # Initialise parent with closed positions; gate centres used for qc.
         super().__init__(positions_closed, gate_positions=positions, sigma=sigma_qc)
@@ -455,3 +469,8 @@ class GatedRacingPath(RacingPath):
     def n_gates(self) -> int:
         """Number of gates."""
         return len(self._gate_thetas)
+
+    @property
+    def circuit_start_theta(self) -> float:
+        """Arc-length θ at gate 1 — used to skip the lead-in on lap wrap."""
+        return float(self._gate_thetas[0])

@@ -3,13 +3,13 @@
 #
 # Track layout (top view, NED: x=North, y=East):
 #
-#       G8(-5, 4)      G1(0,0)      G2(10,3)
+#       G8(-1, 4)      G1(4,0)      G2(14,3)
 #           \           |           /
-#        G7(-8,-5)    start    G3(20,0)   ← main straight
+#        G7(-4,-5)    start    G3(24,0)   ← main straight
 #               \                /
-#             G6(0,-10)    G4(18,-8)
+#             G6(4,-10)    G4(22,-8)
 #                    \    /
-#                  G5(10,-12)          ← hairpin
+#                  G5(14,-12)          ← hairpin
 #
 # Gate fields:
 #   name      — label shown in RViz
@@ -41,7 +41,7 @@ track:
 gates:
   # G1 — start / finish
   - name: G1
-    x:  0.0
+    x:  4.0
     y:  0.0
     z: -3.0
     yaw_deg: -11.0
@@ -50,7 +50,7 @@ gates:
 
   # G2 — entry to main straight, climbing
   - name: G2
-    x:  10.0
+    x:  14.0
     y:   3.0
     z: -4.0
     yaw_deg: 0.0
@@ -59,7 +59,7 @@ gates:
 
   # G3 — far end of main straight, max altitude
   - name: G3
-    x:  20.0
+    x:  24.0
     y:   0.0
     z: -5.0
     yaw_deg: -60.0
@@ -68,7 +68,7 @@ gates:
 
   # G4 — sweeping right, dive begins
   - name: G4
-    x:  18.0
+    x:  22.0
     y:  -8.0
     z: -4.0
     yaw_deg: -129.0
@@ -77,7 +77,7 @@ gates:
 
   # G5 — hairpin apex, lowest point on return
   - name: G5
-    x:  10.0
+    x:  14.0
     y: -12.0
     z: -3.0
     yaw_deg: -172.0
@@ -86,7 +86,7 @@ gates:
 
   # G6 — back chicane, flat and fast
   - name: G6
-    x:   0.0
+    x:   4.0
     y: -10.0
     z: -2.5
     yaw_deg: 159.0
@@ -95,7 +95,7 @@ gates:
 
   # G7 — technical left turn, climbing
   - name: G7
-    x:  -8.0
+    x:  -4.0
     y:  -5.0
     z: -3.5
     yaw_deg: 110.0
@@ -104,7 +104,7 @@ gates:
 
   # G8 — return gate, high before diving back to start
   - name: G8
-    x:  -5.0
+    x:  -1.0
     y:   4.0
     z: -4.0
     yaw_deg: 16.0
