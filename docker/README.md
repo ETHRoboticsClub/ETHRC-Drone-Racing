@@ -9,6 +9,6 @@ The goal is to have as much of our images in the cloud as possible to save us a 
 
 
 ## Structure
-```untracked``` stores Dockerfiles which are not part of CI / Autobuild
+`untracked/` was previously used for heavy persistent dependencies. As of the recent modularization, these are now ideally hosted in AWS ECR and referenced directly from the main `Dockerfile`.
 
-```Dockerfile``` builds on ```untracked/Dockerfile.base``` 
+`Dockerfile` is designed to be lightweight and modular, pulling pre-built heavy dependency images (like `shared-perception-controls-deps`) from ECR by default to optimize build times and CI/CD performance.

@@ -18,6 +18,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
 jobs:
   build:
     name: Build ${{ matrix.service }}
@@ -61,6 +68,19 @@ jobs:
           echo "Initializing Perception and Vicon submodules..."
           git submodule update --init --recursive --force src/perception/VIO/open_vins
           git submodule update --init --recursive --force src/ros2-vicon-receiver
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Service
         run: |

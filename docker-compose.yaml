@@ -4,6 +4,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: dev
+      network: host
       args:
         BASE_IMAGE: ros:humble-ros-base
         WORKSPACE: ${PWD}
@@ -11,11 +12,6 @@ services:
         USER_UID: ${USER_UID:-1000}
         USER_GID: ${USER_GID:-1000}
 
-    # macOS: Replace 'network_mode: host' with 'ports:' mappings, e.g.:
-    #   ports:
-    #     - "8000:8000"       # MkDocs
-    #     - "14540:14540/udp" # PX4 SITL MAVLink
-    #     - "14550:14550/udp" # QGroundControl
     network_mode: host
     tty: true
     working_dir: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/
@@ -80,7 +76,6 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: docs
-    # macOS: Replace 'network_mode: host' with 'ports: ["8000:8000"]'
     network_mode: host
     working_dir: /docs
     volumes:

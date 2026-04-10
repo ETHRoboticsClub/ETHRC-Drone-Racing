@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=ros:humble-ros-base
-ARG PERCEPTION_CONTROLS_BASE=shared-perception-controls-deps
+ARG PERCEPTION_CONTROLS_BASE=916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
 
 # =========================================================
 # STAGE 1: docs (standalone)
@@ -13,116 +13,12 @@ WORKDIR /docs
 CMD ["mkdocs", "serve", "-a", "0.0.0.0:8000"]
 
 # =========================================================
-# STAGE 2: base
-# Core ROS 2, system tools, and user configuration
-# =========================================================
-FROM ${BASE_IMAGE} AS base
-
-ENV DEBIAN_FRONTEND=noninteractive
-SHELL ["/bin/bash", "-c"]
-
-# Locales & Base Tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tzdata locales sudo bash-completion ca-certificates curl wget git gnupg2 lsb-release \
-    build-essential cmake ninja-build ccache gdb valgrind pkg-config \
-    python3-pip python3-venv python3-dev swig \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-RUN locale-gen en_US.UTF-8 && update-ca-certificates
-ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
-
-# ROS 2 Environment
-ENV ROS_DISTRO=humble
-ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
-ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
-ENV CMAKE_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
-ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
-ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
-ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python3.10/site-packages
-
-# ROS 2 Tooling & MAVROS
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-humble-desktop \
-    python3-rosdep python3-argcomplete python3-vcstool python3-colcon-common-extensions \
-    ros-humble-image-transport ros-humble-cv-bridge ros-humble-rmw-cyclonedds-cpp \
-    ros-humble-mavros ros-humble-mavros-extras geographiclib-tools \
-    ros-humble-nav2-msgs ros-humble-plotjuggler-ros \
-    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
-    gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-    libopencv-dev python3-opencv \
-    libvulkan1 vulkan-tools clang clang-format \
-    && rm -rf /var/lib/apt/lists/*
-RUN rosdep init || true
-RUN /bin/bash -lc "source /opt/ros/humble/setup.bash && /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"
-
-# Gazebo (GZ Harmonic)
-RUN ARCH=$(dpkg --print-architecture); \
-    wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
-    && echo "deb [arch=$ARCH signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] \
-    https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
-    > /etc/apt/sources.list.d/gz-stable.list \
-    && apt-get update && \
-    apt-get install -y --no-install-recommends \
-    gz-harmonic libgz-sim8-dev libgz-plugin2-dev libgz-msgs10-dev \
-    libgz-transport13-dev libgz-math7-dev libgz-common5-dev libsdformat14-dev \
-    ros-humble-ros-gz ros-humble-ros-gz-bridge ros-humble-ros-gz-image \
-    ros-humble-ros-gz-interfaces ros-humble-ros-gz-sim \
-    && rm -rf /var/lib/apt/lists/*
-
-# udev rules for FMU/USB bridges
-RUN install -d -m 0755 /etc/udev/rules.d && \
-    cat <<'EOF' >/etc/udev/rules.d/99-robotics-serial.rules
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", MODE="0666", GROUP="dialout"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", MODE="0666", GROUP="dialout"
-SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", MODE="0666", GROUP="dialout"
-EOF
-
-# User Setup
-ARG USERNAME=drone_dev
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-RUN groupadd --gid $USER_GID $USERNAME && \
-    useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME && \
-    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME && chmod 0440 /etc/sudoers.d/$USERNAME
-
-ENV WORKSPACE=/home/${USERNAME}/ros_ws
-RUN mkdir -p ${WORKSPACE}/src && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
-WORKDIR ${WORKSPACE}
-
-# Set up autocompletion for user
-RUN  echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
-    && echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> /home/$USERNAME/.bashrc \
-    && echo "if [ -f ${WORKSPACE}/install/setup.bash ]; then source ${WORKSPACE}/install/setup.bash; fi" >> /home/$USERNAME/.bashrc \
-    && echo "export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp" >> /home/$USERNAME/.bashrc
-
-# PX4 build dependencies — sourced from the PX4 submodule itself
-COPY px4/PX4-Autopilot/Tools/setup/requirements.txt /tmp/px4_requirements.txt
-RUN uv pip install --system --no-cache setuptools==58.2.0 && \
-    uv pip install --system --no-cache -r /tmp/px4_requirements.txt && rm /tmp/px4_requirements.txt
-
-# =========================================================
-# STAGE 3: shared-perception-controls-deps
-# Shared dependencies for perception, controls, and docs
-# =========================================================
-FROM base AS shared-perception-controls-deps
-
-# Perception system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopencv-dev python3-opencv \
-    libeigen3-dev libyaml-cpp-dev libboost-all-dev \
-    libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
-    ros-humble-robot-localization \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN uv pip install --system --no-cache numpy==1.24.4 scipy==1.10.1
-
-# =========================================================
 # STAGE 4: perception
 # Perception-only build
 # =========================================================
 FROM ${PERCEPTION_CONTROLS_BASE} AS perception
 USER drone_dev
+
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
