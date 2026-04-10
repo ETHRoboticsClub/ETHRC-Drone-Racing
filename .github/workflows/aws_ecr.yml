@@ -9,7 +9,7 @@ name: AWS ECR Push
 
 on:
   push:
-    branches: [main, feature/*, fix/*, temp/controls, temp/ecr]
+    branches: [main, feature/*, temp/controls]
   workflow_dispatch:
     inputs:
       force_all:
@@ -171,11 +171,11 @@ jobs:
                 },
                 {
                   "rulePriority": 2,
-                  "description": "Keep only 3 most recent images (+ 1 buildcache)",
+                  "description": "Keep only the most recent image (+ 1 buildcache)",
                   "selection": {
                     "tagStatus": "any",
                     "countType": "imageCountMoreThan",
-                    "countNumber": 4
+                    "countNumber": 2
                   },
                   "action": { "type": "expire" }
                 }

@@ -1,5 +1,7 @@
 ARG BASE_IMAGE=ros:humble-ros-base
+
 ARG PERCEPTION_CONTROLS_BASE=916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
+# PERCEPTION_CONTROLS_BASE originates from docker/untracked/Dockerfile.base
 
 # =========================================================
 # STAGE 1: docs (standalone)
@@ -11,6 +13,10 @@ EXPOSE 8000
 COPY docs /docs
 WORKDIR /docs
 CMD ["mkdocs", "serve", "-a", "0.0.0.0:8000"]
+
+# =========================================================
+# STAGE 2 and 3 are defined in docker/untracked/Dockerfile.base as STAGE 1 and 2
+# =========================================================
 
 # =========================================================
 # STAGE 4: perception

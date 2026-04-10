@@ -1,14 +1,23 @@
 # Dockerfile Notes
 
 ## Important
-The purpose of this README is to avoid confusion when building Dockerfiles. Whenever you change the structure or add new dependencies, please note these down here! ECR should make our life easier but it also introduces complexity to which we have to pay attention.
 
-## Typical Issues
-For any issues with AWS ECR please contact Máté.
-The goal is to have as much of our images in the cloud as possible to save us a huge amount of time which would otherwise be wasted building them repeatedly. However, this might get confusing and in case something doesn't work as planned, feel free to rebuild the necessary images locally. An example would be a missing ECR image referenced as the base. In this case you can rebuild this base locally and compile your desired Dockerfile by overwriting it to the local one.
+AWS ECR is just a place to dump docker images to. We build Dockerfiles once and then just reference the binary image without having to ever rebuild. It does not have any functionality besides that and it does NOT store Dockerfiles so it is our responsibility to ensure we know which Dockerfile built which image in ECR.
 
 
 ## Structure
-`untracked/` was previously used for heavy persistent dependencies. As of the recent modularization, these are now ideally hosted in AWS ECR and referenced directly from the main `Dockerfile`.
 
-`Dockerfile` is designed to be lightweight and modular, pulling pre-built heavy dependency images (like `shared-perception-controls-deps`) from ECR by default to optimize build times and CI/CD performance.
+The following table maps ECR images to their source Dockerfiles for easier tracing:
+
+| ECR Image | Source Dockerfile |
+|-----------|-------------------|
+| aeronautics/droneracing:shared-perception-controls-deps-latest | untracked/Dockerfile.base |
+
+**Note:** If you create new Dockerfiles and push images to ECR, please update this table to maintain traceability. 
+
+
+## Console side of AWS ECR
+
+To demystify AWS ECR, this is what the dev target in the main branch looks like in the console. There are currently two images, each tagged with the commit sha, and the latest tag on the newest image. 'buildcache' speed up future builds.
+
+![AWS ECR Console Demo](../docs/docs/images/demo_awsecr_repo.png)
