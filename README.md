@@ -36,9 +36,25 @@ Welcome to the **ETHRC Drone Racing** project. We are building the next generati
 
 ---
 
-## 📸 Real-World Hardware & Lab
+## 🛰️ Drone Setup
 
-We don't just simulate; we fly. Our hardware stack is designed for extreme performance and modularity.
+We don't just simulate; we fly. Our hardware stack is designed for extreme performance and modularity. We have multiple drone configurations named after the Greek wind gods.
+
+### 🌬️ Zephyrus (6S Performance)
+*6S drone with a Kakute H7 flight controller.*
+
+*   **Hardware & Parts List**: [TBD]
+*   **Soldering & Connections**: [TBD]
+*   **Betaflight Configuration**: [TBD]
+*   **Specifics**: [TBD]
+
+### 🌬️ Boreas (4S Agile)
+*4S drone with a JHEMCU generic FC (H743 chip).*
+
+*   **Hardware & Parts List**: [TBD]
+*   **Soldering & Connections**: [TBD]
+*   **Betaflight Configuration**: [TBD]
+*   **Specifics**: [TBD]
 
 <p align="center">
   <img src="docs/docs/images/drone_hardware_closeup.webp" width="45%" />

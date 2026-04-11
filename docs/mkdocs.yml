@@ -85,9 +85,11 @@ nav:
     - MPC: controls/mpc.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md
-  - Hardware:
-    - Overview: hardware/index.md
-    - VIO Synchronization: hardware/vio_synchronization.md
+  - Drone Setup:
+    - Overview: drone-setup/index.md
+    - Zephyrus (6S): drone-setup/zephyrus.md
+    - Boreas (4S): drone-setup/boreas.md
+    - VIO Synchronization: drone-setup/vio_synchronization.md
     - Betaflight Setup: betaflight.md
   - Groundstation: groundstation/index.md
   - Contributors: contributors.md
