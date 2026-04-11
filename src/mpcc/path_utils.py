@@ -42,6 +42,13 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 
 
+# Tunnel scale factor:
+#   tau = 1.0  -> nominal tunnel dimensions
+#   tau = 0.0  -> zero-size tunnel
+# Values outside [0, 1] are clipped when GatedRacingPath is built.
+tau = 0.95
+
+
 class RacingPath:
     """
     Arc-length parameterized 3D path built from waypoints.
@@ -287,6 +294,7 @@ class GatedRacingPath(RacingPath):
 
     Since W_gate_i < W_n, each term is negative → W decreases near gates.
     The result is clamped to [min_gate_half_width, W_n].
+    The final half-extents are scaled by tau ∈ [0, 1].
 
     Local frame (NED, vertical racing gates):
     ------------------------------------------
@@ -323,6 +331,7 @@ class GatedRacingPath(RacingPath):
         self._W_n        = float(W_nominal)
         self._H_n        = float(H_nominal)
         self._sigma_gate = float(sigma_gate)
+        self._tau          = float(np.clip(tau, 0.0, 1.0))
         self._min_gate_half_w = float(np.min(self._gate_half_widths))
         self._min_gate_half_h = float(np.min(self._gate_half_heights))
 
@@ -371,7 +380,7 @@ class GatedRacingPath(RacingPath):
             d = theta - th_g
             d -= L * round(d / L)   # shortest periodic distance
             W += (W_g - self._W_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
-        return float(np.clip(W, self._min_gate_half_w, self._W_n))
+        return self._tau * float(np.clip(W, self._min_gate_half_w, self._W_n))
 
     def tunnel_height(self, theta: float) -> float:
         """
@@ -384,7 +393,7 @@ class GatedRacingPath(RacingPath):
             d = theta - th_g
             d -= L * round(d / L)
             H += (H_g - self._H_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
-        return float(np.clip(H, self._min_gate_half_h, self._H_n))
+        return self._tau * float(np.clip(H, self._min_gate_half_h, self._H_n))
 
     def normal_binormal(self, theta: float) -> tuple:
         """

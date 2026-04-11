@@ -28,13 +28,15 @@
 #   qc_gate      gate   contouring weight  (near gates, tracking is critical)
 #   sigma_qc     Gaussian σ for qc transition [m]
 #   track_weight penalty weight for track-constraint soft barrier in OCP cost
+#   SHOW_TUNNEL  publish the MPCC tunnel in RViz
 
 track:
+  SHOW_TUNNEL:   true
   W_nominal:    3.0
   H_nominal:    3.0
-  sigma_gate:   2.0
-  qc_nom:       0.5
-  qc_gate:      10.0
+  sigma_gate:   3.0
+  qc_nom:       3.0
+  qc_gate:      15.0
   sigma_qc:     0.5
   track_weight: 10.0
 

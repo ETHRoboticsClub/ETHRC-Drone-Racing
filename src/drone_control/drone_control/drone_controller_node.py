@@ -107,6 +107,7 @@ class DroneController(Node):
     position_command_publisher: Publisher
     current_target_publisher: Publisher
     mpcc_ref_path_publisher: Publisher
+    mpcc_tunnel_publisher: Publisher
     mpcc_horizon_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
@@ -183,6 +184,9 @@ class DroneController(Node):
             QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
         self.mpcc_ref_path_publisher = self.create_publisher(
             MarkerArray, '/mpcc/reference_path',
+            QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
+        self.mpcc_tunnel_publisher = self.create_publisher(
+            MarkerArray, '/mpcc/tunnel',
             QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
         self.mpcc_horizon_publisher = self.create_publisher(
             MarkerArray, '/mpcc/predicted_horizon', 10)
@@ -262,6 +266,7 @@ class DroneController(Node):
 
         if isinstance(self.controller, DroneMpccController):
             self._publish_mpcc_reference_path()
+            self._publish_mpcc_tunnel()
 
         threading.Thread(target=self._arm_when_ready, daemon=True).start()
 
@@ -374,6 +379,7 @@ class DroneController(Node):
             # Republish reference path once after lead-in is added (first step)
             if isinstance(self.controller, DroneMpccController) and self.controller.path_updated:
                 self._publish_mpcc_reference_path()
+                self._publish_mpcc_tunnel()
                 self.controller.path_updated = False
             self.controller_rate.sleep()
 
@@ -461,6 +467,81 @@ class DroneController(Node):
         markers = MarkerArray()
         markers.markers.append(m)
         self.mpcc_ref_path_publisher.publish(markers)
+
+    def _publish_mpcc_tunnel(self) -> None:
+        """Publish the MPCC track-constraint tube as a latching MarkerArray."""
+        tunnel = self.controller.sample_tunnel(n=180)
+        if tunnel is None:
+            return
+
+        positions = tunnel['positions']
+        normals = tunnel['normals']
+        binormals = tunnel['binormals']
+        widths = tunnel['widths']
+        heights = tunnel['heights']
+        now = self.get_clock().now().to_msg()
+
+        def ned_to_rviz(p: np.ndarray) -> Point:
+            return Point(x=float(p[1]), y=float(p[0]), z=float(-p[2]))
+
+        rings = []
+        for p, n, b, W, H in zip(positions, normals, binormals, widths, heights):
+            rings.append((
+                p - W * n - H * b,
+                p + W * n - H * b,
+                p + W * n + H * b,
+                p - W * n + H * b,
+            ))
+
+        surface = Marker()
+        surface.header.frame_id = 'world'
+        surface.header.stamp = now
+        surface.ns = 'mpcc_tunnel_surface'
+        surface.id = 0
+        surface.type = Marker.TRIANGLE_LIST
+        surface.action = Marker.ADD
+        surface.pose.orientation.w = 1.0
+        surface.color.r, surface.color.g, surface.color.b, surface.color.a = 0.0, 0.8, 1.0, 0.16
+
+        for ring_a, ring_b in zip(rings[:-1], rings[1:]):
+            for j in range(4):
+                a0 = ring_a[j]
+                a1 = ring_a[(j + 1) % 4]
+                b0 = ring_b[j]
+                b1 = ring_b[(j + 1) % 4]
+                surface.points.extend([
+                    ned_to_rviz(a0), ned_to_rviz(b0), ned_to_rviz(b1),
+                    ned_to_rviz(a0), ned_to_rviz(b1), ned_to_rviz(a1),
+                ])
+
+        wire = Marker()
+        wire.header.frame_id = 'world'
+        wire.header.stamp = now
+        wire.ns = 'mpcc_tunnel_wire'
+        wire.id = 1
+        wire.type = Marker.LINE_LIST
+        wire.action = Marker.ADD
+        wire.pose.orientation.w = 1.0
+        wire.scale.x = 0.035
+        wire.color.r, wire.color.g, wire.color.b, wire.color.a = 0.0, 0.95, 1.0, 0.75
+
+        ring_stride = max(1, len(rings) // 36)
+        for i, ring in enumerate(rings):
+            if i % ring_stride != 0 and i != len(rings) - 1:
+                continue
+            for j in range(4):
+                wire.points.append(ned_to_rviz(ring[j]))
+                wire.points.append(ned_to_rviz(ring[(j + 1) % 4]))
+
+        for ring_a, ring_b in zip(rings[:-1], rings[1:]):
+            for j in range(4):
+                wire.points.append(ned_to_rviz(ring_a[j]))
+                wire.points.append(ned_to_rviz(ring_b[j]))
+
+        markers = MarkerArray()
+        markers.markers.append(surface)
+        markers.markers.append(wire)
+        self.mpcc_tunnel_publisher.publish(markers)
 
     def _publish_mpcc_horizon(self) -> None:
         """Publish the MPCC predicted horizon at ~10 Hz (throttled)."""

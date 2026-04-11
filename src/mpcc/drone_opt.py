@@ -84,11 +84,11 @@ class DroneOptimizerMpcc:
     """
 
     _DEFAULTS = dict(
-        ql=8.0,
+        ql=15.0,
         Qw=0.02,
         r_dvt=0.04,
-        R_df=0.01,
-        mu=10.0,
+        R_df=0.02,
+        mu=6.0,
         track_weight=10.0,   # Track Constraint soft-barrier weight
     )
 
@@ -100,9 +100,9 @@ class DroneOptimizerMpcc:
     # Paper uses α=100 but that causes exp(205) overflow during cold-start
     # when the drone is at ground level (z≈0) and the path is at z=-3 m.
     # α=5 keeps gradients O(5) — comparable to other cost terms.
-    _ALPHA_TRACK = 250.0
+    _ALPHA_TRACK = 100.0
 
-    def __init__(self, model, t_horizon: float = 2.0, n_nodes: int = 40,
+    def __init__(self, model, t_horizon: float = 1.5, n_nodes: int = 40,
                  weights: dict = None, enable_logging: bool = True):
         self.T  = t_horizon
         self.N  = n_nodes

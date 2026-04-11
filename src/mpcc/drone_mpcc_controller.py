@@ -111,6 +111,7 @@ class DroneMpccController(ControllerInterface):
         self._gates_config  = gates
         self._track_params  = tp
         self._needs_start_position = gates is not None  # only for gate-based mode
+        self._show_tunnel = bool(tp.get('SHOW_TUNNEL', True))
 
         if gates is not None:
             # ── Gate-based mode: Track Constraint active ──────────────────
@@ -243,6 +244,39 @@ class DroneMpccController(ControllerInterface):
         """Return (n, 3) NED positions sampled uniformly along the reference spline."""
         thetas = np.linspace(0.0, self._path.total_length, n)
         return np.array([self._path.position(t) for t in thetas])
+
+    def sample_tunnel(self, n: int = 160) -> 'dict[str, np.ndarray] | None':
+        """
+        Return sampled tunnel geometry for RViz visualisation.
+
+        Returns None for the legacy RacingPath mode, where the OCP receives
+        W=H=1000 m as a practical way to disable the track constraint.
+        """
+        if not self._show_tunnel:
+            return None
+        if not isinstance(self._path, GatedRacingPath):
+            return None
+
+        thetas = np.linspace(0.0, self._path.total_length, n)
+        positions = np.zeros((n, 3), dtype=np.float64)
+        normals = np.zeros((n, 3), dtype=np.float64)
+        binormals = np.zeros((n, 3), dtype=np.float64)
+        widths = np.zeros(n, dtype=np.float64)
+        heights = np.zeros(n, dtype=np.float64)
+
+        for i, th in enumerate(thetas):
+            positions[i] = self._path.position(th)
+            normals[i], binormals[i] = self._path.normal_binormal(th)
+            widths[i] = self._path.tunnel_width(th)
+            heights[i] = self._path.tunnel_height(th)
+
+        return {
+            'positions': positions,
+            'normals': normals,
+            'binormals': binormals,
+            'widths': widths,
+            'heights': heights,
+        }
 
     @property
     def current_theta(self) -> float:
