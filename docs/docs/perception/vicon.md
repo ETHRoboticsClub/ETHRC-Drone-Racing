@@ -107,7 +107,7 @@ For each tracked object (subject + segment pair defined in Vicon Tracker), the n
 
 ```bash
 ros2 launch vicon_receiver client.launch.py \
-  hostname:=192.168.0.29 \
+  hostname:=192.168.0.78 \
   topic_namespace:=vicon \
   buffer_size:=200 \
   world_frame:=map \
