@@ -9,7 +9,7 @@ name: AWS ECR Push
 
 on:
   push:
-    branches: [main, feature/*, temp/controls]
+    branches: [main, temp/controls]
   workflow_dispatch:
     inputs:
       force_all:
