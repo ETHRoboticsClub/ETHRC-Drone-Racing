@@ -32,7 +32,7 @@ env:
 # ─────────────────────────────────────────────────────────
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_targets: ${{ steps.build-matrix.outputs.has_targets }}
@@ -101,20 +101,12 @@ jobs:
     name: "${{ matrix.image_name }} (${{ matrix.dockerfile }})"
     needs: detect-changes
     if: needs.detect-changes.outputs.has_targets == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache
-          df -h
 
       - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1
         with:
