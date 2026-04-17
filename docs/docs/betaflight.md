@@ -42,13 +42,13 @@ set blackbox_mode = ALWAYS
 set blackbox_disable_pids = ON
 set blackbox_disable_rc = ON
 set blackbox_disable_setpoint = ON
-set blackbox_disable_bat = ON
+# set blackbox_disable_bat = ON
 set blackbox_disable_alt = ON
 set blackbox_disable_rssi = ON
 set blackbox_disable_debug = ON
 set blackbox_disable_motors = ON
 set blackbox_disable_gps = ON
-set blackbox_disable_rpm = ON
+# set blackbox_disable_rpm = ON
 set blackbox_disable_attitude = ON  # Replaces 'mag' in newer versions
 
 # Set the Blackbox rate (assuming 8kHz PID loop)
