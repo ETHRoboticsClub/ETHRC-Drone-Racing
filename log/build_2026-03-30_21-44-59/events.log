@@ -1,0 +1,49 @@
+[0.000000] (-) TimerEvent: {}
+[0.000298] (-) JobUnselected: {'identifier': 'aruco_pose_estimation'}
+[0.000661] (-) JobUnselected: {'identifier': 'drone_control'}
+[0.000704] (-) JobUnselected: {'identifier': 'ekf'}
+[0.000736] (-) JobUnselected: {'identifier': 'gazebo_ground_thruth'}
+[0.000766] (-) JobUnselected: {'identifier': 'gazebo_ros_bridges'}
+[0.000784] (-) JobUnselected: {'identifier': 'image_viewer_pkg'}
+[0.000821] (-) JobUnselected: {'identifier': 'mpc'}
+[0.000838] (-) JobUnselected: {'identifier': 'my_mavsdk'}
+[0.000856] (-) JobUnselected: {'identifier': 'ov_core'}
+[0.000872] (-) JobUnselected: {'identifier': 'ov_data'}
+[0.000889] (-) JobUnselected: {'identifier': 'ov_eval'}
+[0.000906] (-) JobUnselected: {'identifier': 'ov_init'}
+[0.000922] (-) JobUnselected: {'identifier': 'ov_msckf'}
+[0.000939] (-) JobUnselected: {'identifier': 'pointcloud_gt'}
+[0.000956] (-) JobUnselected: {'identifier': 'px4_msgs'}
+[0.000973] (-) JobUnselected: {'identifier': 'vicon_receiver'}
+[0.000997] (mpcc) JobQueued: {'identifier': 'mpcc', 'dependencies': OrderedDict()}
+[0.001021] (mpcc) JobStarted: {'identifier': 'mpcc'}
+[0.099974] (-) TimerEvent: {}
+[0.200329] (-) TimerEvent: {}
+[0.300588] (-) TimerEvent: {}
+[0.400867] (-) TimerEvent: {}
+[0.501146] (-) TimerEvent: {}
+[0.601391] (-) TimerEvent: {}
+[0.701654] (-) TimerEvent: {}
+[0.715184] (mpcc) Command: {'cmd': ['/usr/bin/python3', '-W', 'ignore:setup.py install is deprecated', '-W', 'ignore:easy_install command is deprecated', 'setup.py', 'egg_info', '--egg-base', '../../build/mpcc', 'build', '--build-base', '/home/drone_dev/ros_ws/build/mpcc/build', 'install', '--record', '/home/drone_dev/ros_ws/build/mpcc/install.log', '--single-version-externally-managed', 'install_data'], 'cwd': '/home/drone_dev/ros_ws/src/mpcc', 'env': {'GZ_SIM_RESOURCE_PATH': '/home/drone_dev/sim/gazebo/models:/home/drone_dev/sim/gazebo/worlds', 'HOSTNAME': 'mattia-IdeaPad-Gaming-3-15IHU6', 'GDK_SYNCHRONIZE': '1', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/home/drone_dev/ros_ws/install/vicon_receiver/lib:/home/drone_dev/ros_ws/install/px4_msgs/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/acados/lib:/opt/ros/humble/lib', 'ACADOS_SOURCE_DIR': '/opt/acados', 'HOME': '/home/drone_dev', 'ROS_PYTHON_VERSION': '3', 'TERA_PATH': '/opt/acados/bin/t_renderer', 'WORKSPACE': '/home/drone_dev/ros_ws', 'COLCON_PREFIX_PATH': '/home/drone_dev/ros_ws/install:/opt/ros/humble', 'ROS_DISTRO': 'humble', 'PULSE_SERVER': '', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm', 'ROS_LOCALHOST_ONLY': '0', 'QT_X11_NO_MITSHM': '1', 'PATH': '/opt/ros/humble/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', 'XDG_RUNTIME_DIR': '/run/user/1000', 'DISPLAY': ':0', 'LANG': 'en_US.UTF-8', 'RMW_IMPLEMENTATION': 'rmw_cyclonedds_cpp', 'XAUTHORITY': '/run/user/1000/.mutter-Xwaylandauth.HXO4M3', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:', 'ROS_DOMAIN_ID': '1', 'AMENT_PREFIX_PATH': '/home/drone_dev/ros_ws/install/vicon_receiver:/home/drone_dev/ros_ws/install/drone_control:/home/drone_dev/ros_ws/install/my_mavsdk:/home/drone_dev/ros_ws/install/px4_msgs:/home/drone_dev/ros_ws/install/mpcc:/home/drone_dev/ros_ws/install/mpc:/home/drone_dev/ros_ws/install/image_viewer_pkg:/home/drone_dev/ros_ws/install/gazebo_ros_bridges:/opt/ros/humble', 'DEBIAN_FRONTEND': 'noninteractive', 'NO_AT_BRIDGE': '1', 'IGN_GAZEBO_RESOURCE_PATH': '/home/drone_dev/sim/gazebo/models:/home/drone_dev/sim/gazebo/worlds', 'PWD': '/home/drone_dev/ros_ws/build/mpcc', 'LC_ALL': 'en_US.UTF-8', 'MKDOCS_PORT': '8000', 'PYTHONPATH': '/home/drone_dev/ros_ws/build/mpcc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/drone_control/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/mpc/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/image_viewer_pkg/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages:/opt/ros/humble/lib/python3.10/site-packages', 'COLCON': '1', 'CMAKE_PREFIX_PATH': '/home/drone_dev/ros_ws/install/vicon_receiver:/home/drone_dev/ros_ws/install/px4_msgs:/opt/ros/humble'}, 'shell': False}
+[0.801836] (-) TimerEvent: {}
+[0.902135] (-) TimerEvent: {}
+[0.943029] (mpcc) StdoutLine: {'line': b'running egg_info\n'}
+[0.943409] (mpcc) StdoutLine: {'line': b'writing ../../build/mpcc/mpcc.egg-info/PKG-INFO\n'}
+[0.943592] (mpcc) StdoutLine: {'line': b'writing dependency_links to ../../build/mpcc/mpcc.egg-info/dependency_links.txt\n'}
+[0.943666] (mpcc) StdoutLine: {'line': b'writing entry points to ../../build/mpcc/mpcc.egg-info/entry_points.txt\n'}
+[0.943772] (mpcc) StdoutLine: {'line': b'writing requirements to ../../build/mpcc/mpcc.egg-info/requires.txt\n'}
+[0.943836] (mpcc) StdoutLine: {'line': b'writing top-level names to ../../build/mpcc/mpcc.egg-info/top_level.txt\n'}
+[0.944342] (mpcc) StdoutLine: {'line': b"reading manifest file '../../build/mpcc/mpcc.egg-info/SOURCES.txt'\n"}
+[0.944936] (mpcc) StdoutLine: {'line': b"writing manifest file '../../build/mpcc/mpcc.egg-info/SOURCES.txt'\n"}
+[0.945001] (mpcc) StdoutLine: {'line': b'running build\n'}
+[0.945064] (mpcc) StdoutLine: {'line': b'running install\n'}
+[0.945142] (mpcc) StdoutLine: {'line': b'running install_data\n'}
+[0.945215] (mpcc) StdoutLine: {'line': b'running install_egg_info\n'}
+[0.948441] (mpcc) StdoutLine: {'line': b"removing '/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages/mpcc-0.0.1-py3.10.egg-info' (and everything under it)\n"}
+[0.948640] (mpcc) StdoutLine: {'line': b'Copying ../../build/mpcc/mpcc.egg-info to /home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages/mpcc-0.0.1-py3.10.egg-info\n'}
+[0.949072] (mpcc) StdoutLine: {'line': b'running install_scripts\n'}
+[0.978470] (mpcc) StdoutLine: {'line': b"writing list of installed files to '/home/drone_dev/ros_ws/build/mpcc/install.log'\n"}
+[0.998048] (mpcc) CommandEnded: {'returncode': 0}
+[1.002352] (-) TimerEvent: {}
+[1.005117] (mpcc) JobEnded: {'identifier': 'mpcc', 'rc': 0}
+[1.005605] (-) EventReactorShutdown: {}

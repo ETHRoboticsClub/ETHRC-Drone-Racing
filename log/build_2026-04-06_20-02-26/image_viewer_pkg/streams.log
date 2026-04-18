@@ -1,0 +1,21 @@
+[8.062s] Invoking command in '/home/drone_dev/ros_ws/src/utils/image_viewer_pkg': PYTHONPATH=/home/drone_dev/ros_ws/build/image_viewer_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/image_viewer_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/image_viewer_pkg build --build-base /home/drone_dev/ros_ws/build/image_viewer_pkg/build install --record /home/drone_dev/ros_ws/build/image_viewer_pkg/install.log --single-version-externally-managed install_data
+[9.312s] running egg_info
+[9.313s] writing ../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/PKG-INFO
+[9.314s] writing dependency_links to ../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/dependency_links.txt
+[9.314s] writing entry points to ../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/entry_points.txt
+[9.315s] writing requirements to ../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/requires.txt
+[9.315s] writing top-level names to ../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/top_level.txt
+[9.326s] reading manifest file '../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/SOURCES.txt'
+[9.341s] writing manifest file '../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/SOURCES.txt'
+[9.341s] running build
+[9.341s] running build_py
+[9.345s] running install
+[9.346s] running install_lib
+[9.362s] running install_data
+[9.362s] running install_egg_info
+[9.380s] removing '/home/drone_dev/ros_ws/install/image_viewer_pkg/lib/python3.10/site-packages/image_viewer_pkg-0.0.0-py3.10.egg-info' (and everything under it)
+[9.381s] Copying ../../../build/image_viewer_pkg/image_viewer_pkg.egg-info to /home/drone_dev/ros_ws/install/image_viewer_pkg/lib/python3.10/site-packages/image_viewer_pkg-0.0.0-py3.10.egg-info
+[9.388s] running install_scripts
+[9.541s] Installing image_viewer script to /home/drone_dev/ros_ws/install/image_viewer_pkg/lib/image_viewer_pkg
+[9.542s] writing list of installed files to '/home/drone_dev/ros_ws/build/image_viewer_pkg/install.log'
+[9.705s] Invoked command in '/home/drone_dev/ros_ws/src/utils/image_viewer_pkg' returned '0': PYTHONPATH=/home/drone_dev/ros_ws/build/image_viewer_pkg/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/image_viewer_pkg/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/image_viewer_pkg build --build-base /home/drone_dev/ros_ws/build/image_viewer_pkg/build install --record /home/drone_dev/ros_ws/build/image_viewer_pkg/install.log --single-version-externally-managed install_data

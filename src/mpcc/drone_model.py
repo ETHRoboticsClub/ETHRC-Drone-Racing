@@ -56,13 +56,14 @@ class DroneMpccModel:
     # Rotor geometry in FRD body frame (from Zephyros airframe 4023_gz_zephyros)
     # Positions from SolidWorks URDF (x-forward, y-right).
     # KM sign: + = CCW (looking from above), - = CW.
-    #   Rotor 0: front-right  CCW  PX=+0.0884  PY=+0.0720  KM=+0.05
-    #   Rotor 1: back-left    CCW  PX=-0.0822  PY=-0.0680  KM=+0.05
-    #   Rotor 2: front-left   CW   PX=+0.0886  PY=-0.0680  KM=-0.05
-    #   Rotor 3: back-right   CW   PX=-0.0818  PY=+0.0718  KM=-0.05
+    #   Rotor 0: front-right  CCW  PX=+0.0884  PY=+0.0720  KM=+0.016
+    #   Rotor 1: back-left    CCW  PX=-0.0822  PY=-0.0680  KM=+0.016
+    #   Rotor 2: front-left   CW   PX=+0.0886  PY=-0.0680  KM=-0.016
+    #   Rotor 3: back-right   CW   PX=-0.0818  PY=+0.0718  KM=-0.016
     ROTOR_PX = np.array([+0.0884, -0.0822, +0.0886, -0.0818])
     ROTOR_PY = np.array([+0.0720, -0.0680, -0.0680, +0.0718])
-    ROTOR_KM = np.array([+0.05,   +0.05,   -0.05,   -0.05  ])
+    # Match Zephyros Gazebo SDF momentConstant=0.016, preserving rotor directions.
+    ROTOR_KM = np.array([+0.016,  +0.016,  -0.016,  -0.016 ])
 
     # Drag coefficients — linear drag in body frame (eq. 14), set to 0
     DRAG = np.zeros(3)

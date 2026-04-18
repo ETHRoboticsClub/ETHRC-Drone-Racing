@@ -1,0 +1,12 @@
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/uninstall.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/ov_core_uninstall.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/ov_core_lib.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/test_webcam.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/test_profile.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/test.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/edit_cache.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/rebuild_cache.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/list_install_components.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/install.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/install/local.dir
+/home/drone_dev/ros_ws/build/ov_core/CMakeFiles/install/strip.dir

@@ -1,0 +1,10 @@
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:104: CMakeFiles/ov_core_lib.dir/src/cpi/CpiV2.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:90: CMakeFiles/ov_core_lib.dir/src/cpi/CpiV1.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:132: CMakeFiles/ov_core_lib.dir/src/track/TrackBase.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:174: CMakeFiles/ov_core_lib.dir/src/track/TrackKLT.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:188: CMakeFiles/ov_core_lib.dir/src/track/TrackSIM.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:146: CMakeFiles/ov_core_lib.dir/src/track/TrackAruco.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:160: CMakeFiles/ov_core_lib.dir/src/track/TrackDescriptor.cpp.o] Interrupt
+gmake[2]: *** [CMakeFiles/ov_core_lib.dir/build.make:118: CMakeFiles/ov_core_lib.dir/src/sim/BsplineSE3.cpp.o] Interrupt
+gmake[1]: *** [CMakeFiles/Makefile2:141: CMakeFiles/ov_core_lib.dir/all] Interrupt
+gmake: *** [Makefile:146: all] Interrupt

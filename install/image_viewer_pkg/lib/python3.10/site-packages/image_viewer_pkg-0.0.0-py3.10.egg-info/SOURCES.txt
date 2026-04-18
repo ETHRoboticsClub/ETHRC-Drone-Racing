@@ -1,0 +1,16 @@
+package.xml
+setup.cfg
+setup.py
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/PKG-INFO
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/SOURCES.txt
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/dependency_links.txt
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/entry_points.txt
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/requires.txt
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/top_level.txt
+../../../build/image_viewer_pkg/image_viewer_pkg.egg-info/zip-safe
+image_viewer_pkg/__init__.py
+image_viewer_pkg/image_view.py
+resource/image_viewer_pkg
+test/test_copyright.py
+test/test_flake8.py
+test/test_pep257.py

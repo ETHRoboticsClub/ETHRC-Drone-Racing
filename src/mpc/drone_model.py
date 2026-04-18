@@ -55,7 +55,8 @@ class DroneModel(object):
         # Zephyros rotor geometry (FRD body frame) — same as mpcc/drone_model.py
         self.rotor_px = np.array([+0.0884, -0.0822, +0.0886, -0.0818])
         self.rotor_py = np.array([+0.0720, -0.0680, -0.0680, +0.0718])
-        self.rotor_km = np.array([+0.05,   +0.05,   -0.05,   -0.05  ])
+        # Match Zephyros Gazebo SDF momentConstant=0.016, preserving rotor directions.
+        self.rotor_km = np.array([+0.016,  +0.016,  -0.016,  -0.016 ])
 
         # Hover values
         self.hover_thrust_per_rotor_N = self.m * self.g / 4.0

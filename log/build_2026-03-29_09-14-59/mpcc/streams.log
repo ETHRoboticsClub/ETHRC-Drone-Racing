@@ -1,0 +1,16 @@
+[10.935s] Invoking command in '/home/drone_dev/ros_ws/build/mpcc': PYTHONPATH=/home/drone_dev/ros_ws/build/mpcc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/drone_dev/ros_ws/build/mpcc/build --no-deps symlink_data --force
+[11.100s] Fatal Python error: init_import_site: Failed to import the site module
+[11.101s] Python runtime state: initialized
+[11.101s] Traceback (most recent call last):
+[11.101s]   File "/usr/lib/python3.10/site.py", line 636, in <module>
+[11.101s]     main()
+[11.101s]   File "/usr/lib/python3.10/site.py", line 623, in main
+[11.101s]     known_paths = addsitepackages(known_paths)
+[11.102s]   File "/usr/lib/python3.10/site.py", line 406, in addsitepackages
+[11.102s]     addsitedir(sitedir, known_paths)
+[11.102s]   File "/usr/lib/python3.10/site.py", line 232, in addsitedir
+[11.102s]     addpackage(sitedir, name, known_paths)
+[11.102s]   File "/usr/lib/python3.10/site.py", line 192, in addpackage
+[11.102s]     exec(line)
+[11.103s]   File "<string>", line 1, in <module>
+[11.103s] KeyboardInterrupt

@@ -1,0 +1,23 @@
+[10.500s] Invoking command in '/home/drone_dev/ros_ws/build/mpc': PYTHONPATH=/home/drone_dev/ros_ws/build/mpc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/mpc/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /home/drone_dev/ros_ws/build/mpc/build --no-deps symlink_data --force
+[11.053s] Traceback (most recent call last):
+[11.054s]   File "/home/drone_dev/ros_ws/build/mpc/setup.py", line 2, in <module>
+[11.073s]     from setuptools import find_packages, setup
+[11.073s]   File "/usr/local/lib/python3.10/dist-packages/setuptools/__init__.py", line 10, in <module>
+[11.073s]     import distutils.core
+[11.073s]   File "/usr/lib/python3.10/distutils/core.py", line 18, in <module>
+[11.084s]     from distutils.config import PyPIRCCommand
+[11.084s]   File "/usr/lib/python3.10/distutils/config.py", line 7, in <module>
+[11.085s]     from configparser import RawConfigParser
+[11.085s]   File "/usr/lib/python3.10/configparser.py", line 377, in <module>
+[11.085s]     class BasicInterpolation(Interpolation):
+[11.085s]   File "/usr/lib/python3.10/configparser.py", line 392, in BasicInterpolation
+[11.085s]     _KEYCRE = re.compile(r"%\(([^)]+)\)s")
+[11.086s]   File "/usr/lib/python3.10/re.py", line 251, in compile
+[11.088s]     return _compile(pattern, flags)
+[11.089s]   File "/usr/lib/python3.10/re.py", line 303, in _compile
+[11.089s]     p = sre_compile.compile(pattern, flags)
+[11.089s]   File "/usr/lib/python3.10/sre_compile.py", line 806, in compile
+[11.091s]     p.state.groups-1,
+[11.091s]   File "/usr/lib/python3.10/sre_parse.py", line 82, in groups
+[11.091s]     @property
+[11.092s] KeyboardInterrupt

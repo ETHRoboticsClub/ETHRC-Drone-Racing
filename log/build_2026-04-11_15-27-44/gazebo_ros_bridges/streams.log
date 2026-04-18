@@ -1,0 +1,20 @@
+[11.365s] Invoking command in '/home/drone_dev/ros_ws/src/utils/gazebo_ros_bridges': PYTHONPATH=/home/drone_dev/ros_ws/build/gazebo_ros_bridges/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/gazebo_ros_bridges build --build-base /home/drone_dev/ros_ws/build/gazebo_ros_bridges/build install --record /home/drone_dev/ros_ws/build/gazebo_ros_bridges/install.log --single-version-externally-managed install_data
+[13.369s] running egg_info
+[13.385s] writing ../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/PKG-INFO
+[13.385s] writing dependency_links to ../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/dependency_links.txt
+[13.385s] writing entry points to ../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/entry_points.txt
+[13.385s] writing requirements to ../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/requires.txt
+[13.386s] writing top-level names to ../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/top_level.txt
+[13.425s] reading manifest file '../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/SOURCES.txt'
+[13.435s] writing manifest file '../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info/SOURCES.txt'
+[13.436s] running build
+[13.438s] running build_py
+[13.441s] running install
+[13.445s] running install_lib
+[13.452s] running install_data
+[13.453s] running install_egg_info
+[13.468s] removing '/home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages/gazebo_ros_bridges-0.0.0-py3.10.egg-info' (and everything under it)
+[13.472s] Copying ../../../build/gazebo_ros_bridges/gazebo_ros_bridges.egg-info to /home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages/gazebo_ros_bridges-0.0.0-py3.10.egg-info
+[13.476s] running install_scripts
+[13.771s] writing list of installed files to '/home/drone_dev/ros_ws/build/gazebo_ros_bridges/install.log'
+[13.933s] Invoked command in '/home/drone_dev/ros_ws/src/utils/gazebo_ros_bridges' returned '0': PYTHONPATH=/home/drone_dev/ros_ws/build/gazebo_ros_bridges/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/gazebo_ros_bridges build --build-base /home/drone_dev/ros_ws/build/gazebo_ros_bridges/build install --record /home/drone_dev/ros_ws/build/gazebo_ros_bridges/install.log --single-version-externally-managed install_data

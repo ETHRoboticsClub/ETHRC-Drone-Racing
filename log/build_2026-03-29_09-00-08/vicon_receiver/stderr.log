@@ -1,0 +1,4 @@
+[01m[K/home/drone_dev/ros_ws/src/ros2-vicon-receiver/vicon_receiver/src/communicator.cpp:[m[K In member function ‘[01m[Kvoid Communicator::get_frame()[m[K’:
+[01m[K/home/drone_dev/ros_ws/src/ros2-vicon-receiver/vicon_receiver/src/communicator.cpp:153:27:[m[K [01;35m[Kwarning: [m[Kvariable ‘[01m[Kframe_number[m[K’ set but not used [[01;35m[K-Wunused-but-set-variable[m[K]
+  153 |     Output_GetFrameNumber [01;35m[Kframe_number[m[K = vicon_client.GetFrameNumber();
+      |                           [01;35m[K^~~~~~~~~~~~[m[K

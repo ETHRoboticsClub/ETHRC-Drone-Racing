@@ -1,0 +1,5 @@
+# generated from colcon_core/shell/template/command_prefix.sh.em
+. "/home/drone_dev/ros_ws/install/mpc/share/mpc/package.sh"
+. "/home/drone_dev/ros_ws/install/mpcc/share/mpcc/package.sh"
+. "/home/drone_dev/ros_ws/install/px4_msgs/share/px4_msgs/package.sh"
+. "/home/drone_dev/ros_ws/install/my_mavsdk/share/my_mavsdk/package.sh"

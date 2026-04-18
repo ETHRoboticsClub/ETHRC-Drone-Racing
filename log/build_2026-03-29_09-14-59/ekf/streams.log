@@ -1,0 +1,34 @@
+[2.588s] Invoking command in '/home/drone_dev/ros_ws/build/ekf': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/home/drone_dev/ros_ws/install/drone_control:/home/drone_dev/ros_ws/install/my_mavsdk:/home/drone_dev/ros_ws/install/mpcc:/home/drone_dev/ros_ws/install/mpc:/home/drone_dev/ros_ws/install/image_viewer_pkg:/home/drone_dev/ros_ws/install/gazebo_ros_bridges /usr/bin/cmake /home/drone_dev/ros_ws/src/perception/ekf -DCMAKE_BUILD_TYPE=RelWithDebInfo -DAMENT_CMAKE_SYMLINK_INSTALL=1 -DCMAKE_INSTALL_PREFIX=/home/drone_dev/ros_ws/install/ekf
+[4.036s] -- The C compiler identification is GNU 11.4.0
+[4.036s] -- The CXX compiler identification is GNU 11.4.0
+[4.037s] -- Detecting C compiler ABI info
+[4.037s] -- Detecting C compiler ABI info - done
+[4.037s] -- Check for working C compiler: /usr/bin/cc - skipped
+[4.037s] -- Detecting C compile features
+[4.037s] -- Detecting C compile features - done
+[4.038s] -- Detecting CXX compiler ABI info
+[4.038s] -- Detecting CXX compiler ABI info - done
+[4.038s] -- Check for working CXX compiler: /usr/bin/c++ - skipped
+[4.038s] -- Detecting CXX compile features
+[4.038s] -- Detecting CXX compile features - done
+[4.039s] -- Found ament_cmake: 1.3.13 (/opt/ros/humble/share/ament_cmake/cmake)
+[4.622s] -- Found Python3: /usr/bin/python3 (found version "3.10.12") found components: Interpreter 
+[5.147s] -- Override CMake install command with custom implementation using symlinks instead of copying resources
+[5.456s] -- Found rclcpp: 16.0.18 (/opt/ros/humble/share/rclcpp/cmake)
+[6.124s] -- Found rosidl_generator_c: 3.1.8 (/opt/ros/humble/share/rosidl_generator_c/cmake)
+[6.207s] -- Found rosidl_adapter: 3.1.8 (/opt/ros/humble/share/rosidl_adapter/cmake)
+[6.345s] -- Found rosidl_generator_cpp: 3.1.8 (/opt/ros/humble/share/rosidl_generator_cpp/cmake)
+[6.570s] -- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+[6.863s] -- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+[7.407s] -- Found rmw_implementation_cmake: 6.1.2 (/opt/ros/humble/share/rmw_implementation_cmake/cmake)
+[7.439s] -- Found rmw_cyclonedds_cpp: 1.3.4 (/opt/ros/humble/share/rmw_cyclonedds_cpp/cmake)
+[7.703s] -- Using RMW implementation 'rmw_cyclonedds_cpp' as default
+[7.815s] -- Looking for pthread.h
+[8.432s] -- Looking for pthread.h - found
+[8.443s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+[8.795s] -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+[8.811s] -- Found Threads: TRUE  
+[9.170s] -- Found nav_msgs: 4.9.1 (/opt/ros/humble/share/nav_msgs/cmake)
+[10.870s] -- Configuring done
+[10.941s] -- Generating done
+[10.966s] -- Build files have been written to: /home/drone_dev/ros_ws/build/ekf

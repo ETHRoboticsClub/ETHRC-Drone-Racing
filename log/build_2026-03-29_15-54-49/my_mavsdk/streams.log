@@ -1,0 +1,25 @@
+[0.927s] Invoking command in '/home/drone_dev/ros_ws/src/my_mavsdk': CMAKE_PREFIX_PATH=/home/drone_dev/ros_ws/install/px4_msgs:/home/drone_dev/ros_ws/install/vicon_receiver:/opt/ros/humble LD_LIBRARY_PATH=/home/drone_dev/ros_ws/install/px4_msgs/lib:/home/drone_dev/ros_ws/install/vicon_receiver/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/acados/lib:/opt/ros/humble/lib PYTHONPATH=/home/drone_dev/ros_ws/build/my_mavsdk/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/my_mavsdk build --build-base /home/drone_dev/ros_ws/build/my_mavsdk/build install --record /home/drone_dev/ros_ws/build/my_mavsdk/install.log --single-version-externally-managed install_data
+[1.172s] running egg_info
+[1.173s] writing ../../build/my_mavsdk/my_mavsdk.egg-info/PKG-INFO
+[1.173s] writing dependency_links to ../../build/my_mavsdk/my_mavsdk.egg-info/dependency_links.txt
+[1.173s] writing entry points to ../../build/my_mavsdk/my_mavsdk.egg-info/entry_points.txt
+[1.173s] writing requirements to ../../build/my_mavsdk/my_mavsdk.egg-info/requires.txt
+[1.173s] writing top-level names to ../../build/my_mavsdk/my_mavsdk.egg-info/top_level.txt
+[1.176s] reading manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+[1.176s] writing manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+[1.176s] running build
+[1.177s] running build_py
+[1.177s] running install
+[1.177s] running install_lib
+[1.179s] running install_data
+[1.179s] running install_egg_info
+[1.181s] removing '/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk-0.0.0-py3.10.egg-info' (and everything under it)
+[1.182s] Copying ../../build/my_mavsdk/my_mavsdk.egg-info to /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk-0.0.0-py3.10.egg-info
+[1.182s] running install_scripts
+[1.213s] Installing mavsdk_client script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[1.214s] Installing px4_attitude_rate_offboard script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[1.214s] Installing px4_imu_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[1.214s] Installing px4_motor_torque_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[1.214s] Installing sin_thrust_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[1.214s] writing list of installed files to '/home/drone_dev/ros_ws/build/my_mavsdk/install.log'
+[1.238s] Invoked command in '/home/drone_dev/ros_ws/src/my_mavsdk' returned '0': CMAKE_PREFIX_PATH=/home/drone_dev/ros_ws/install/px4_msgs:/home/drone_dev/ros_ws/install/vicon_receiver:/opt/ros/humble LD_LIBRARY_PATH=/home/drone_dev/ros_ws/install/px4_msgs/lib:/home/drone_dev/ros_ws/install/vicon_receiver/lib:/opt/ros/humble/opt/rviz_ogre_vendor/lib:/opt/ros/humble/lib/x86_64-linux-gnu:/opt/acados/lib:/opt/ros/humble/lib PYTHONPATH=/home/drone_dev/ros_ws/build/my_mavsdk/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/my_mavsdk build --build-base /home/drone_dev/ros_ws/build/my_mavsdk/build install --record /home/drone_dev/ros_ws/build/my_mavsdk/install.log --single-version-externally-managed install_data

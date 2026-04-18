@@ -1,0 +1,18 @@
+[2.512s] Invoking command in '/home/drone_dev/ros_ws/src/mpcc': PYTHONPATH=/home/drone_dev/ros_ws/build/mpcc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mpcc build --build-base /home/drone_dev/ros_ws/build/mpcc/build install --record /home/drone_dev/ros_ws/build/mpcc/install.log --single-version-externally-managed install_data
+[2.932s] running egg_info
+[2.933s] writing ../../build/mpcc/mpcc.egg-info/PKG-INFO
+[2.933s] writing dependency_links to ../../build/mpcc/mpcc.egg-info/dependency_links.txt
+[2.933s] writing entry points to ../../build/mpcc/mpcc.egg-info/entry_points.txt
+[2.933s] writing requirements to ../../build/mpcc/mpcc.egg-info/requires.txt
+[2.933s] writing top-level names to ../../build/mpcc/mpcc.egg-info/top_level.txt
+[2.933s] reading manifest file '../../build/mpcc/mpcc.egg-info/SOURCES.txt'
+[2.934s] writing manifest file '../../build/mpcc/mpcc.egg-info/SOURCES.txt'
+[2.934s] running build
+[2.934s] running install
+[2.935s] running install_data
+[2.935s] running install_egg_info
+[2.941s] removing '/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages/mpcc-0.0.1-py3.10.egg-info' (and everything under it)
+[2.941s] Copying ../../build/mpcc/mpcc.egg-info to /home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages/mpcc-0.0.1-py3.10.egg-info
+[2.942s] running install_scripts
+[2.995s] writing list of installed files to '/home/drone_dev/ros_ws/build/mpcc/install.log'
+[3.035s] Invoked command in '/home/drone_dev/ros_ws/src/mpcc' returned '0': PYTHONPATH=/home/drone_dev/ros_ws/build/mpcc/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/mpcc/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/mpcc build --build-base /home/drone_dev/ros_ws/build/mpcc/build install --record /home/drone_dev/ros_ws/build/mpcc/install.log --single-version-externally-managed install_data

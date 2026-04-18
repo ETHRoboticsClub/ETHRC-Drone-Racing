@@ -1,0 +1,20 @@
+[4.621s] Invoking command in '/home/drone_dev/ros_ws/src/utils/gazebo_ros_bridges': PYTHONPATH=/home/drone_dev/ros_ws/build/gazebo_ros_bridges/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/gazebo_ros_bridges build --build-base /home/drone_dev/ros_ws/build/gazebo_ros_bridges/build install --record /home/drone_dev/ros_ws/build/gazebo_ros_bridges/install.log --single-version-externally-managed install_data
+[5.553s] Traceback (most recent call last):
+[5.553s]   File "/home/drone_dev/ros_ws/src/utils/gazebo_ros_bridges/setup.py", line 1, in <module>
+[5.554s]     from setuptools import find_packages, setup
+[5.554s]   File "/usr/local/lib/python3.10/dist-packages/setuptools/__init__.py", line 18, in <module>
+[5.554s]     from setuptools.dist import Distribution
+[5.554s]   File "/usr/local/lib/python3.10/dist-packages/setuptools/dist.py", line 32, in <module>
+[5.554s]     from setuptools.extern.more_itertools import unique_everseen
+[5.555s]   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+[5.556s]   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+[5.556s]   File "<frozen importlib._bootstrap>", line 674, in _load_unlocked
+[5.556s]   File "<frozen importlib._bootstrap>", line 571, in module_from_spec
+[5.556s]   File "/usr/local/lib/python3.10/dist-packages/setuptools/extern/__init__.py", line 52, in create_module
+[5.556s]     return self.load_module(spec.name)
+[5.557s]   File "/usr/local/lib/python3.10/dist-packages/setuptools/extern/__init__.py", line 37, in load_module
+[5.557s]     __import__(extant)
+[5.557s]   File "/usr/local/lib/python3.10/dist-packages/setuptools/_vendor/more_itertools/__init__.py", line 1, in <module>
+[5.557s]     from .more import *  # noqa
+[5.557s] KeyboardInterrupt
+[5.598s] Invoked command in '/home/drone_dev/ros_ws/src/utils/gazebo_ros_bridges' returned '-2': PYTHONPATH=/home/drone_dev/ros_ws/build/gazebo_ros_bridges/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/gazebo_ros_bridges/lib/python3.10/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../../build/gazebo_ros_bridges build --build-base /home/drone_dev/ros_ws/build/gazebo_ros_bridges/build install --record /home/drone_dev/ros_ws/build/gazebo_ros_bridges/install.log --single-version-externally-managed install_data

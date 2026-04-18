@@ -73,7 +73,7 @@ int drone_mpcc_acados_sim_create(drone_mpcc_sim_solver_capsule * capsule)
     const int np = DRONE_MPCC_NP;
     bool tmp_bool;
 
-    double Tsim = 0.05;
+    double Tsim = 0.04;
 
     capsule->acados_sim_mem = NULL;
 

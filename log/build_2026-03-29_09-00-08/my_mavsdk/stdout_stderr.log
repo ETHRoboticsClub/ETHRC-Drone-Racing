@@ -1,0 +1,54 @@
+running egg_info
+creating ../../build/my_mavsdk/my_mavsdk.egg-info
+writing ../../build/my_mavsdk/my_mavsdk.egg-info/PKG-INFO
+writing dependency_links to ../../build/my_mavsdk/my_mavsdk.egg-info/dependency_links.txt
+writing entry points to ../../build/my_mavsdk/my_mavsdk.egg-info/entry_points.txt
+writing requirements to ../../build/my_mavsdk/my_mavsdk.egg-info/requires.txt
+writing top-level names to ../../build/my_mavsdk/my_mavsdk.egg-info/top_level.txt
+writing manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+reading manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+writing manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/drone_dev/ros_ws/build/my_mavsdk/build
+creating /home/drone_dev/ros_ws/build/my_mavsdk/build/lib
+creating /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+copying my_mavsdk/mavsdk_client.py -> /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+copying my_mavsdk/px4_motor_torque_publisher_node.py -> /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+copying my_mavsdk/px4_imu_publisher_node.py -> /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+copying my_mavsdk/px4_attitude_rate_offboard_node.py -> /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+copying my_mavsdk/sin_thrust_publisher_node.py -> /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+copying my_mavsdk/__init__.py -> /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk
+running install
+running install_lib
+creating /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+copying /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk/mavsdk_client.py -> /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+copying /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk/px4_motor_torque_publisher_node.py -> /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+copying /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk/px4_imu_publisher_node.py -> /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+copying /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk/px4_attitude_rate_offboard_node.py -> /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+copying /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk/sin_thrust_publisher_node.py -> /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+copying /home/drone_dev/ros_ws/build/my_mavsdk/build/lib/my_mavsdk/__init__.py -> /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk
+byte-compiling /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk/mavsdk_client.py to mavsdk_client.cpython-310.pyc
+byte-compiling /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk/px4_motor_torque_publisher_node.py to px4_motor_torque_publisher_node.cpython-310.pyc
+byte-compiling /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk/px4_imu_publisher_node.py to px4_imu_publisher_node.cpython-310.pyc
+byte-compiling /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk/px4_attitude_rate_offboard_node.py to px4_attitude_rate_offboard_node.cpython-310.pyc
+byte-compiling /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk/sin_thrust_publisher_node.py to sin_thrust_publisher_node.cpython-310.pyc
+byte-compiling /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk/__init__.py to __init__.cpython-310.pyc
+running install_data
+creating /home/drone_dev/ros_ws/install/my_mavsdk/share/ament_index
+creating /home/drone_dev/ros_ws/install/my_mavsdk/share/ament_index/resource_index
+creating /home/drone_dev/ros_ws/install/my_mavsdk/share/ament_index/resource_index/packages
+copying resource/my_mavsdk -> /home/drone_dev/ros_ws/install/my_mavsdk/share/ament_index/resource_index/packages
+copying package.xml -> /home/drone_dev/ros_ws/install/my_mavsdk/share/my_mavsdk
+creating /home/drone_dev/ros_ws/install/my_mavsdk/share/my_mavsdk/config
+copying config/mavsdk_client_config.yaml -> /home/drone_dev/ros_ws/install/my_mavsdk/share/my_mavsdk/config
+creating /home/drone_dev/ros_ws/install/my_mavsdk/share/my_mavsdk/launch
+running install_egg_info
+Copying ../../build/my_mavsdk/my_mavsdk.egg-info to /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk-0.0.0-py3.10.egg-info
+running install_scripts
+Installing mavsdk_client script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+Installing px4_attitude_rate_offboard script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+Installing px4_imu_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+Installing px4_motor_torque_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+Installing sin_thrust_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+writing list of installed files to '/home/drone_dev/ros_ws/build/my_mavsdk/install.log'

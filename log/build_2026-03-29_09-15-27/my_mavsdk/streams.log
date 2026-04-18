@@ -1,0 +1,25 @@
+[2.184s] Invoking command in '/home/drone_dev/ros_ws/src/my_mavsdk': AMENT_PREFIX_PATH=/home/drone_dev/ros_ws/install/px4_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/drone_dev/ros_ws/install/px4_msgs:${CMAKE_PREFIX_PATH} LD_LIBRARY_PATH=/home/drone_dev/ros_ws/install/px4_msgs/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/drone_dev/ros_ws/build/my_mavsdk/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/my_mavsdk build --build-base /home/drone_dev/ros_ws/build/my_mavsdk/build install --record /home/drone_dev/ros_ws/build/my_mavsdk/install.log --single-version-externally-managed install_data
+[2.906s] running egg_info
+[2.907s] writing ../../build/my_mavsdk/my_mavsdk.egg-info/PKG-INFO
+[2.908s] writing dependency_links to ../../build/my_mavsdk/my_mavsdk.egg-info/dependency_links.txt
+[2.908s] writing entry points to ../../build/my_mavsdk/my_mavsdk.egg-info/entry_points.txt
+[2.908s] writing requirements to ../../build/my_mavsdk/my_mavsdk.egg-info/requires.txt
+[2.909s] writing top-level names to ../../build/my_mavsdk/my_mavsdk.egg-info/top_level.txt
+[2.915s] reading manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+[2.917s] writing manifest file '../../build/my_mavsdk/my_mavsdk.egg-info/SOURCES.txt'
+[2.918s] running build
+[2.918s] running build_py
+[2.919s] running install
+[2.920s] running install_lib
+[2.924s] running install_data
+[2.924s] running install_egg_info
+[2.932s] removing '/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk-0.0.0-py3.10.egg-info' (and everything under it)
+[2.932s] Copying ../../build/my_mavsdk/my_mavsdk.egg-info to /home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages/my_mavsdk-0.0.0-py3.10.egg-info
+[2.934s] running install_scripts
+[3.019s] Installing mavsdk_client script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[3.019s] Installing px4_attitude_rate_offboard script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[3.019s] Installing px4_imu_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[3.020s] Installing px4_motor_torque_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[3.020s] Installing sin_thrust_publisher script to /home/drone_dev/ros_ws/install/my_mavsdk/lib/my_mavsdk
+[3.021s] writing list of installed files to '/home/drone_dev/ros_ws/build/my_mavsdk/install.log'
+[3.071s] Invoked command in '/home/drone_dev/ros_ws/src/my_mavsdk' returned '0': AMENT_PREFIX_PATH=/home/drone_dev/ros_ws/install/px4_msgs:${AMENT_PREFIX_PATH} CMAKE_PREFIX_PATH=/home/drone_dev/ros_ws/install/px4_msgs:${CMAKE_PREFIX_PATH} LD_LIBRARY_PATH=/home/drone_dev/ros_ws/install/px4_msgs/lib:${LD_LIBRARY_PATH} PYTHONPATH=/home/drone_dev/ros_ws/build/my_mavsdk/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/home/drone_dev/ros_ws/install/my_mavsdk/lib/python3.10/site-packages:/home/drone_dev/ros_ws/install/px4_msgs/local/lib/python3.10/dist-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py egg_info --egg-base ../../build/my_mavsdk build --build-base /home/drone_dev/ros_ws/build/my_mavsdk/build install --record /home/drone_dev/ros_ws/build/my_mavsdk/install.log --single-version-externally-managed install_data

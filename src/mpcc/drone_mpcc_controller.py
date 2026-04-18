@@ -93,7 +93,7 @@ class DroneMpccController(ControllerInterface):
                  gate_positions: np.ndarray = None,
                  gates: list = None,
                  track_params: dict = None,
-                 t_horizon: float = 1.0,
+                 t_horizon: float = 0.8,
                  n_nodes: int = 20,
                  weights: dict = None,
                  sigma: float = 0.5):
