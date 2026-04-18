@@ -4,6 +4,7 @@
     # Options:
     #   'mpc'         — Model Predictive Control, output: attitude rate + thrust
     #   'mpcc'        — Model Predictive Contouring Control (racing), output: attitude rate + thrust
+    #   'mpcc_pp'     — mpcc_pp with Track Constraint (Krinner et al., RSS 2024)
     #   'mpc_rotor'   — MPC with direct per-rotor thrust (bypasses PX4 attitude controller)
     #   'position_ned'— PX4 built-in position controller
     #   'rl'          — Reinforcement Learning policy

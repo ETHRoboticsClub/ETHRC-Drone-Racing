@@ -4,6 +4,9 @@ import os
 src_path = os.path.expanduser('~/ros_ws/src')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
+mpcc_pp_path = os.path.expanduser('~/ros_ws/src/mpcc_pp')
+if mpcc_pp_path not in sys.path:
+    sys.path.insert(0, mpcc_pp_path)
 
 # ros related
 import rclpy
@@ -35,6 +38,18 @@ try:
 except ImportError:
     MPCC_AVAILABLE = False
     print("[WARNING] DroneMpccController not available (mpcc package not built)")
+
+try:
+    from mpcc_pp.drone_mpcc_pp_controller import DroneMpccPpController
+    MPCC_PP_AVAILABLE = True
+except ImportError:
+    MPCC_PP_AVAILABLE = False
+    print("[WARNING] DroneMpccPpController not available (mpcc_pp package not built)")
+
+_MPCC_CLASSES = tuple(filter(None, [
+    DroneMpccController if MPCC_AVAILABLE else None,
+    DroneMpccPpController if MPCC_PP_AVAILABLE else None,
+]))
 
 try:
     from rl.drone_rl_controller import DroneRLController
@@ -83,6 +98,8 @@ def _build_registry() -> dict:
     }
     if MPCC_AVAILABLE:
         registry['mpcc'] = DroneMpccController
+    if MPCC_PP_AVAILABLE:
+        registry['mpcc_pp'] = DroneMpccPpController
     if RL_AVAILABLE:
         registry['rl'] = DroneRLController
     return registry
@@ -264,7 +281,7 @@ class DroneController(Node):
 
         self.get_logger().info("Controller node initialized")
 
-        if isinstance(self.controller, DroneMpccController):
+        if isinstance(self.controller, _MPCC_CLASSES):
             self._publish_mpcc_reference_path()
             self._publish_mpcc_tunnel()
 
@@ -332,9 +349,9 @@ class DroneController(Node):
         hover_state[8] = 0.0
         hover_state[9] = np.sin(yaw_rad / 2)
 
-        if self.controller_type == 'mpcc':
+        if self.controller_type in ('mpcc', 'mpcc_pp'):
             self.get_logger().info(
-                "MPCC mode: hovering 3 s to stabilise, then starting racing loop")
+                "MPCC/MPCC++ mode: hovering 3 s to stabilise, then starting racing loop")
             threading.Thread(
                 target=self._mpcc_auto_start,
                 args=(hover_state,),
@@ -377,7 +394,7 @@ class DroneController(Node):
             cmd = self.controller.controller_update(current_state, current_state)
             self._publish_command(cmd)
             # Republish reference path once after lead-in is added (first step)
-            if isinstance(self.controller, DroneMpccController) and self.controller.path_updated:
+            if isinstance(self.controller, _MPCC_CLASSES) and self.controller.path_updated:
                 self._publish_mpcc_reference_path()
                 self._publish_mpcc_tunnel()
                 self.controller.path_updated = False
@@ -434,7 +451,7 @@ class DroneController(Node):
 
         # MPCC flies at racing speed — only check position (drone passes through
         # gate waypoints at high velocity; velocity/orientation checks never trigger).
-        if isinstance(self.controller, DroneMpccController):
+        if isinstance(self.controller, _MPCC_CLASSES):
             return pos_error < self.thresholds_.position
 
         vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6])
@@ -622,7 +639,7 @@ class DroneController(Node):
           - anything else   → rotor_command_publisher      (/drone_rotor_cmd)
             (per-rotor thrust: np.ndarray (4,), used by mpc_rotor)
         """
-        if isinstance(self.controller, DroneMpccController):
+        if isinstance(self.controller, _MPCC_CLASSES):
             self._publish_mpcc_horizon()
             self._publish_mpcc_progress_point()
 
@@ -810,7 +827,7 @@ class DroneController(Node):
 
         # Reset MPCC so it rebuilds the lead-in from the current drone position
         # (handles the case where _mpcc_auto_start already advanced θ past G1).
-        if isinstance(self.controller, DroneMpccController):
+        if isinstance(self.controller, _MPCC_CLASSES):
             self.controller.reset()
 
         lap = 0
