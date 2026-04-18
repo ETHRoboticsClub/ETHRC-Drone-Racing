@@ -1,6 +1,6 @@
 #First terminal
 cd ~/ros_ws/px4/PX4-Autopilot
-make px4_sitl gz_x500
+make px4_sitl gz_zephyros
 
 #Second terminal
 ros2 launch drone_control drone_controller.launch.py
