@@ -1,4 +1,5 @@
 import os
+import socket
 import launch.conditions
 
 from ament_index_python.packages import get_package_share_directory
@@ -9,6 +10,10 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 def generate_launch_description():
+    # --- Machine Detection ---
+    hostname = socket.gethostname()
+    is_jetson = hostname in ['zephyrus', 'boreas', 'jetson']
+    
     # --- Packages ---
     pkg_drone_control = get_package_share_directory('drone_control')
     pkg_msp_control = get_package_share_directory('betaflight_msp_controller')
@@ -17,38 +22,43 @@ def generate_launch_description():
     pkg_perception = get_package_share_directory('aruco_pose_estimation')
 
     # --- Arguments ---
-    arg_shared_port = DeclareLaunchArgument('shared_port', default_value='/dev/ttyTHS1',
-                                            description='Shared USB/UART for MSP Commands and Blackbox IMU')
-    arg_rc_sim_port = DeclareLaunchArgument('rc_sim_port', default_value='/dev/ttyACM0',
-                                            description='USB Port for MSP RC Simulation (Arming)')
+    default_imu_port = '/dev/ttyTHS1' if is_jetson else '/dev/ttyUSB0'
+    default_msp_port = '/dev/ttyTCU0' if is_jetson else '/dev/ttyACM0'
+
+    arg_imu_port = DeclareLaunchArgument('imu_port', default_value=default_imu_port,
+                                            description='Dedicated UART for high-rate Blackbox IMU telemetry')
+    arg_msp_port = DeclareLaunchArgument('msp_port', default_value=default_msp_port,
+                                            description='Dedicated UART/USB-VCP for MSP Control commands')
+    arg_attitude_topic = DeclareLaunchArgument('attitude_cmd_topic', default_value='/drone_attitude_cmd')
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
 
-    # --- 1. SHARED UART: Blackbox + MSP Control ---
-    # This C++ node handles the high-rate IMU and attitude command injection
+    # --- 1. IMU DRIVER: Betaflight Blackbox ---
+    # This C++ node handles the high-rate IMU telemetry stream (read-only)
     blackbox_node = Node(
         package='betaflight_blackbox_driver',
         executable='blackbox_driver_node',
-        name='shared_uart_node',
+        name='imu_driver_node',
         parameters=[{
-            'port': LaunchConfiguration('shared_port'),
+            'port': LaunchConfiguration('imu_port'),
             'baud': 1500000,
             'imu_topic': '/imu0',
-            'attitude_command_topic': '/drone_attitude_cmd'
+            'enable_msp_control': False  # Explicitly disabled in separate port mode
         }],
         output='screen'
     )
 
     # --- 2. MSP Bridge: RC Override (Arming/Control) ---
-    # This Python node handles the VCP port to simulate the RC receiver
+    # This Python node handles the dedicated port to simulate the RC receiver
     msp_bridge_node = Node(
         package='betaflight_msp_controller',
         executable='msp_bridge',
         name='msp_bridge',
         parameters=[{
-            'port': LaunchConfiguration('rc_sim_port'),
-            'baudrate': 115200
+            'port': LaunchConfiguration('msp_port'),
+            'baudrate': 115200 if not is_jetson else 1500000,
+            'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic')
         }],
         condition=launch.conditions.IfCondition(LaunchConfiguration('use_rc_sim')),
         output='screen'
@@ -86,8 +96,9 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        arg_shared_port,
-        arg_rc_sim_port,
+        arg_imu_port,
+        arg_msp_port,
+        arg_attitude_topic,
         arg_use_vicon,
         arg_use_rc_sim,
         blackbox_node,

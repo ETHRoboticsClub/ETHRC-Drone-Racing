@@ -168,6 +168,8 @@ private:
     bool has_first_intra_ = false;
     bool has_gyro_mapped_ = false;
     bool has_accel_mapped_ = false;
+    bool time_synced_ = false;
+    int64_t time_offset_us_ = 0;
 
     struct sp_port* port_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
@@ -605,7 +607,19 @@ private:
         static int samples_count = 0;
         if (++samples_count >= downsample_factor_) {
             auto msg = sensor_msgs::msg::Imu();
-            msg.header.stamp = this->now();
+            
+            // Hardware Timestamping Logic
+            int64_t current_ros_us = this->now().nanoseconds() / 1000;
+            int64_t current_fc_us = last_frame_.time;
+
+            if (!time_synced_) {
+                time_offset_us_ = current_ros_us - current_fc_us;
+                time_synced_ = true;
+                RCLCPP_INFO(this->get_logger(), "Time synced! Offset: %ld us", time_offset_us_);
+            }
+
+            int64_t true_capture_time_us = current_fc_us + time_offset_us_;
+            msg.header.stamp = rclcpp::Time(true_capture_time_us * 1000); // Back to nanoseconds
             msg.header.frame_id = "imu_link";
             
             const float G_TO_MS2 = 9.80665f;

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float64MultiArray
+from std_msgs.msg import Float64MultiArray, Float64
 from sensor_msgs.msg import Joy
 import serial
 import struct
@@ -16,11 +16,15 @@ class MspBridge(Node):
         self.declare_parameter('baudrate', 115200) # Updated for USB-VCP
         self.declare_parameter('arm_switch_id', 4)  # AUX1
         self.declare_parameter('override_switch_id', 5) # AUX2
+        self.declare_parameter('attitude_cmd_topic', '/drone_attitude_cmd')
+        self.declare_parameter('max_rate_deg_s', 500.0)
         
         self.port_name = self.get_parameter('port').value
         self.baudrate = self.get_parameter('baudrate').value
         self.arm_switch_id = self.get_parameter('arm_switch_id').value
         self.override_switch_id = self.get_parameter('override_switch_id').value
+        self.attitude_cmd_topic = self.get_parameter('attitude_cmd_topic').value
+        self.max_rate_deg_s = self.get_parameter('max_rate_deg_s').value
         
         # RC State [Roll, Pitch, Throttle, Yaw, AUX1, AUX2, AUX3, AUX4]
         self.rc_channels = [1500, 1500, 1000, 1500, 1000, 1500, 1500, 1500]
@@ -34,15 +38,16 @@ class MspBridge(Node):
             self.get_logger().error(f'Failed to open MSP RX port {self.port_name}: {e}')
             self.serial_port = None
 
+        # Publishers
+        self.throttle_pub = self.create_publisher(Float64, '/drone/throttle', 10)
+
         # Subscribers
         self.joy_sub = self.create_subscription(Joy, '/joy', self.joy_callback, 10)
         self.att_sub = self.create_subscription(
             Float64MultiArray, 
-            '/drone_attitude_cmd', 
+            self.attitude_cmd_topic, 
             self.attitude_cmd_callback, 
             10)
-        
-        self.max_rate_deg_s = 500.0 # Match C++ driver scaling
         
         # Timer (50Hz for RC heartbeat)
         self.timer = self.create_timer(0.02, self.timer_callback)
@@ -51,9 +56,6 @@ class MspBridge(Node):
         self._last_log_time = 0.0
 
     def attitude_cmd_callback(self, msg):
-        if not self.use_override:
-            return
-            
         if len(msg.data) < 4:
             return
             
@@ -77,20 +79,16 @@ class MspBridge(Node):
             self.is_armed = msg.buttons[self.arm_switch_id] == 1
             self.rc_channels[4] = 2000 if self.is_armed else 1000
         
-        # Handle MSP Override Mode (AUX2)
+        # Handle MSP Override Mode status (AUX2) - We still track it for logging, but don't gate
         if len(msg.buttons) > self.override_switch_id:
             self.use_override = msg.buttons[self.override_switch_id] == 1
-            self.rc_channels[5] = 2000 if self.use_override else 1000 # Corrected to High=2000
-
-        # Handle Manual Control (AETR)
-        if not self.use_override and len(msg.axes) >= 4:
-            # Sticks
-            self.rc_channels[0] = int(1500 + msg.axes[0] * 500) # Roll
-            self.rc_channels[1] = int(1500 + msg.axes[1] * 500) # Pitch
-            self.rc_channels[2] = int(1500 + msg.axes[3] * 500) # Throttle
-            self.rc_channels[3] = int(1500 + msg.axes[2] * 500) # Yaw
+            self.rc_channels[5] = 2000 if self.use_override else 1000
 
     def timer_callback(self):
+        throttle_msg = Float64()
+        throttle_msg.data = float(self.rc_channels[2])
+        self.throttle_pub.publish(throttle_msg)
+
         if not self.serial_port or not self.serial_port.is_open:
             return
 

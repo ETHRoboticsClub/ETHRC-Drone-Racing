@@ -175,18 +175,18 @@ void casadi_densify(const casadi_real* x, const casadi_int* sp_x, casadi_real* y
   }
 }
 
-static const casadi_int casadi_s0[7] = {3, 1, 0, 3, 0, 1, 2};
-static const casadi_int casadi_s1[5] = {3, 1, 0, 1, 2};
-static const casadi_int casadi_s2[15] = 
+static const casadi_int casadi_s0[15] = 
   {3, 3, 0, 3, 6, 9, 0, 1,
   2, 0, 1, 2, 0, 1, 2};
-static const casadi_int casadi_s3[13] = 
-  {13, 4, 0, 3, 4, 5, 6, 3,
-  4, 5, 10, 11, 12};
-static const casadi_int casadi_s4[22] = 
+static const casadi_int casadi_s1[5] = {3, 1, 0, 1, 2};
+static const casadi_int casadi_s2[7] = {3, 1, 0, 3, 0, 1, 2};
+static const casadi_int casadi_s3[22] = 
   {4, 13, 0, 0, 0, 0, 1, 2,
   3, 3, 3, 3, 3, 4, 5, 6,
   0, 0, 0, 1, 2, 3};
+static const casadi_int casadi_s4[13] = 
+  {13, 4, 0, 3, 4, 5, 6, 3,
+  4, 5, 10, 11, 12};
 static const casadi_int casadi_s5[3] = {13, 1, 1};
 static const casadi_int casadi_s6[3] = {13, 13, 1};
 static const casadi_int casadi_s7[3] = {13, 4, 1};
@@ -4214,7 +4214,7 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   *rr++ = w55;
   /* #1871: @0 = mac(@26,@15,@1) */
   casadi_copy(w01, 3, w00);
-  casadi_mtimes(w26, casadi_s2, (&w15), casadi_s1, w00, casadi_s0, w, 0);
+  casadi_mtimes(w26, casadi_s0, (&w15), casadi_s1, w00, casadi_s2, w, 0);
   /* #1872: @0 = (@2*@0) */
   for (i=0, rr=w00, cs=w00; i<3; ++i) (*rr++)  = (w02*(*cs++));
   /* #1873: @0 = (-@0) */
@@ -4236,9 +4236,9 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   /* #1879: (@60[:6] = @64) */
   for (rr=w60+0, cs=w64; rr!=w60+6; rr+=1) *rr = *cs++;
   /* #1880: @64 = @60' */
-  casadi_trans(w60,casadi_s4, w64, casadi_s3, iw);
+  casadi_trans(w60,casadi_s3, w64, casadi_s4, iw);
   /* #1881: @65 = dense(@64) */
-  casadi_densify(w64, casadi_s3, w65, 0);
+  casadi_densify(w64, casadi_s4, w65, 0);
   /* #1882: @66 = input[2][0] */
   wr66 = arg[2] ? arg[2] : casadi_zeros;
   /* #1883: {@40, @39, @38, @37} = horzsplit(@66) */

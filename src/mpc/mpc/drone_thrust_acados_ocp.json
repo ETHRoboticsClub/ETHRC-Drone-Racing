@@ -1,7 +1,7 @@
 {
     "code_gen_opts": {
-        "acados_include_path": "/opt/acados/include",
-        "acados_lib_path": "/opt/acados/lib",
+        "acados_include_path": "/home/aero/acados/include",
+        "acados_lib_path": "/home/aero/acados/lib",
         "acados_link_libs": {
             "clarabel": "",
             "daqp": "",
@@ -12,10 +12,10 @@
             "qpdunes": "",
             "qpoases": "-lqpOASES_e"
         },
-        "acados_version": "676c1b879",
-        "code_export_directory": "/home/drone_dev/ros_ws/src/mpc/mpc/c_generated_code",
+        "acados_version": "e7c893412",
+        "code_export_directory": "/home/aero/proj/ETHRC-Drone-Racing/src/mpc/mpc/c_generated_code",
         "cython_include_dirs": [
-            "/usr/local/lib/python3.10/dist-packages/numpy/core/include",
+            "/usr/lib/python3/dist-packages/numpy/core/include",
             "/usr/include/python3.10"
         ],
         "json_file": "./drone_thrust_acados_ocp.json",
@@ -298,7 +298,7 @@
         "drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.c",
         "drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.c"
     ],
-    "hash": "67adcd5f9fcda0b69d31447451e06abb",
+    "hash": "597ef357fe0f1578f4c00a80c35989ef",
     "model": {
         "con_h_expr": [],
         "con_h_expr_0": [],
