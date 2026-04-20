@@ -13,3 +13,7 @@
 [submodule "src/multiwii_ros2"]
 	path = src/multiwii_ros2
 	url = https://github.com/christianrauch/multiwii_ros2
+
+[submodule "src/px4_msgs"]
+	path = src/px4_msgs
+	url = git@github.com:PX4/px4_msgs.git
