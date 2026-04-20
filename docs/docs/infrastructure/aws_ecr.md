@@ -145,6 +145,29 @@ make run REPO=aeronautics/droneracing/main/dev TAG=latest
 make run REPO=aeronautics/droneracing/main/docs TAG=latest PORTS=8000:8000
 ```
 
+---
+
+## Using ECR Images with Docker Compose
+
+If you want to use a pre-built image from ECR with `docker compose` (e.g., to skip the slow local build of the `dev` target), you can use the **Tag Trick**.
+
+### The "Tag Trick"
+Docker Compose identifies images locally by the project name and service name (e.g., `ethrc-drone-racing-dev`). To force Compose to use an ECR image:
+
+1.  **Pull the ECR image**:
+    ```bash
+    make pull REPO=aeronautics/droneracing/main/dev TAG=latest
+    ```
+2.  **Tag it locally** to match the Compose name:
+    ```bash
+    docker tag 916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing/main/dev:latest ethrc-drone-racing-dev:latest
+    ```
+3.  **Start Compose** as usual:
+    ```bash
+    docker compose up -d dev
+    ```
+Now, `docker compose exec -it dev bash` will put you inside a container running the official CI build.
+
 ### Build and push manually
 
 ```bash
