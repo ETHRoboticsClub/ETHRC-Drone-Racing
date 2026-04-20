@@ -66,12 +66,12 @@ jobs:
             echo "Diffing against last successful run: $LAST_SUCCESS"
           fi
 
-          CHANGED=$(git diff --name-only "${LAST_SUCCESS:-HEAD~1}" HEAD)
-          echo "--- changed files ---"
-          echo "$CHANGED"
+          git diff --name-only "${LAST_SUCCESS:-HEAD~1}" HEAD > changed_files.txt
+          echo "--- changed files (first 100) ---"
+          head -n 100 changed_files.txt
           echo "---------------------"
 
-          MATRIX=$(jq -c --arg changed "$CHANGED" --argjson force "${FORCE_ALL:-false}" '
+          MATRIX=$(jq -c --rawfile changed changed_files.txt --argjson force "${FORCE_ALL:-false}" '
             [ .targets[] | select(
                 $force or
                 any(.trigger_paths[];
