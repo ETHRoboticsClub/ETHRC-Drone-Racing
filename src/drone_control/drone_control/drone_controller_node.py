@@ -105,6 +105,16 @@ def _build_registry() -> dict:
     return registry
 
 
+def _quaternion_angle_error(q_a: np.ndarray, q_b: np.ndarray) -> float:
+    """Return the smallest angle between two quaternions [w, x, y, z]."""
+    q_a_norm = np.linalg.norm(q_a)
+    q_b_norm = np.linalg.norm(q_b)
+    if q_a_norm < 1e-12 or q_b_norm < 1e-12:
+        return np.inf
+    dot = np.dot(q_a / q_a_norm, q_b / q_b_norm)
+    return 2.0 * np.arccos(np.clip(np.abs(dot), -1.0, 1.0))
+
+
 _CONTROLLER_REGISTRY = _build_registry()
 
 
@@ -455,8 +465,9 @@ class DroneController(Node):
             return pos_error < self.thresholds_.position
 
         vel_error = np.linalg.norm(current_state[3:6] - self.current_goal_state[3:6])
-        orientation_error = 2.0 * np.arccos(np.clip(
-            np.dot(self.current_goal_state[6:10], current_state[6:10]), -1.0, 1.0))
+        orientation_error = _quaternion_angle_error(
+            self.current_goal_state[6:10], current_state[6:10]
+        )
         ang_vel_error = np.linalg.norm(current_state[10:13] - self.current_goal_state[10:13])
 
         return (pos_error < self.thresholds_.position and

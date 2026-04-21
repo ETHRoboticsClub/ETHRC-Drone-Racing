@@ -47,7 +47,12 @@ class DroneOptimizer(object):
         enable_logging: enable solver logging
     """
 
-    normalize_quat = lambda q: q / np.linalg.norm(q) if np.linalg.norm(q) > 1e-12 else np.array([0., 0., 0., 1.])
+    @staticmethod
+    def normalize_quat(q: np.ndarray) -> np.ndarray:
+        norm = np.linalg.norm(q)
+        if norm > 1e-12:
+            return q / norm
+        return np.array([1.0, 0.0, 0.0, 0.0])
 
     def __init__(self, d_model, t_horizon, n_nodes, enable_logging=True):
         # Extract acados model and constraints from DroneModel instance
@@ -122,12 +127,15 @@ class DroneOptimizer(object):
         vel_cost = Q_vel * ca.dot(vel_error, vel_error)
         vel_cost_term = Q_vel_term * ca.dot(vel_error, vel_error)
 
-        # Quaternion tracking cost
+        # Quaternion tracking cost. Use a sign-invariant metric because q and -q
+        # represent the same attitude.
         q_current = x[6:10]
         q_ref = x_ref_param[6:10]
-        quat_error = q_current - q_ref
-        quat_cost = Q_quat * ca.dot(quat_error, quat_error)
-        quat_cost_term = Q_quat_term * ca.dot(quat_error, quat_error)
+        q_current_norm = q_current / ca.sqrt(ca.dot(q_current, q_current) + 1e-12)
+        q_ref_norm = q_ref / ca.sqrt(ca.dot(q_ref, q_ref) + 1e-12)
+        quat_alignment_error = 1.0 - ca.dot(q_current_norm, q_ref_norm) ** 2
+        quat_cost = Q_quat * quat_alignment_error
+        quat_cost_term = Q_quat_term * quat_alignment_error
 
         # Angular rate tracking cost
         w_error = x[10:13] - x_ref_param[10:13]

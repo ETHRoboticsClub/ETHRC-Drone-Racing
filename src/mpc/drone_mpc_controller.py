@@ -45,6 +45,9 @@ class DroneMpcController(ControllerInterface):
         self.gravity = float(self.drone_model.g)
         self.max_thrust = float(self.drone_model.constraint.thrust_max)
         self.thrust_norm_hover = self.drone_mass * self.gravity / self.max_thrust 
+        self.max_rate_deg = float(
+            np.degrees(np.max(np.abs(self.drone_model.constraint.w_state_max)))
+        )
 
         if DEBUG_INFO_PRINTS:
             print(f"\n{'='*60}")
@@ -128,7 +131,7 @@ class DroneMpcController(ControllerInterface):
         yaw_rate_deg   = np.degrees(wz_cmd)
         
         # Safety clipping
-        max_rate_deg = 200.0  # deg/s
+        max_rate_deg = self.max_rate_deg
         roll_rate_deg = np.clip(roll_rate_deg, -max_rate_deg, max_rate_deg)
         pitch_rate_deg = np.clip(pitch_rate_deg, -max_rate_deg, max_rate_deg)
         yaw_rate_deg = np.clip(yaw_rate_deg, -max_rate_deg, max_rate_deg)
@@ -149,5 +152,4 @@ class DroneMpcController(ControllerInterface):
             # u0 is [thrust_N, wx, wy, wz]
             print(f"  u=[T={float(u0[0]):.2f}N, "
                     f"wx={float(u0[1]):.3f}, wy={float(u0[2]):.3f}, wz={float(u0[3]):.3f}]")
-
 
