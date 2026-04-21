@@ -97,7 +97,7 @@ graph TD
 
 ### Data Flow Logic
 1.  **Perception**: High-rate IMU data is streamed via UART1 and processed by the C++ `blackbox_driver_node`. This node identifies 'I' and 'P' frames to reconstruct the state.
-2.  **State Estimation**: The `drone_controller` fuses IMU telemetry with Vicon ground truth (or ArUco estimation) to compute optimal actuator commands.
+2.  **State Estimation**: The `drone_controller` fuses IMU telemetry with Vicon ground truth (or Gate Detection) to compute optimal actuator commands.
 3.  **Control Injection**: The `msp_bridge` node acts as a virtual RX. It consumes attitude rate commands and injects them into the FC via the MSP protocol over USB, bypassing the serial priority constraints of the primary UART.
 
 ---

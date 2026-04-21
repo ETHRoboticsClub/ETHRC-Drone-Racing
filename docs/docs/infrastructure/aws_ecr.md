@@ -38,7 +38,7 @@ aeronautics/droneracing/feature/my-branch/dev
 | Target | Description |
 |--------|-------------|
 | `dev` | Full environment — ROS 2, Gazebo, perception, MPC, RL |
-| `perception` | ArUco, OpenVINS, Vicon receiver |
+| `perception` | Gate Detection, OpenVINS, Vicon receiver |
 | `mpc` | MAVSDK, ACADOS, drone control stack |
 | `rl` | MPC stack + reinforcement learning (stable-baselines3, PyTorch) |
 | `docs` | MkDocs documentation server |

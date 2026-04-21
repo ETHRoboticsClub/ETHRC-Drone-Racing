@@ -1,0 +1,59 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+      - 'fix/*'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy Docs
+    runs-on: self-hosted
+    steps:
+      - name: Fix workspace permissions
+        run: |
+          # Re-assign ownership to the runner user using Docker (no sudo required)
+          docker run --rm -v ${{ github.workspace }}:/ws -w /ws alpine chown -R $(id -u):$(id -g) . || true
+          
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Normalize Branch Name
+        id: branch
+        run: |
+          SLUG=$(echo "${{ github.ref_name }}" | tr '/' '-' | tr '[:upper:]' '[:lower:]')
+          echo "slug=${SLUG}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Documentation (Isolated)
+        run: |
+          # Build inside a masked volume to prevent writing root-owned files to the host docs/site
+          docker compose run --name doc_builder -v /docs/site docs mkdocs build
+
+          # Extract artifacts to site_build (owned by runner user)
+          docker cp doc_builder:/docs/site ./site_build
+
+          # Cleanup
+          docker rm doc_builder
+
+      - name: Deploy via SSH (rsync)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DOCS_PRIV_SSH_KEY }}
+          VPS_IP: ${{ secrets.DOCS_IP_ADDR }}
+          SLUG: ${{ steps.branch.outputs.slug }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p 22 -H "$VPS_IP" >> ~/.ssh/known_hosts
+
+          ssh ubuntu@$VPS_IP "mkdir -p /mount/drive/aero-docs/$SLUG"
+          rsync -avz --delete site_build/ ubuntu@$VPS_IP:/mount/drive/aero-docs/$SLUG/
+          
+          scp docker-compose.yaml ubuntu@$VPS_IP:/mount/drive/aero-docs/
+
+      - name: Start/Refresh Hosting Server
+        run: |
+          ssh ubuntu@${{ secrets.DOCS_IP_ADDR }} "cd /mount/drive/aero-docs && docker compose up -d docs-server"

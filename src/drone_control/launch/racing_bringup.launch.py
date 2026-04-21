@@ -19,7 +19,6 @@ def generate_launch_description():
     pkg_msp_control = get_package_share_directory('betaflight_msp_controller')
     pkg_blackbox = get_package_share_directory('betaflight_blackbox_driver')
     pkg_vicon = get_package_share_directory('vicon_receiver')
-    pkg_perception = get_package_share_directory('aruco_pose_estimation')
 
     # --- Arguments ---
     default_imu_port = '/dev/ttyTHS1' if is_jetson else '/dev/ttyUSB0'
@@ -83,17 +82,6 @@ def generate_launch_description():
         }.items() 
     )
 
-    # --- 5. PERCEPTION: ArUco Estimation ---
-    # Set publish_rgb:=true if you want to see the video stream
-    perception_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_perception, 'launch', 'aruco_pose_estimation.launch.py')
-        ),
-        launch_arguments={
-            'rviz': 'false',
-            'publish_debug_image': 'true'
-        }.items()
-    )
 
     return LaunchDescription([
         arg_imu_port,
@@ -105,5 +93,4 @@ def generate_launch_description():
         msp_bridge_node,
         vicon_launch,
         control_launch,
-        perception_launch
     ])

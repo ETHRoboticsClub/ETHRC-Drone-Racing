@@ -11,17 +11,14 @@
         <link rel="canonical" href="http://0.0.0.0:8000/perception/">
       
       
-        <link rel="prev" href="../guidelines/">
+        <link rel="prev" href="../infrastructure/aws_ecr/">
       
       
         <link rel="next" href="vio/">
       
       
-        
-      
-      
       <link rel="icon" href="../images/ETHRC_Aero_favicon_black.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
     
     
       
@@ -29,10 +26,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.618322db.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.342714a4.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
       
       
 
@@ -59,6 +56,7 @@
 
     
     
+    
   </head>
   
   
@@ -78,7 +76,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#perception-team" class="md-skip">
+        <a href="#perception-stack-overview" class="md-skip">
           Skip to content
         </a>
       
@@ -196,7 +194,7 @@
         <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
   </div>
   <div class="md-source__repository">
     ETHRoboticsClub/ETHRC-Drone-Racing
@@ -243,6 +241,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../updates/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Recent Updates
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../getting-started/" class="md-tabs__link">
         
   
@@ -272,6 +289,26 @@
 
       </a>
     </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../infrastructure/" class="md-tabs__link">
+          
+  
+  
+  Infrastructure
+
+        </a>
+      </li>
+    
   
 
       
@@ -322,17 +359,18 @@
   
   
   
-    <li class="md-tabs__item">
-      <a href="../hardware/" class="md-tabs__link">
-        
-  
-  
     
+    
+      <li class="md-tabs__item">
+        <a href="../drone-setup/" class="md-tabs__link">
+          
   
-  Hardware
+  
+  Drone Setup
 
-      </a>
-    </li>
+        </a>
+      </li>
+    
   
 
       
@@ -352,6 +390,45 @@
 
       </a>
     </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributors/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributors
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="ArUco/" class="md-tabs__link">
+          
+  
+  
+  Deprecated
+
+        </a>
+      </li>
+    
   
 
       
@@ -389,7 +466,7 @@
       <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
   </div>
   <div class="md-source__repository">
     ETHRoboticsClub/ETHRC-Drone-Racing
@@ -411,14 +488,31 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Home
-  
-
     
   </span>
   
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../updates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Recent Updates
+    
+  </span>
   
 
       </a>
@@ -438,14 +532,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Getting Started
-  
-
     
   </span>
-  
   
 
       </a>
@@ -465,17 +554,154 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Guidelines
-  
-
     
   </span>
   
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Infrastructure
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Infrastructure
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/aws_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AWS Setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/aws_ec2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AWS EC2 Instances
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../infrastructure/aws_ecr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AWS ECR
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -505,35 +731,26 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
   <span class="md-ellipsis">
-    
-  
     Perception
-  
-
     
   </span>
-  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
-            
-  
-    Perception
-  
-
+            Perception
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -558,14 +775,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Overview
-  
-
     
   </span>
-  
   
 
           <span class="md-nav__icon md-icon"></span>
@@ -576,14 +788,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Overview
-  
-
     
   </span>
-  
   
 
       </a>
@@ -604,11 +811,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#high-level-architecture" class="md-nav__link">
     <span class="md-ellipsis">
+      High-Level Architecture
+    </span>
+  </a>
+  
+</li>
       
-        Overview
+        <li class="md-nav__item">
+  <a href="#topic-mappings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Topic Mappings
+    </span>
+  </a>
+  
+</li>
       
+        <li class="md-nav__item">
+  <a href="#coordinate-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coordinate Systems
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-workings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Detailed Workings
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Workings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-visual-inertial-odometry-openvins" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Visual-Inertial Odometry (OpenVINS)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-gate-detection-pnp-wip" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Gate Detection &amp; PnP (WIP)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-fusion-logic-the-ekf" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Fusion Logic (The EKF)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modules
     </span>
   </a>
   
@@ -635,14 +909,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     VIO
-  
-
     
   </span>
-  
   
 
       </a>
@@ -658,19 +927,14 @@
   
   
     <li class="md-nav__item">
-      <a href="ArUco/" class="md-nav__link">
+      <a href="vicon/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    
-  
-    ArUco
-  
-
+    Vicon
     
   </span>
-  
   
 
       </a>
@@ -691,14 +955,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     EKF
-  
-
     
   </span>
-  
   
 
       </a>
@@ -734,35 +993,26 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
-    
-  
     Controls
-  
-
     
   </span>
-  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
-            
-  
-    Controls
-  
-
+            Controls
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
@@ -778,14 +1028,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Overview
-  
-
     
   </span>
-  
   
 
       </a>
@@ -806,14 +1051,32 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Drone Control
-  
-
     
   </span>
   
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../controls/msp_control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Betaflight MSP Control
+    
+  </span>
   
 
       </a>
@@ -834,14 +1097,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     MAVSDK
-  
-
     
   </span>
-  
   
 
       </a>
@@ -862,14 +1120,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     MPC
-  
-
     
   </span>
-  
   
 
       </a>
@@ -890,14 +1143,9 @@
   
   
   <span class="md-ellipsis">
-    
-  
     RL
-  
-
     
   </span>
-  
   
 
       </a>
@@ -918,14 +1166,174 @@
   
   
   <span class="md-ellipsis">
-    
-  
     Troubleshooting
-  
-
     
   </span>
   
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Drone Setup
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Drone Setup
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drone-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drone-setup/zephyrus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zephyrus (6S)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drone-setup/boreas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Boreas (4S)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drone-setup/vio_synchronization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VIO Synchronization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../betaflight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Betaflight Setup
+    
+  </span>
   
 
       </a>
@@ -948,19 +1356,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../hardware/" class="md-nav__link">
+      <a href="../groundstation/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    
-  
-    Hardware
-  
-
+    Groundstation
     
   </span>
-  
   
 
       </a>
@@ -975,22 +1378,90 @@
   
   
     <li class="md-nav__item">
-      <a href="../groundstation/" class="md-nav__link">
+      <a href="../contributors/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
-    
-  
-    Groundstation
-  
-
+    Contributors
     
   </span>
   
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Deprecated
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Deprecated
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="ArUco/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ArUco
+    
+  </span>
   
 
       </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -1022,11 +1493,78 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#high-level-architecture" class="md-nav__link">
     <span class="md-ellipsis">
+      High-Level Architecture
+    </span>
+  </a>
+  
+</li>
       
-        Overview
+        <li class="md-nav__item">
+  <a href="#topic-mappings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Topic Mappings
+    </span>
+  </a>
+  
+</li>
       
+        <li class="md-nav__item">
+  <a href="#coordinate-systems" class="md-nav__link">
+    <span class="md-ellipsis">
+      Coordinate Systems
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#detailed-workings" class="md-nav__link">
+    <span class="md-ellipsis">
+      Detailed Workings
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Detailed Workings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-visual-inertial-odometry-openvins" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Visual-Inertial Odometry (OpenVINS)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-gate-detection-pnp-wip" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Gate Detection &amp; PnP (WIP)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-fusion-logic-the-ekf" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Fusion Logic (The EKF)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      Modules
     </span>
   </a>
   
@@ -1042,14 +1580,13 @@
           
           
             <div class="md-content" data-md-component="content">
-              
               <article class="md-content__inner md-typeset">
                 
                   
 
 
   
-    <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing/edit/main/docs/docs/perception/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing/edit/main/docs/docs/perception/index.md" title="Edit this page" class="md-content__button md-icon">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1057,23 +1594,132 @@
   
 
 
-<h1 id="perception-team">Perception Team</h1>
-<p><strong>Page Owner:</strong> <a href="https://github.com/ilysec">Ilyas Seckin</a></p>
-<hr />
-<p>Welcome to the Perception team documentation.</p>
-<h2 id="overview">Overview</h2>
-<h1 id="perception-team_1">Perception Team</h1>
-<p><strong>Page Owner:</strong> <a href="https://github.com/ilysec">Ilyas Seckin</a></p>
-<hr />
-<p>Welcome to the Perception team documentation.</p>
-<h2 id="overview_1">Overview</h2>
-<p>This section contains documentation for the perception modules used in the ETHRC Drone Racing project.</p>
-<h2 id="modules">Modules</h2>
+<h1 id="perception-stack-overview">Perception Stack Overview</h1>
+<p>The perception stack is responsible for providing a reliable, drift-free state estimate of the drone in the world frame. It achieves this by fusing high-frequency relative odometry with sparse absolute pose corrections.</p>
+<h2 id="high-level-architecture">High-Level Architecture</h2>
+<p>The system follows a tiered architecture for pose estimation:</p>
+<pre class="mermaid"><code>graph TD
+    subgraph Sensors
+        Cam["Camera (Mono/Stereo)"]
+        IMU["IMU (Accel/Gyro)"]
+        Vicon["Vicon (Optional)"]
+    end
+
+    subgraph "Local Odometry"
+        VIO["OpenVINS (VIO)"]
+    end
+
+    subgraph "Absolute Corrections"
+        Gate["Gate Detection (WIP)"]
+    end
+
+    subgraph "Fusion Layer"
+        EKF["EKF (robot_localization)"]
+    end
+
+    Cam --&gt; VIO
+    IMU --&gt; VIO
+    VIO --&gt;|"/ov_msckf/odomimu (Odom)"| EKF
+
+    Cam --&gt; Gate
+    Gate --&gt;|"/gate_detection/drone_pose (Pose)"| EKF
+
+
+    Vicon --&gt;|"(Indoor GT)"| EKF
+
+    EKF --&gt;|"/odometry/filtered"| Control["Control &amp; Planning"]</code></pre>
+<h2 id="topic-mappings">Topic Mappings</h2>
+<p>The following table summarizes the data flow between perception modules.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Source Module</th>
+<th style="text-align: left;">Topic Name</th>
+<th style="text-align: left;">Message Type</th>
+<th style="text-align: left;">Frequency</th>
+<th style="text-align: left;">Consumer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Sensors</strong></td>
+<td style="text-align: left;"><code>/cam0/image_raw</code></td>
+<td style="text-align: left;"><code>sensor_msgs/Image</code></td>
+<td style="text-align: left;">30 Hz</td>
+<td style="text-align: left;">VIO, Gate Detection</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Sensors</strong></td>
+<td style="text-align: left;"><code>/imu0</code></td>
+<td style="text-align: left;"><code>sensor_msgs/Imu</code></td>
+<td style="text-align: left;">200 Hz</td>
+<td style="text-align: left;">VIO</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>OpenVINS</strong></td>
+<td style="text-align: left;"><code>/ov_msckf/odomimu</code></td>
+<td style="text-align: left;"><code>nav_msgs/Odometry</code></td>
+<td style="text-align: left;">100 Hz</td>
+<td style="text-align: left;">EKF</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gate Detection</strong></td>
+<td style="text-align: left;"><code>/gate_detection/drone_pose</code></td>
+<td style="text-align: left;"><code>PoseWithCovarianceStamped</code></td>
+<td style="text-align: left;">10-30 Hz</td>
+<td style="text-align: left;">EKF</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Vicon</strong></td>
+<td style="text-align: left;"><code>/vicon/drone/drone</code></td>
+<td style="text-align: left;"><code>geometry_msgs/Transform</code></td>
+<td style="text-align: left;">100 Hz</td>
+<td style="text-align: left;">EKF</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>EKF</strong></td>
+<td style="text-align: left;"><code>/odometry/filtered</code></td>
+<td style="text-align: left;"><code>nav_msgs/Odometry</code></td>
+<td style="text-align: left;">100 Hz</td>
+<td style="text-align: left;">Control</td>
+</tr>
+</tbody>
+</table>
+<h2 id="coordinate-systems">Coordinate Systems</h2>
+<p>The perception stack utilizes the standard ROS 2 (REP-103) coordinate conventions:</p>
 <ul>
-<li><a href="vio/">VIO</a></li>
-<li><a href="ArUco/">ArUco</a></li>
-<li><a href="EKF/">EKF</a></li>
+<li><strong><code>world</code> Frame</strong>: Global fixed frame. Its origin is typically defined at the start of the mission.</li>
+<li><strong><code>odom</code> Frame</strong>: A locally stable frame provided by the EKF. It is continuous (no jumps) but may drift relative to the <code>world</code> frame over long durations if absolute fixes are lost.</li>
+<li><strong><code>base_link</code> Frame</strong>: The center of mass of the drone.<ul>
+<li><strong>X-axis</strong>: Forward</li>
+<li><strong>Y-axis</strong>: Left</li>
+<li><strong>Z-axis</strong>: Up</li>
 </ul>
+</li>
+</ul>
+<h2 id="detailed-workings">Detailed Workings</h2>
+<h3 id="1-visual-inertial-odometry-openvins">1. Visual-Inertial Odometry (OpenVINS)</h3>
+<p>The <strong>VIO</strong> component uses the <code>open_vins</code> library to fuse camera images and IMU data.
+- <strong>Formulation</strong>: Implements an <strong>Extended Kalman Filter (EKF)</strong> with a <strong>Multi-State Constraint Kalman Filter (MSCKF)</strong>.
+- <strong>Constraint-Based</strong>: It avoids estimating feature positions in the main filter state, making it highly efficient for high-speed flight.
+- <strong>Online Calibration</strong>: Online-calibrates the rotation and translation between the Camera and IMU.
+- <strong>Output</strong>: Published as <code>nav_msgs/Odometry</code> on <code>/ov_msckf/odomimu</code>.</p>
+<h3 id="2-gate-detection-pnp-wip">2. Gate Detection &amp; PnP (WIP)</h3>
+<p>The <strong>Gate Detection</strong> component identifies racing gates and estimates the drone's pose relative to them.
+- <strong>Deep Learning</strong>: Uses a <strong>U-Net</strong> based segmentation network (<strong>GateNet</strong>) to detect gate masks.
+- <strong>QuAdGate</strong>: Extracts sub-pixel corner candidates and matches them using geometric descriptors.
+- <strong>PnP Solver</strong>: Uses <code>cv2.solvePnP</code> to find the absolute translation and rotation from the known gate dimensions to the observed pixel coordinates.
+- <strong>Output</strong>: Published as <code>geometry_msgs/PoseWithCovarianceStamped</code> on <code>/gate_detection/drone_pose</code>.</p>
+<h3 id="3-fusion-logic-the-ekf">3. Fusion Logic (The EKF)</h3>
+<p>The system uses <code>robot_localization</code> with <strong>Smooth Lagged Data</strong> support.
+- <strong>Rewind/Fast-Forward</strong>: Vision processing takes time (50-100ms). The EKF maintains a history of past states, "rewinds" to the image timestamp to fuse the delayed measurement, and then re-propagates the state to the current time.
+- <strong>Output</strong>: The definitive state estimate on <code>/odometry/filtered</code>.</p>
+<h2 id="modules">Modules</h2>
+<p>For deeper technical details on individual components, see:
+- <a href="vio/">VIO (OpenVINS)</a>
+- <a href="gate_detection/">Gate Detection</a>
+- <a href="EKF/">Sensor Fusion (EKF)</a>
+- <a href="vicon/">Vicon Tracking</a></p>
 
 
 
@@ -1128,11 +1774,10 @@
     
     
       
-      
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.e71a0d61.min.js"></script>
+      <script src="../assets/javascripts/bundle.13a4f30d.min.js"></script>
       
     
   </body>

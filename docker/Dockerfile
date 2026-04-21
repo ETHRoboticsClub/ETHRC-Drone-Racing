@@ -30,8 +30,11 @@ COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-v
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
+USER root
+RUN apt-get update && apt-get install -y libserialport-dev && rm -rf /var/lib/apt/lists/*
+USER drone_dev
 RUN ARCH=$(dpkg --print-architecture); \
-    PKGS="aruco_pose_estimation ov_msckf vicon_receiver"; \
+    PKGS="ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt"; \
     if [ "$ARCH" != "arm64" ]; then PKGS="$PKGS gazebo_ros_bridges"; fi; \
     source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to $PKGS
 
@@ -44,7 +47,7 @@ FROM ${PERCEPTION_CONTROLS_BASE} AS shared-mpc-rl-deps
 # MAVSDK C++ Build
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev \
-    libjsoncpp-dev libssl-dev && rm -rf /var/lib/apt/lists/*
+    libjsoncpp-dev libssl-dev libserialport-dev && rm -rf /var/lib/apt/lists/*
 RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
     cd /opt/MAVSDK && git fetch --tags && git checkout v3.10.2 && \
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
@@ -85,10 +88,11 @@ FROM shared-mpc-rl-deps AS mpc
 USER drone_dev
 COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
 COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
+COPY --chown=drone_dev:drone_dev src/betaflight_msp_controller ${WORKSPACE}/src/betaflight_msp_controller
 COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk mpc
+RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk mpc betaflight_msp_controller
 
 # =========================================================
 # STAGE 7: rl
@@ -118,6 +122,7 @@ COPY --from=perception ${WORKSPACE}/build ${WORKSPACE}/build
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
+COPY --chown=drone_dev:drone_dev src/betaflight_msp_controller ${WORKSPACE}/src/betaflight_msp_controller
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 # Add docs
 COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs

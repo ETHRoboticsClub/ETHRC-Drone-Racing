@@ -64,6 +64,7 @@ plugins:
 nav:
   - Home: index.md
   - Recent Updates: updates.md
+  - Future Improvements: future-improvements.md
   - Getting Started: getting-started.md
   - Guidelines: guidelines.md
   - Infrastructure:
@@ -75,7 +76,7 @@ nav:
     - Overview: perception/index.md
     - VIO: perception/vio.md
     - Vicon: perception/vicon.md
-    - ArUco: perception/ArUco.md
+    - Gate Detection: perception/gate_detection.md
     - EKF: perception/EKF.md
   - Controls:
     - Overview: controls/index.md
@@ -93,5 +94,7 @@ nav:
     - Betaflight Setup: betaflight.md
   - Groundstation: groundstation/index.md
   - Contributors: contributors.md
+  - Deprecated:
+    - ArUco: perception/ArUco.md
 
 

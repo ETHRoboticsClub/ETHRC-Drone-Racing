@@ -37,6 +37,9 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_targets: ${{ steps.build-matrix.outputs.has_targets }}
     steps:
+      - name: Fix workspace permissions
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/ws -w /ws alpine chown -R $(id -u):$(id -g) . || true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # full history needed to diff against last successful run
@@ -106,6 +109,9 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.detect-changes.outputs.matrix) }}
     steps:
+      - name: Fix workspace permissions
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/ws -w /ws alpine chown -R $(id -u):$(id -g) . || true
       - uses: actions/checkout@v4
 
       - uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd  # v0.9.1

@@ -6,7 +6,7 @@
 
 ## Overview
 
-The EKF package provides sensor fusion for drone state estimation by leveraging the Robot Localization package's Extended Kalman Filter implementation. The filter fuses visual-inertial odometry (VIO) from OpenVINS with absolute pose measurements from ArUco marker detection to produce a robust, high-frequency state estimate. The current implementation uses the standard `robot_localization` package without drone-specific model adaptations.
+The EKF package provides sensor fusion for drone state estimation by leveraging the Robot Localization package's Extended Kalman Filter implementation. The filter fuses visual-inertial odometry (VIO) from OpenVINS with absolute pose measurements from **Gate Detection** to produce a robust, high-frequency state estimate. The current implementation uses the standard `robot_localization` package without drone-specific model adaptations.
 
 ## Input Topics
 
@@ -18,10 +18,10 @@ The EKF system subscribes to the following ROS 2 topics. Orientation data arrive
 - **Description**: Odometry from OpenVINS containing pose (position + orientation) and velocity estimates
 - **Used for Update**: x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw
 
-### ArUco Pose
-- **Topic**: `/aruco/drone_pose`
+### Gate Detection Pose
+- **Topic**: `/gate_detection/drone_pose`
 - **Type**: `geometry_msgs/msg/PoseWithCovarianceStamped`
-- **Description**: Absolute pose measurements from ArUco marker detection
+- **Description**: Absolute pose measurements from Gate Detection
 - **Used for Update**: x, y, z, roll, pitch, yaw
 
 ### Control Input (Optional)
@@ -57,7 +57,7 @@ The sensor fusion pipeline works as follows:
 
 2. **VIO Update**: When odometry messages arrive from OpenVINS (`/ov_msckf/odomimu`), the filter incorporates full pose and velocity information (x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw) to update the state estimate.
 
-3. **Vision Update**: Absolute pose measurements from ArUco marker detection (`/aruco/drone_pose`) provide global corrections to prevent drift. Only pose states (x, y, z, roll, pitch, yaw) are fused from this source.
+3. **Vision Update**: Absolute pose measurements from Gate Detection (`/gate_detection/drone_pose`) provide global corrections to prevent drift. Only pose states (x, y, z, roll, pitch, yaw) are fused from this source.
 
 4. **Delayed Measurement Handling**: The filter maintains a 0.5-second state history buffer (`smooth_lagged_data: true`) to properly handle out-of-order or delayed sensor measurements.
 
@@ -84,7 +84,7 @@ The filter parameters are configured in `config/rl_ekf.yaml`. Key settings inclu
 | `base_link_frame` | `base_link` | Frame rigidly attached to the drone body |
 | `world_frame` | `world` | Reference frame for filter operation |
 
-Setting `world_frame: world` (same as `map_frame`) configures the filter to operate in the global map frame. This is required because we fuse absolute pose measurements from ArUco markers, which provide global corrections and eliminate drift. If `world_frame` were set to `odom`, the filter would only output continuous odometry without incorporating these global corrections.
+Setting `world_frame: world` (same as `map_frame`) configures the filter to operate in the global map frame. This is required because we fuse absolute pose measurements from **Gate Detection**, which provide global corrections and eliminate drift. If `world_frame` were set to `odom`, the filter would only output continuous odometry without incorporating these global corrections.
 
 ## Launch EKF in Gazebo Simulation
 

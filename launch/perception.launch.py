@@ -54,7 +54,6 @@ def generate_launch_description():
     return LaunchDescription(
         [
             camera_bridge_launch,
-            # aruco_launch, # Archived
             gate_detection_launch,
             ekf_launch,
             vio_launch,

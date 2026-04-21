@@ -14,7 +14,7 @@ def setup_native():
     run("sudo apt-get update && sudo apt-get install -y "
         "libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev "
         "libjsoncpp-dev libssl-dev libblas-dev liblapack-dev libopenblas-dev "
-        "liblapacke-dev gfortran cmake python3-pip python3-dev")
+        "liblapacke-dev gfortran cmake python3-pip python3-dev libserialport-dev")
 
     # 2. MAVSDK C++
     if not os.path.exists("/usr/local/include/mavsdk"):

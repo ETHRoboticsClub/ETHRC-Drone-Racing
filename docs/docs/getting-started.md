@@ -42,7 +42,7 @@ graph TD
 
 - **`base`**: The core foundation containing ROS 2, system tools, and base dependencies.
 - **`docs`**: A lightweight environment for building and serving this documentation.
-- **`perception`**: Specialized for camera-based tracking and state estimation (OpenVINS, ArUco).
+- **`perception`**: Specialized for camera-based tracking and state estimation (OpenVINS, Gate Detection).
 - **`mpc`**: Optimized for high-performance controls and trajectory tracking (MAVSDK, ACADOS).
 - **`rl`**: Includes neural network and reinforcement learning libraries (PyTorch, Stable Baselines 3).
 - **`dev`**: The complete, integrated environment containing all components above.
@@ -181,14 +181,10 @@ To launch the default simulation environment:
 Visualizing the internal state of the drone is crucial for debugging perception and control algorithms.
 
 ### RViz Visualization
-We use RViz2 to visualize sensor data, ArUco detections, and EKF state. To launch RViz with the ArUco monitor:
-```bash
-source install/setup.bash
-ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py rviz:=true
-```
+We use RViz2 to visualize sensor data, gate detections, and EKF state.
 
 ### Full Perception Launch
-You can launch the integrated perception stack (VIO + ArUco + EKF) using:
+You can launch the integrated perception stack (VIO + Gate Detection + EKF) using:
 ```bash
 source install/setup.bash
 ros2 launch launch/perception.launch.py
@@ -257,7 +253,7 @@ ros2 launch drone_control racing_bringup.launch.py msp_port:=/dev/ttyTHS1
 
 Now that your environment is set up, explore the following resources:
 
-*   [**Perception Modules**](perception/index.md): Learn about VIO, ArUco tracking, and state estimation.
+*   [**Perception Modules**](perception/index.md): Learn about VIO, Gate Detection, and state estimation.
 *   [**Control Algorithms**](controls/index.md): Understand MPC and RL-based drone control.
 *   [**Betaflight MSP Control**](controls/msp_control.md): Deep dive into the hardware bridge and serial configuration.
 *   [**Development Guidelines**](guidelines.md): Review our coding standards and Git workflow.

@@ -35,6 +35,9 @@ jobs:
         service: [dev]
 
     steps:
+      - name: Fix workspace permissions
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/ws -w /ws alpine chown -R $(id -u):$(id -g) . || true
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
@@ -88,12 +91,12 @@ jobs:
           export COMPOSE_PROJECT_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
           export CONTAINER_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
           # Use docker-compose to build the specific service.
-          docker compose build --no-cache ${{ matrix.service }}
+          docker compose build ${{ matrix.service }}
 
       - name: Cleanup
         if: always()
         run: |
-          # Remove the specific image built in this run to save space
-          # Docker compose uses specific tagging usually, but we prune for safety
+          # Remove the specific project containers but preserve the build cache for future runs
+          export COMPOSE_PROJECT_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
+          docker compose down -v
           docker system prune -f
-          docker builder prune -a -f

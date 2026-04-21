@@ -20,7 +20,6 @@ graph TD
 
     subgraph "Absolute Corrections"
         Gate["Gate Detection (WIP)"]
-        ArUco["ArUco (Archived)"]
     end
 
     subgraph "Fusion Layer"
@@ -34,8 +33,6 @@ graph TD
     Cam --> Gate
     Gate -->|"/gate_detection/drone_pose (Pose)"| EKF
     
-    # Cam --> ArUco
-    # ArUco -->|"/aruco/drone_pose (Pose)"| EKF
     
     Vicon -->|"(Indoor GT)"| EKF
     
@@ -59,7 +56,7 @@ The following table summarizes the data flow between perception modules.
 
 The perception stack utilizes the standard ROS 2 (REP-103) coordinate conventions:
 
-- **`world` Frame**: Global fixed frame. Its origin is typically defined at the start of the mission or at the location of a primary ArUco marker.
+- **`world` Frame**: Global fixed frame. Its origin is typically defined at the start of the mission.
 - **`odom` Frame**: A locally stable frame provided by the EKF. It is continuous (no jumps) but may drift relative to the `world` frame over long durations if absolute fixes are lost.
 - **`base_link` Frame**: The center of mass of the drone.
     - **X-axis**: Forward
@@ -82,9 +79,6 @@ The **Gate Detection** component identifies racing gates and estimates the drone
 - **PnP Solver**: Uses `cv2.solvePnP` to find the absolute translation and rotation from the known gate dimensions to the observed pixel coordinates.
 - **Output**: Published as `geometry_msgs/PoseWithCovarianceStamped` on `/gate_detection/drone_pose`.
 
-### 3. ArUco Selection & Gating (ARCHIVED)
-> [!NOTE] 
-> This module is archived and replaced by Gate Detection.
 
 ### 3. Fusion Logic (The EKF)
 The system uses `robot_localization` with **Smooth Lagged Data** support.
@@ -98,4 +92,3 @@ For deeper technical details on individual components, see:
 - [Gate Detection](gate_detection.md)
 - [Sensor Fusion (EKF)](EKF.md)
 - [Vicon Tracking](vicon.md)
-- [ArUco (Archived)](ArUco.md)

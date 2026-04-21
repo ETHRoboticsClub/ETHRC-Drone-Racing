@@ -1,0 +1,75 @@
+defaults nosave
+
+
+# version
+# Betaflight / STM32H743 (H743) 2025.12.2 Mar 24 2026 / 13:50:01 (79065c96b) MSP API: 1.47
+# config rev: e378347
+
+# start the command batch
+batch start
+
+# reset configuration to default settings
+defaults nosave
+
+board_name KAKUTEH7
+manufacturer_id HBRO
+mcu_id 0040004d3333510831313837
+signature 
+
+# feature
+feature -RX_SERIAL
+feature TELEMETRY
+feature LED_STRIP
+
+# serial
+serial UART1 129 115200 57600 0 1500000
+
+# aux
+aux 0 0 0 1775 2100 0 0
+aux 1 1 1 1300 1700 0 0
+aux 2 2 1 1700 2100 0 0
+aux 3 50 1 900 1300 0 0
+
+# master
+set acc_calibration = 42,3,10,1
+set serialrx_provider = NONE
+set msp_override_channels_mask = 15
+set msp_override_failsafe = ON
+set blackbox_device = SERIAL
+set blackbox_disable_pids = ON
+set blackbox_disable_rc = ON
+set blackbox_disable_setpoint = ON
+set blackbox_disable_alt = ON
+set blackbox_disable_rssi = ON
+set blackbox_disable_attitude = ON
+set blackbox_disable_debug = ON
+set blackbox_disable_motors = ON
+set blackbox_disable_rpm = ON
+set blackbox_disable_gps = ON
+set blackbox_mode = ALWAYS
+set motor_output_reordering = 3,2,1,0,4,5,6,7
+set vbat_min_cell_voltage = 350
+
+profile 0
+
+profile 1
+
+profile 2
+
+profile 3
+
+# restore original profile selection
+profile 0
+
+rateprofile 0
+
+rateprofile 1
+
+rateprofile 2
+
+rateprofile 3
+
+# restore original rateprofile selection
+rateprofile 0
+
+# save configuration

@@ -1,0 +1,2139 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="http://0.0.0.0:8000/controls/msp_control/">
+      
+      
+        <link rel="prev" href="../drone_control/">
+      
+      
+        <link rel="next" href="../mavsdk/">
+      
+      
+      <link rel="icon" href="../../images/ETHRC_Aero_favicon_black.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.14">
+    
+    
+      
+        <title>Betaflight MSP Control - ETHRC Drone Racing</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.342714a4.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#betaflight-msp-control-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="ETHRC Drone Racing" class="md-header__button md-logo" aria-label="ETHRC Drone Racing" data-md-component="logo">
+      
+  <img src="../../images/ETHRC_Aero_favicon_black.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            ETHRC Drone Racing
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Betaflight MSP Control
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ETHRoboticsClub/ETHRC-Drone-Racing
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../updates/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Recent Updates
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../guidelines/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Guidelines
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../infrastructure/" class="md-tabs__link">
+          
+  
+  
+  Infrastructure
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../perception/" class="md-tabs__link">
+          
+  
+  
+  Perception
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Controls
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../drone-setup/" class="md-tabs__link">
+          
+  
+  
+  Drone Setup
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../groundstation/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Groundstation
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../contributors/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributors
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../perception/ArUco/" class="md-tabs__link">
+          
+  
+  
+  Deprecated
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="ETHRC Drone Racing" class="md-nav__button md-logo" aria-label="ETHRC Drone Racing" data-md-component="logo">
+      
+  <img src="../../images/ETHRC_Aero_favicon_black.png" alt="logo">
+
+    </a>
+    ETHRC Drone Racing
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81"/></svg>
+  </div>
+  <div class="md-source__repository">
+    ETHRoboticsClub/ETHRC-Drone-Racing
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Home
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../updates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Recent Updates
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Getting Started
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guidelines/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Guidelines
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Infrastructure
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            Infrastructure
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../infrastructure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../infrastructure/aws_setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AWS Setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../infrastructure/aws_ec2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AWS EC2 Instances
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../infrastructure/aws_ecr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    AWS ECR
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Perception
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            Perception
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../perception/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../perception/vio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VIO
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../perception/vicon/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Vicon
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../perception/EKF/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    EKF
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    Controls
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Controls
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drone_control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Drone Control
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Betaflight MSP Control
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Betaflight MSP Control
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-to-hardware-in-the-loop-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction to Hardware-in-the-Loop Control
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#software-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Software Architecture
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Software Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-betaflight_msp_controller-translation-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. betaflight_msp_controller (Translation Bridge)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-multiwii2_node-serial-driver" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. multiwii2_node (Serial Driver)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#betaflight-fc-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Betaflight FC Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Betaflight FC Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-enable-msp-on-the-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Enable MSP on the Port
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-configure-the-msp-channels-mask-in-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Configure the MSP Channels Mask in CLI
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Configure the MSP Channels Mask in CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-override-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Override Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-configure-msp-override-safety-switch" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Configure MSP Override (Safety Switch)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-msp-extensions-controlling-more" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced: MSP Extensions (Controlling More)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the Pipeline
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-unified-racing-bringup-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Unified Racing Bringup (Recommended)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-manual-node-launch" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Manual Node Launch
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-without-a-radio-controller" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Without a Radio Controller
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Without a Radio Controller">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#persistent-arm-override-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Persistent Arm &amp; Override Logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#potential-pitfalls-troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      ⚠️ Potential Pitfalls &amp; Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚠️ Potential Pitfalls &amp; Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-serial-port-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Serial Port Permissions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-package-discovery-colcon" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Package Discovery (Colcon)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-baud-rate-mismatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Baud Rate Mismatch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-cable-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Cable Quality
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-proper-orientation" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Proper Orientation
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-without-props" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Without Props
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mavsdk/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MAVSDK
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mpc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    MPC
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../rl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    RL
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Troubleshooting
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Drone Setup
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            Drone Setup
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../drone-setup/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../drone-setup/zephyrus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Zephyrus (6S)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../drone-setup/boreas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Boreas (4S)
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../drone-setup/vio_synchronization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    VIO Synchronization
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../betaflight/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Betaflight Setup
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../groundstation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Groundstation
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contributors/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributors
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Deprecated
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            Deprecated
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../perception/ArUco/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    ArUco
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#introduction-to-hardware-in-the-loop-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      Introduction to Hardware-in-the-Loop Control
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#software-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      Software Architecture
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Software Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-betaflight_msp_controller-translation-bridge" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. betaflight_msp_controller (Translation Bridge)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-multiwii2_node-serial-driver" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. multiwii2_node (Serial Driver)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#betaflight-fc-configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Betaflight FC Configuration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Betaflight FC Configuration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-enable-msp-on-the-port" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Enable MSP on the Port
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-configure-the-msp-channels-mask-in-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Configure the MSP Channels Mask in CLI
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Configure the MSP Channels Mask in CLI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#common-override-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      Common Override Examples
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-configure-msp-override-safety-switch" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Configure MSP Override (Safety Switch)
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-msp-extensions-controlling-more" class="md-nav__link">
+    <span class="md-ellipsis">
+      Advanced: MSP Extensions (Controlling More)
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      Running the Pipeline
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Running the Pipeline">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-unified-racing-bringup-recommended" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Unified Racing Bringup (Recommended)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-manual-node-launch" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Manual Node Launch
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-without-a-radio-controller" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Without a Radio Controller
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Testing Without a Radio Controller">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#persistent-arm-override-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Persistent Arm &amp; Override Logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#potential-pitfalls-troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      ⚠️ Potential Pitfalls &amp; Troubleshooting
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="⚠️ Potential Pitfalls &amp; Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-serial-port-permissions" class="md-nav__link">
+    <span class="md-ellipsis">
+      1. Serial Port Permissions
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-package-discovery-colcon" class="md-nav__link">
+    <span class="md-ellipsis">
+      2. Package Discovery (Colcon)
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-baud-rate-mismatch" class="md-nav__link">
+    <span class="md-ellipsis">
+      3. Baud Rate Mismatch
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-cable-quality" class="md-nav__link">
+    <span class="md-ellipsis">
+      4. Cable Quality
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-proper-orientation" class="md-nav__link">
+    <span class="md-ellipsis">
+      5. Proper Orientation
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-without-props" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing Without Props
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/ETHRoboticsClub/ETHRC-Drone-Racing/edit/main/docs/docs/controls/msp_control.md" title="Edit this page" class="md-content__button md-icon">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="betaflight-msp-control-architecture">Betaflight MSP Control Architecture</h1>
+<p>This section describes how the ETHRC Drone Racing framework bridges autonomous high-level control commands (such as those from an MPC or RL agent) directly into the Betaflight flight controller.</p>
+<h2 id="introduction-to-hardware-in-the-loop-control">Introduction to Hardware-in-the-Loop Control</h2>
+<p>For autonomous flight, the companion computer (NVIDIA Jetson) must be able to inject flight commands into the drone's flight controller, substituting the pilot's traditional remote control sticks. </p>
+<p>While many robotics autopilots (like PX4 or ArduPilot) utilize <strong>MAVLink</strong> for receiving these commands, <strong>Betaflight</strong> operates natively on the <strong>Multiwii Serial Protocol (MSP)</strong>. Therefore, the most native, low-latency, and reliable method to control a Betaflight drone via a companion computer is to stream MSP packets directly over a serial connection. </p>
+<p>This architecture allows an external computer to "override" the pilot's stick inputs seamlessly while keeping the pilot in the loop with a physical safety switch.</p>
+<hr />
+<h2 id="software-architecture">Software Architecture</h2>
+<p>The control pipeline from the autonomous planner down to the flight controller consists of two ROS 2 nodes connected in sequence:</p>
+<ol>
+<li><strong><code>betaflight_msp_controller</code> (The Translation Bridge)</strong></li>
+<li><strong><code>multiwii2_node</code> (The Serial Driver)</strong></li>
+</ol>
+<h3 id="1-betaflight_msp_controller-translation-bridge">1. <code>betaflight_msp_controller</code> (Translation Bridge)</h3>
+<p>The high-level controllers (e.g., <code>drone_controller_node</code>) output standardized robotics commands—specifically thrust values and rotational rates (roll, pitch, yaw in degrees per second)—to the <code>/drone_attitude_cmd</code> topic. </p>
+<p>Betaflight, however, expects these values as Pulse Width Modulation (PWM) signals ranging from <code>1000</code> to <code>2000</code> on specific channels (Aileron, Elevator, Rudder, Throttle). The <code>betaflight_msp_controller</code> node subscribes to the continuous stream of attitude commands and mathematically maps them into 1000-2000 PWM signals.</p>
+<p><strong>Configurable Parameters:</strong>
+* <code>attitude_cmd_topic</code> <em>(string)</em>: The input topic name to listen to. <strong>Default:</strong> <code>'/drone_attitude_cmd'</code>
+* <code>rc_override_topic</code> <em>(string)</em>: The output topic where the <code>OverrideRCIn</code> message will be published. <strong>Default:</strong> <code>'/multiwii/rc/override'</code>
+* <code>max_rate_deg_s</code> <em>(float)</em>: The maximum rotational rate (in degrees per second) that corresponds to maximum stick deflection (a PWM of 2000 or 1000). <strong>Default:</strong> <code>500.0</code>. 
+  * <em>Example:</em> If <code>max_rate_deg_s</code> is 500, an incoming roll rate command of <code>250.0</code> translates mathematically to a center-offset PWM of <code>1750</code>.</p>
+<h3 id="2-multiwii2_node-serial-driver">2. <code>multiwii2_node</code> (Serial Driver)</h3>
+<p>Once the commands are accurately mapped to the 1000-2000 range, they are sent as <code>mavros_msgs/msg/OverrideRCIn</code> messages to the <code>multiwii_ros2</code> node. This open-source C++ node is responsible for managing the actual serial hardware (<code>/dev/ttyACM0</code> via USB/UART). It converts the structured ROS message into an <code>MSP_SET_RAW_RC</code> binary packet and transmits it over the serial lines to the flight controller.</p>
+<hr />
+<h2 id="betaflight-fc-configuration">Betaflight FC Configuration</h2>
+<p>To enable this architecture, the flight controller must be running Betaflight version <strong>4.5.2 or higher</strong> (4.6 is officially recommended by high-performance MSP libraries like <a href="https://github.com/Deonixlive/Control-Betaflight-Copter">Deonixlive</a>) and configured to trust the Jetson's manual serial inputs.</p>
+<h3 id="1-enable-msp-on-the-port">1. Enable MSP on the Port</h3>
+<p>Connect the Jetson to the Flight Controller (typically via an available UART or the USB-C connection exposing <code>/dev/ttyACM0</code>). In the <strong>Betaflight Configurator</strong> &gt; <strong>Ports</strong> tab, ensure that the <strong>Configuration/MSP</strong> toggle is enabled for the port physically connected to the Jetson. If you're using high update frequencies, use a high Baud rate (e.g., <code>1000000</code> or <code>115200</code>).</p>
+<h3 id="2-configure-the-msp-channels-mask-in-cli">2. Configure the MSP Channels Mask in CLI</h3>
+<p>Betaflight strictly limits which radio channels an external computer can override for safety. You must manually unlock the Roll, Pitch, Yaw, and Throttle channels by defining the <code>msp_override_channels_mask</code>.</p>
+<p>The bits in the mask correlate to: <code>AUX16 | ... | AUX2 | AUX1 | YAW | THROTTLE | PITCH | ROLL</code>.
+Setting a bit to <code>1</code> enables the override.</p>
+<ul>
+<li><strong>Warning:</strong> It is highly advised <em>against</em> overwriting <code>AUX1</code> because the ARMING switch is typically located there. Let the human pilot retain arming authority!</li>
+</ul>
+<p>Open the <strong>CLI</strong> tab in Betaflight Configurator and paste one of the following commands based on your needs:</p>
+<h4 id="common-override-examples">Common Override Examples</h4>
+<p><strong>1. Standard Autonomous Flight (Roll, Pitch, Yaw, Throttle)</strong> 
+This is the most common setup. It grants the Jetson full directional control.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">set</span><span class="w"> </span><span class="nv">msp_override_channels_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">15</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>save
+</code></pre></div></p>
+<p><strong>2. Throttle Test Mode (Throttle Only)</strong>
+Useful when initially tuning the PID hover values. The Jetson only controls altitude (Throttle = Bit 3 = 4), while you maintain standard Roll, Pitch, and Yaw via your remote.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">set</span><span class="w"> </span><span class="nv">msp_override_channels_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">4</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>save
+</code></pre></div></p>
+<p><strong>3. Flight + Payload Drop (AETR + AUX2)</strong>
+If the Jetson also needs to trigger a servo or payload drop mechanism located on <code>AUX2</code> (Bit 6 = 32). <code>32 + 15 = 47</code>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">set</span><span class="w"> </span><span class="nv">msp_override_channels_mask</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="m">47</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>save
+</code></pre></div></p>
+<p><em>(Tip: If you notice during testing that the Yaw and Throttle seem reversed, verify that Betaflight hasn't swapped the internal YAW/THROTTLE channel order inside your specific version's MSP parser).</em></p>
+<h3 id="3-configure-msp-override-safety-switch">3. Configure MSP Override (Safety Switch)</h3>
+<p>To ensure the pilot maintains ultimate authority over the drone, we utilize Betaflight's built-in <strong>MSP Override</strong> mode.</p>
+<ol>
+<li>Navigate to the <strong>Modes</strong> tab in the Betaflight Configurator.</li>
+<li>Locate the <strong>MSP OVERRIDE</strong> mode.</li>
+<li>Assign this mode to a physical switch on your RC Transmitter (e.g., <code>AUX2</code> or <code>AUX3</code>).</li>
+</ol>
+<p><strong>How it works during a flight:</strong>
+* <strong>Switch OFF (Manual Mode):</strong> Betaflight strictly listens to your radio receiver. The Jetson is continuously generating and sending autonomous flight commands into the void; Betaflight safely ignores them.
+* <strong>Switch ON (Autonomous Mode):</strong> Betaflight seamlessly transfers control of the Roll, Pitch, Yaw, and Throttle channels (due to our mask of <code>15</code>) over to the continuous stream of <code>MSP_SET_RAW_RC</code> packets provided by the Jetson. 
+* If the drone begins to act erratically, the human pilot immediately flips the switch back to OFF, instantly regaining manual control.</p>
+<hr />
+<h2 id="advanced-msp-extensions-controlling-more">Advanced: MSP Extensions (Controlling More)</h2>
+<p>While <code>MSP_SET_RAW_RC</code> is sufficient for standard flight stick emulation, Betaflight also supports a suite of broader <strong><a href="https://www.betaflight.com/docs/development/API/MSP-Extensions">MSP Extensions</a></strong>. </p>
+<p>Should we ever need to "control more" than just the flight axes, these extensions allow the Jetson to dig deeper into the actual state machine and configuration of the flight controller in real-time. For example:</p>
+<ul>
+<li><strong><code>MSP_SET_MODE_RANGE</code></strong>: Instead of relying on the human pilot to pre-configure physical AUX switches to trigger functions like Angle Mode, Acro Trainer, or Beeper, the Jetson can programmatically redefine mode ranges on the fly.</li>
+<li><strong><code>MSP_SET_ADJUSTMENT_RANGE</code></strong>: If the high-level Reinforcement Learning (RL) or MPC node determines that the drone's PID tuning is no longer optimal due to battery sag or turbulence, it can use MSP adjustment ranges to dynamically push changes to the PID loops mid-flight.</li>
+<li><strong>Other Integrations</strong>: Broader MSP commands also allow the companion computer to push custom text directly to the pilot's OSD (On-Screen Display), change Video Transmitter (VTX) power levels, or change LED Strip configurations based on the Jetson's perception state.</li>
+</ul>
+<p><em>To utilize these advanced extensions in the future, the <code>multiwii2_node</code> or a direct serial driver would need to be expanded to accept and serialize these specific Betaflight API commands.</em></p>
+<hr />
+<h2 id="running-the-pipeline">Running the Pipeline</h2>
+<p>There are two primary ways to run the control pipeline: via individual nodes or using the unified "Racing Bringup" script.</p>
+<h3 id="1-unified-racing-bringup-recommended">1. Unified Racing Bringup (Recommended)</h3>
+<p>This script starts the entire stack (Comms, Perception, and Control) in one go. It is the fastest way to get to a flight-ready state.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ros2<span class="w"> </span>launch<span class="w"> </span>drone_control<span class="w"> </span>racing_bringup.launch.py<span class="w"> </span>msp_port:<span class="o">=</span>/dev/ttyTHS1
+</code></pre></div>
+<h3 id="2-manual-node-launch">2. Manual Node Launch</h3>
+<p>If you need more granular control or are debugging a specific component, you can launch the MSP bridge individually:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Launch with default YAML parameters (ttyTHS1, 1.5Mbps)</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ros2<span class="w"> </span>launch<span class="w"> </span>betaflight_msp_controller<span class="w"> </span>msp_bridge.launch.py
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Launch with CLI overrides</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>ros2<span class="w"> </span>launch<span class="w"> </span>betaflight_msp_controller<span class="w"> </span>msp_bridge.launch.py<span class="w"> </span>port:<span class="o">=</span>/dev/ttyUSB0<span class="w"> </span>baudrate:<span class="o">=</span><span class="m">115200</span>
+</code></pre></div>
+<hr />
+<h2 id="configuration">Configuration</h2>
+<p>The system supports two levels of configuration:</p>
+<ol>
+<li><strong>YAML Parameters</strong>: Defaults are stored in <code>src/betaflight_msp_controller/config/msp_params.yaml</code>. Edit this file to set your "permanent" hardware setup.</li>
+<li><strong>CLI Arguments</strong>: Any parameter in the YAML can be overridden at runtime using the <code>name:=value</code> syntax in the launch command.</li>
+</ol>
+<hr />
+<h2 id="testing-without-a-radio-controller">Testing Without a Radio Controller</h2>
+<p>In development environments where a physical RC Transmitter is unavailable, you can use the <code>arm_and_override_persistent.py</code> utility script to simulate the radio link and inject autonomous commands simultaneously.</p>
+<h3 id="persistent-arm-override-logic">Persistent Arm &amp; Override Logic</h3>
+<p>This script utilizes two separate serial connections to the Flight Controller:
+1.  <strong>Primary RX (USB)</strong>: Emulates the RC Receiver, sending continuous heartbeat packets for <strong>ARMing</strong> (AUX1) and enabling <strong>MSP_OVERRIDE</strong> mode (AUX2).
+2.  <strong>Override Port (UART)</strong>: Sends the actual AETR stick values (Roll, Pitch, Yaw, Throttle) that will bypass the primary RX while the override switch is active.</p>
+<h3 id="usage">Usage</h3>
+<p>Run the script from the Jetson (ensure permissions are set for <code>/dev/ttyACM*</code> and <code>/dev/ttyTHS*</code>):
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>python3<span class="w"> </span>scripts/msp/arm_and_override_persistent.py<span class="w"> </span>/dev/ttyACM0<span class="w"> </span>/dev/ttyTHS1
+</code></pre></div></p>
+<p><strong>Safety Features:</strong>
+*   <strong>Initialization</strong>: Sends 1 second of zero throttle/disarmed packets to clear Betaflight's boot safety checks.
+*   <strong>Heartbeat</strong>: Maintains a 50Hz (20ms) update rate to prevent failsafes.
+*   <strong>Emergency Stop</strong>: Pressing <code>Ctrl+C</code> immediately sends a burst of Disarm packets and zeroes all channels before closing the ports.</p>
+<hr />
+<h2 id="potential-pitfalls-troubleshooting">⚠️ Potential Pitfalls &amp; Troubleshooting</h2>
+<h3 id="1-serial-port-permissions">1. Serial Port Permissions</h3>
+<p>If the node fails to open the serial port with a "Permission Denied" error, your user likely lacks the necessary group permissions.
+<strong>Solution:</strong> Add your user to the <code>dialout</code> and <code>tty</code> groups, then log out and back in.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>sudo<span class="w"> </span>usermod<span class="w"> </span>-a<span class="w"> </span>-G<span class="w"> </span>dialout,tty<span class="w"> </span><span class="nv">$USER</span>
+</code></pre></div></p>
+<h3 id="2-package-discovery-colcon">2. Package Discovery (Colcon)</h3>
+<p>The <code>betaflight_msp_controller</code> was moved to the top-level <code>src/</code> directory to ensure <code>colcon</code> finds it. If you move it back inside another package, <code>ros2 launch</code> will fail to find it.</p>
+<h3 id="3-baud-rate-mismatch">3. Baud Rate Mismatch</h3>
+<p>Betaflight's <code>msp_baudrate</code> (visible in the Ports tab) <strong>must match</strong> the Jetson's baud rate. If they differ, the node will "connect" but no data will be parsed by the FC.
+*   <strong>Default Project Baud:</strong> <code>1500000</code> (1.5 Mbps) for high-rate IMU streaming.</p>
+<h3 id="4-cable-quality">4. Cable Quality</h3>
+<p>Always use a high-quality <strong>data</strong> cable. Many USB cables included with consumer electronics are "charging only" and do not have the data lines connected, which will result in the device not appearing in <code>/dev/</code>.</p>
+<h3 id="5-proper-orientation">5. Proper Orientation</h3>
+<p>If the drone pitches when you command roll, check your <strong>Betaflight Board Alignment</strong> settings and ensure the <code>max_rate_deg_s</code> in <code>msp_params.yaml</code> matches your high-level controller's expectations.</p>
+<hr />
+<h2 id="testing-without-props">Testing Without Props</h2>
+<p><strong>IMPORTANT:</strong> Always test your MSP override configuration <strong>WITHOUT PROPELLERS</strong>. 
+1. Launch the <code>msp_bridge.launch.py</code>.
+2. Connect the FC to Betaflight Configurator.
+3. Use the <strong>Receiver Tab</strong> to verify that sending commands from ROS 2 actually moves the Roll/Pitch/Yaw/Throttle sliders in real-time.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.13a4f30d.min.js"></script>
+      
+    
+  </body>
+</html>
