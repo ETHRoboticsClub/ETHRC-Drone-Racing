@@ -47,3 +47,6 @@ src/mpcc_pp/c_generated_code/*
 !src/mpcc_pp/c_generated_code/.gitkeep
 src/mpcc_pp/logs/*
 !src/mpcc_pp/logs/.gitkeep
+
+.codex
+.claude
