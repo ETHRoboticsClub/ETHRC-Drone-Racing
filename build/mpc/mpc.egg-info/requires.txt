@@ -1,8 +1,0 @@
-setuptools
-numpy
-scipy
-mavsdk
-casadi
-
-[test]
-pytest

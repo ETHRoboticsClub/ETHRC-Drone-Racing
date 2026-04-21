@@ -1,0 +1,49 @@
+# Build / install outputs (colcon)
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ROS bags
+rosbag/
+*.bag
+
+# Editors / OS
+.vscode/
+.DS_Store
+*.swp
+*.swo
+
+# Dev tooling
+.devcontainer/
+.colcon/
+
+# Secrets / local config
+.env
+
+# Generated / local artifacts
+repo_artifact/
+plots/
+
+# MPC generated code (keep .gitkeep placeholders)
+src/mpc_dev/*
+
+src/mpc/c_generated_code/*
+!src/mpc/c_generated_code/.gitkeep
+src/mpc/logs/*
+!src/mpc/logs/.gitkeep
+
+src/mpcc/c_generated_code/*
+!src/mpcc/c_generated_code/.gitkeep
+src/mpcc/logs/*
+!src/mpcc/logs/.gitkeep
+
+src/mpcc_pp/c_generated_code/*
+!src/mpcc_pp/c_generated_code/.gitkeep
+src/mpcc_pp/logs/*
+!src/mpcc_pp/logs/.gitkeep

@@ -1,3 +1,0 @@
-/mavsdk_client:
-  ros__parameters:
-    state_update_rate: 200.0
