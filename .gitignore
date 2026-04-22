@@ -23,6 +23,8 @@ src/mpc/mpc/__pycache__
 *.pyc
 .codex
 
+docs/site/
+
 # AWS CLI installation artifacts
 aws/
 awscliv2.zip
