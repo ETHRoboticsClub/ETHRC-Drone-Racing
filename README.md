@@ -80,8 +80,12 @@ cd ETHRC-Drone-Racing
 ```
 
 ### 2. Launch Environment
-We use Docker to ensure "it works on everyone's machine."
+We use Docker to ensure "it works on everyone's machine." Before building the images and running it, make sure to run the AWS setup script. This enables you to pull prebuild images, where you don't have to compile the heavy dependencies yourself and saves you a lot of time.
+
 ```bash
+# From the root of the repo, run the AWS setup script
+./scripts/tools/setup_aws_ecr.sh
+
 # Prepare host volumes (Fixes 'Permission Denied' errors in Docker)
 ./scripts/prepare_colcon_volumes.sh
 
