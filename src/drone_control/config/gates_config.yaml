@@ -6,7 +6,7 @@
 #   active_track: vertical     → straight climbing row with lead-in
 #   active_track: circular     → 8 gates equally spaced on an offset circle
 #   active_track: SplitS       → circuit with one Split-S maneuver:
-#                                G4 (entry) directly above G5 (exit), 4 m lower,
+#                                G4 (entry) directly above G5 (exit), 5 m lower,
 #                                yaw reversed 180° — drone rolls inverted and
 #                                pulls a downward half-loop between the two gates.
 #
@@ -29,7 +29,7 @@
 #   track_weight penalty weight for track-constraint soft barrier in OCP cost
 #   SHOW_TUNNEL  publish the MPCC tunnel in RViz
 
-active_track: vertical
+active_track: horizontal
 
 tracks:
 
@@ -40,8 +40,8 @@ tracks:
   horizontal:
     track:
       SHOW_TUNNEL:   true
-      W_nominal:    3.0
-      H_nominal:    3.0
+      W_nominal:    4.0
+      H_nominal:    3.5
       sigma_gate:   3.0
       qc_nom:       3.0
       qc_gate:      15.0
@@ -58,14 +58,6 @@ tracks:
         height: 2.0
 
       - name: G2
-        x: 12.0
-        y:  0.0
-        z: -3.0
-        yaw_deg:   0.0
-        width:  2.0
-        height: 2.0
-
-      - name: G3
         x: 16.0
         y:  0.0
         z: -3.0
@@ -73,15 +65,7 @@ tracks:
         width:  2.0
         height: 2.0
 
-      - name: G4
-        x: 20.0
-        y:  0.0
-        z: -3.0
-        yaw_deg:   0.0
-        width:  2.0
-        height: 2.0
-
-      - name: G5
+      - name: G3
         x: 24.0
         y:  0.0
         z: -3.0
@@ -89,15 +73,7 @@ tracks:
         width:  2.0
         height: 2.0
 
-      - name: G6
-        x: 28.0
-        y:  0.0
-        z: -3.0
-        yaw_deg:   0.0
-        width:  2.0
-        height: 2.0
-
-      - name: G7
+      - name: G4
         x: 32.0
         y:  0.0
         z: -3.0
@@ -105,8 +81,32 @@ tracks:
         width:  2.0
         height: 2.0
 
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G6
+        x: 48.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G7
+        x: 56.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
       - name: G8
-        x: 36.0
+        x: 64.0
         y:  0.0
         z: -3.0
         yaw_deg:   0.0
@@ -120,8 +120,8 @@ tracks:
   vertical:
     track:
       SHOW_TUNNEL:   true
-      W_nominal:    3.0
-      H_nominal:    4.0
+      W_nominal:    4.0
+      H_nominal:    5.0
       sigma_gate:   3.5
       qc_nom:       3.0
       qc_gate:      15.0
@@ -138,7 +138,7 @@ tracks:
         height: 2.0
 
       - name: G2
-        x: 12.0
+        x: 16.0
         y:  0.0
         z: -2.5
         yaw_deg:   0.0
@@ -146,7 +146,7 @@ tracks:
         height: 2.0
 
       - name: G3
-        x: 16.0
+        x: 24.0
         y:  0.0
         z: -3.5
         yaw_deg:   0.0
@@ -154,7 +154,7 @@ tracks:
         height: 2.0
 
       - name: G4
-        x: 20.0
+        x: 32.0
         y:  0.0
         z: -4.5
         yaw_deg:   0.0
@@ -162,7 +162,7 @@ tracks:
         height: 2.0
 
       - name: G5
-        x: 24.0
+        x: 40.0
         y:  0.0
         z: -5.5
         yaw_deg:   0.0
@@ -170,7 +170,7 @@ tracks:
         height: 2.0
 
       - name: G6
-        x: 28.0
+        x: 48.0
         y:  0.0
         z: -6.5
         yaw_deg:   0.0
@@ -178,7 +178,7 @@ tracks:
         height: 2.0
 
       - name: G7
-        x: 32.0
+        x: 56.0
         y:  0.0
         z: -7.5
         yaw_deg:   0.0
@@ -186,7 +186,7 @@ tracks:
         height: 2.0
 
       - name: G8
-        x: 36.0
+        x: 64.0
         y:  0.0
         z: -8.5
         yaw_deg:   0.0
@@ -195,14 +195,14 @@ tracks:
 
   # ──────────────────────────────────────────────────────────────────
   # CIRCULAR — 8 gates equally spaced on a circle
-  #            centre (18, 0), radius 10 m
+  #            centre (24, 0), radius 16 m
   #            G1 starts 8 m ahead of spawn for a smooth lead-in.
   # ──────────────────────────────────────────────────────────────────
   circular:
     track:
       SHOW_TUNNEL:   true
-      W_nominal:    3.0
-      H_nominal:    3.0
+      W_nominal:    4.0
+      H_nominal:    3.5
       sigma_gate:   3.0
       qc_nom:       3.0
       qc_gate:      15.0
@@ -219,31 +219,31 @@ tracks:
         height: 2.0
 
       - name: G2
-        x: 10.9
-        y:  7.1
+        x: 12.7
+        y: 11.3
         z: -3.2
         yaw_deg:  22.0
         width:  2.0
         height: 2.0
 
       - name: G3
-        x: 18.0
-        y: 10.0
+        x: 24.0
+        y: 16.0
         z: -3.5
         yaw_deg: -22.0
         width:  2.0
         height: 2.0
 
       - name: G4
-        x: 25.1
-        y:  7.1
+        x: 35.3
+        y: 11.3
         z: -3.8
         yaw_deg: -68.0
         width:  2.0
         height: 2.0
 
       - name: G5
-        x: 28.0
+        x: 40.0
         y:  0.0
         z: -4.0
         yaw_deg: -112.0
@@ -251,24 +251,24 @@ tracks:
         height: 2.0
 
       - name: G6
-        x: 25.1
-        y: -7.1
+        x: 35.3
+        y: -11.3
         z: -3.8
         yaw_deg: -158.0
         width:  2.0
         height: 2.0
 
       - name: G7
-        x: 18.0
-        y: -10.0
+        x: 24.0
+        y: -16.0
         z: -3.5
         yaw_deg: 158.0
         width:  2.0
         height: 2.0
 
       - name: G8
-        x: 10.9
-        y: -7.1
+        x: 12.7
+        y: -11.3
         z: -3.2
         yaw_deg: 112.0
         width:  2.0
@@ -277,19 +277,19 @@ tracks:
   # ──────────────────────────────────────────────────────────────────
   # SplitS — circuit with exactly one Split-S maneuver
   #
-  #   G4 (entry)  x=28, y=0, z=-3.0, yaw=  0°  ← heading North
-  #   G5 (exit)   x=28, y=0, z=-7.0, yaw=180°  ← heading South, 4 m lower
+  #   G4 (entry)  x=40, y=0, z=-3.0, yaw=  0°  ← heading North
+  #   G5 (exit)   x=40, y=0, z=-8.0, yaw=180°  ← heading South, 5 m lower
   #
   #   G4 and G5 share the same (x, y) — one gate literally above the other.
   #   The drone rolls inverted at G4, pulls a downward half-loop, and exits
-  #   G5 in the opposite direction 4 m below the entry altitude.
+  #   G5 in the opposite direction 5 m below the entry altitude.
   #   H_nominal is enlarged to accommodate the altitude gap within the tunnel.
   # ──────────────────────────────────────────────────────────────────
   SplitS:
     track:
       SHOW_TUNNEL:   true
-      W_nominal:    3.0
-      H_nominal:    5.0
+      W_nominal:    4.0
+      H_nominal:    6.0
       sigma_gate:   3.5
       qc_nom:       3.0
       qc_gate:      15.0
@@ -307,7 +307,7 @@ tracks:
 
       # G2 — outbound straight
       - name: G2
-        x: 14.0
+        x: 18.0
         y:  0.0
         z: -3.0
         yaw_deg:   0.0
@@ -316,8 +316,8 @@ tracks:
 
       # G3 — slight right kink before Split-S
       - name: G3
-        x: 22.0
-        y: -3.0
+        x: 30.0
+        y: -4.0
         z: -3.0
         yaw_deg: -12.0
         width:  2.0
@@ -325,26 +325,26 @@ tracks:
 
       # G4 — SPLIT-S ENTRY: heading North
       - name: G4
-        x: 28.0
+        x: 40.0
         y:  0.0
         z: -3.0
         yaw_deg:   0.0
         width:  2.0
         height: 2.0
 
-      # G5 — SPLIT-S EXIT: same (x,y), 4 m lower, now heading South
+      # G5 — SPLIT-S EXIT: same (x,y), 5 m lower, now heading South
       - name: G5
-        x: 28.0
+        x: 40.0
         y:  0.0
-        z: -7.0
+        z: -8.0
         yaw_deg: 180.0
         width:  2.0
         height: 2.0
 
       # G6 — recovery, climbing South-West
       - name: G6
-        x: 22.0
-        y:  4.0
+        x: 30.0
+        y:  6.0
         z: -5.0
         yaw_deg: 150.0
         width:  2.0
@@ -352,8 +352,8 @@ tracks:
 
       # G7 — return leg heading West
       - name: G7
-        x: 14.0
-        y:  5.0
+        x: 18.0
+        y:  7.0
         z: -4.0
         yaw_deg: 170.0
         width:  2.0
@@ -361,8 +361,8 @@ tracks:
 
       # G8 — final turn back toward start
       - name: G8
-        x:  7.0
-        y:  2.0
+        x:  4.0
+        y:  6.0
         z: -3.0
         yaw_deg: -60.0
         width:  2.0

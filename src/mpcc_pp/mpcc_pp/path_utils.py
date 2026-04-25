@@ -307,6 +307,7 @@ class GatedRacingPath(RacingPath):
         H_nominal:   Tunnel half-height between gates [m].
         sigma_gate:  Gaussian σ for W/H transitions [m].
         sigma_qc:    Gaussian σ for contouring-weight transitions [m].
+        tau_scale:   Global tunnel scale factor in [0, 1].
     """
 
     def __init__(self, gates: list,
@@ -314,6 +315,7 @@ class GatedRacingPath(RacingPath):
                  H_nominal: float = 3.0,
                  sigma_gate: float = 2.0,
                  sigma_qc: float = 0.5,
+                 tau_scale: float = tau,
                  start_position: np.ndarray = None):
 
         assert len(gates) >= 2, "At least 2 gates required."
@@ -331,7 +333,7 @@ class GatedRacingPath(RacingPath):
         self._W_n        = float(W_nominal)
         self._H_n        = float(H_nominal)
         self._sigma_gate = float(sigma_gate)
-        self._tau          = float(np.clip(tau, 0.0, 1.0))
+        self._tau        = float(np.clip(tau_scale, 0.0, 1.0))
         self._min_gate_half_w = float(np.min(self._gate_half_widths))
         self._min_gate_half_h = float(np.min(self._gate_half_heights))
 

@@ -1,0 +1,194 @@
+# MPCC++ tuning parameters.
+#
+# This file is the single place to tune the MPCC++ controller, optimizer,
+# progress-point motion, model limits, solver settings, and RViz debug output.
+# Values use SI units unless the key explicitly says otherwise.
+#
+# How to tune safely:
+#   1. Change one small group at a time.
+#   2. Rebuild/restart the controller after cost/model/solver changes.
+#   3. If ACADOS rebuilds, that is expected when horizon, cost, constraints,
+#      solver options, or model parameters change.
+#
+# Track geometry itself still lives in drone_control/config/gates_config.yaml:
+# gate positions, yaw, width, and height are track geometry, not controller
+# tuning.
+
+controller:
+  # Prediction horizon duration [s]. Larger values see farther ahead but make
+  # the OCP heavier. Smaller values react faster but can become myopic.
+  t_horizon: 0.8
+
+  # Number of shooting intervals in the horizon. dt = t_horizon / n_nodes.
+  # Larger values improve discretization at higher CPU cost.
+  n_nodes: 20
+
+  # Minimum speed used to roll reference parameters forward along the horizon
+  # when vtheta is still small. This mostly affects takeoff/lead-in behavior.
+  min_prediction_speed: 1.0
+
+  # When remaining arc length is below this threshold, theta wraps to the
+  # circuit start for the next lap.
+  lap_wrap_threshold: 0.3
+
+  # Print detailed controller debug output every N control iterations when the
+  # ROS verbose flag is enabled.
+  debug_log_interval: 50
+
+  # Safety clip applied to attitude-rate commands sent to MAVSDK/PX4 [deg/s].
+  max_attitude_rate_deg_s: 200.0
+
+path:
+  contouring:
+    # Nominal contouring weight qc between gates.
+    # Increase when the drone cuts corners or stays too far from the spline.
+    qc_nom: 3.0
+
+    # Contouring weight qc near gate centers.
+    # Increase when gate traversal accuracy matters more than speed.
+    qc_gate: 15.0
+
+    # Gaussian width [m] for the gate-centered qc increase.
+    # Larger values make the high-tracking region start earlier and last longer.
+    sigma_qc: 0.5
+
+  tunnel:
+    # Publish the MPCC++ tunnel MarkerArray in RViz.
+    show_tunnel: true
+
+    # Nominal tunnel half-width between gates [m].
+    W_nominal: 4.0
+
+    # Nominal tunnel half-height between gates [m].
+    H_nominal: 3.5
+
+    # Gaussian width [m] for shrinking the tunnel near each gate aperture.
+    sigma_gate: 3.0
+
+    # Global tunnel scale in [0, 1]. 1.0 keeps the requested tunnel size;
+    # smaller values tighten the whole tunnel.
+    tau: 0.95
+
+    # Half-extents used by the legacy waypoint path to effectively disable the
+    # track constraint.
+    disabled_W: 1000.0
+    disabled_H: 1000.0
+
+cost:
+  # Lag error weight. Penalizes being ahead/behind the reference point along
+  # the tangent direction.
+  ql: 7.0
+
+  # Body-rate regularization. Increase to reduce aggressive rotations.
+  Qw: 0.0001
+
+  # Progress-acceleration cost. Increase to make vtheta and the RViz progress
+  # point move more smoothly; decrease for faster acceleration along the path.
+  r_dvt: 0.0002
+
+  # Rotor thrust-rate cost. Increase to smooth rotor commands.
+  R_df: 0.0003
+
+  # Progress reward. Increase for faster racing; decrease when tracking and
+  # stability should dominate.
+  mu: 7.0
+
+  # Soft-barrier weight for tunnel halfspace violations.
+  track_weight: 10.0
+
+  # Log-barrier steepness for the tunnel constraint. Higher is sharper but can
+  # make the optimization numerically harder.
+  track_barrier_alpha: 150.0
+
+model:
+  physical:
+    # Vehicle mass and gravity used by the dynamics and hover thrust.
+    mass_kg: 0.969
+    gravity_mps2: 9.81
+
+    # Principal inertia values [kg*m^2].
+    inertia_kg_m2: [0.002207, 0.003338, 0.002977]
+
+    # Per-rotor thrust limits [N].
+    rotor_thrust_min_n: 0.0
+    rotor_thrust_max_n: 7.7
+
+    # Rotor geometry in FRD body frame [m] and yaw moment coefficients.
+    rotor_x_m: [0.0884, -0.0822, 0.0886, -0.0818]
+    rotor_y_m: [0.0720, -0.0680, -0.0680, 0.0718]
+    rotor_km: [0.016, 0.016, -0.016, -0.016]
+
+    # Linear drag coefficients in body frame. Keep zero if not identified.
+    drag_coefficients: [0.0, 0.0, 0.0]
+
+  constraints:
+    # Body-rate state bound [rad/s].
+    body_rate_max_rad_s: 3.141592653589793
+
+    # Per-rotor thrust-rate control bound [N/s].
+    rotor_thrust_rate_max_nps: 20.0
+
+    # Progress velocity state bounds [m/s].
+    progress_velocity_min_mps: 0.0
+    progress_velocity_max_mps: 8.0
+
+    # Progress acceleration control bounds [m/s^2].
+    progress_acceleration_min_mps2: -10.0
+    progress_acceleration_max_mps2: 10.0
+
+solver:
+  # ACADOS solver settings. These affect numerical behavior and can trigger
+  # solver code regeneration.
+  qp_solver: PARTIAL_CONDENSING_HPIPM
+  hessian_approx: GAUSS_NEWTON
+  integrator_type: ERK
+  sim_method_num_stages: 4
+  sim_method_num_steps: 2
+  nlp_solver_type: SQP_RTI
+  print_level: 0
+  nlp_solver_tol_eq: 0.001
+  nlp_solver_tol_ineq: 0.001
+  nlp_solver_tol_stat: 0.01
+  nlp_solver_tol_comp: 0.001
+  regularize_method: CONVEXIFY
+  levenberg_marquardt: 0.01
+  qp_solver_warm_start: true
+
+visualization:
+  # RViz sampling density for static debug geometry.
+  reference_path_samples: 300
+  tunnel_samples: 180
+
+  # Publish throttles in controller iterations.
+  predicted_horizon_publish_every: 10
+  progress_point_publish_every: 1
+
+  # RViz progress point and contouring-error line styling.
+  progress_point_scale: 0.2
+  progress_point_color_rgba: [1.0, 1.0, 0.0, 1.0]
+  progress_line_width: 0.03
+  progress_line_color_rgba: [1.0, 0.5, 0.0, 0.9]
+
+track_profiles:
+  # Per-track overrides keyed by active_track from gates_config.yaml.
+  # Use this only for tuning values that should change with the selected track.
+  # Gate positions/sizes remain in gates_config.yaml.
+  vertical:
+    path:
+      tunnel:
+        H_nominal: 5.0
+        sigma_gate: 3.5
+
+  SplitS:
+    path:
+      tunnel:
+        H_nominal: 6.0
+        sigma_gate: 3.5
+
+compatibility:
+  # false means MPCC++ tuning comes from this file, even if gates_config.yaml
+  # still contains old track keys such as qc_nom or W_nominal.
+  #
+  # Set true only if you temporarily want legacy per-track tuning values in
+  # gates_config.yaml to override this file.
+  allow_legacy_track_overrides: false

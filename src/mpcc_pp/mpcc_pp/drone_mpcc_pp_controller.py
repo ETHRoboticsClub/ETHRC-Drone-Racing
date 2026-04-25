@@ -35,9 +35,21 @@ from interfaces import ControllerInterface
 
 from .drone_model import DroneMpccPpModel
 from .drone_opt import DroneOptimizerMpccPp
+from .parameters import (
+    apply_legacy_track_overrides,
+    apply_track_profile,
+    get_section,
+    load_mpcc_pp_parameters,
+)
 from .path_utils import RacingPath, GatedRacingPath
 
-_MAX_RATE_DEG = 200.0   # safety clip for attitude-rate output [deg/s]
+
+def _rgba(values, default) -> tuple[float, float, float, float]:
+    """Read an RViz RGBA tuple."""
+    arr = np.asarray(default if values is None else values, dtype=np.float64)
+    if arr.shape != (4,):
+        raise ValueError(f"RGBA values must contain 4 numbers, got shape {arr.shape}")
+    return tuple(float(v) for v in arr)
 
 
 class DroneMpccPpController(ControllerInterface):
@@ -55,11 +67,14 @@ class DroneMpccPpController(ControllerInterface):
         waypoints:    (N, 3) array of 3D positions, NED. Used when no gates.
         gate_positions: (M, 3) gate centres for dynamic qc (waypoints mode).
         gates:        List of gate dicts {x,y,z,yaw_deg,width,height,name}.
-        track_params: Dict with tunnel params (W_nominal, H_nominal, …).
+        track_params: Legacy per-track tuning dict from gates_config.yaml.
+        track_name:   active_track name, used to apply parameters.yaml profiles.
         t_horizon:    OCP prediction horizon [s].
         n_nodes:      Number of shooting nodes N.
         weights:      Dict to override DroneOptimizerMpccPp default weights.
         sigma:        Gaussian half-width for dynamic qc weight [m] (waypoints mode).
+        parameters:   Already loaded parameters.yaml content.
+        parameter_file: Optional parameter YAML path. Overrides the bundled file.
     """
 
     needs_waypoints: bool = True
@@ -75,10 +90,13 @@ class DroneMpccPpController(ControllerInterface):
         """
         if config.get('gates') is not None:
             return cls(gates=config['gates'],
-                       track_params=config.get('track', {}))
+                       track_params=config.get('track', {}),
+                       track_name=config.get('track_name'),
+                       parameter_file=config.get('parameter_file'))
         waypoints = config.get('waypoints')
         if waypoints is not None:
-            return cls(waypoints=waypoints)
+            return cls(waypoints=waypoints,
+                       parameter_file=config.get('parameter_file'))
         raise ValueError(
             "DroneMpccPpController.from_config: config must contain "
             "'gates' (for gate-based mpcc_pp with Track Constraint) or "
@@ -93,52 +111,103 @@ class DroneMpccPpController(ControllerInterface):
                  gate_positions: np.ndarray = None,
                  gates: list = None,
                  track_params: dict = None,
-                 t_horizon: float = 0.8,
-                 n_nodes: int = 20,
+                 track_name: str = None,
+                 t_horizon: float = None,
+                 n_nodes: int = None,
                  weights: dict = None,
-                 sigma: float = 0.5):
-        self.t_H    = t_horizon
-        self.Nnodes = n_nodes
-        self._dt    = t_horizon / n_nodes
-
-        self._model = DroneMpccPpModel()
-        self._opt: DroneOptimizerMpccPp = None   # built lazily in initialize()
-        self._weights = weights
-
+                 sigma: float = None,
+                 parameters: dict = None,
+                 parameter_file: str = None):
         tp = track_params or {}
+        raw_parameters = (parameters if parameters is not None
+                          else load_mpcc_pp_parameters(parameter_file))
+        profiled_parameters = apply_track_profile(raw_parameters, track_name)
+        self._parameters = apply_legacy_track_overrides(profiled_parameters, tp)
+
+        controller_cfg = get_section(self._parameters, 'controller')
+        contour_cfg = get_section(self._parameters, 'path', 'contouring')
+        tunnel_cfg = get_section(self._parameters, 'path', 'tunnel')
+        cost_cfg = get_section(self._parameters, 'cost')
+        viz_cfg = get_section(self._parameters, 'visualization')
+
+        self.t_H = float(t_horizon if t_horizon is not None
+                         else controller_cfg.get('t_horizon', 0.8))
+        self.Nnodes = int(n_nodes if n_nodes is not None
+                          else controller_cfg.get('n_nodes', 20))
+        self._dt = self.t_H / self.Nnodes
+
+        self._min_prediction_speed = float(
+            controller_cfg.get('min_prediction_speed', 1.0))
+        self._lap_wrap_threshold = float(
+            controller_cfg.get('lap_wrap_threshold', 0.3))
+        self._debug_log_interval = max(
+            1, int(controller_cfg.get('debug_log_interval', 50)))
+        self._max_rate_deg = float(
+            controller_cfg.get('max_attitude_rate_deg_s', 200.0))
+
+        self.reference_path_samples = max(
+            2, int(viz_cfg.get('reference_path_samples', 300)))
+        self.tunnel_samples = max(
+            2, int(viz_cfg.get('tunnel_samples', 160)))
+        self.horizon_publish_every = max(
+            1, int(viz_cfg.get('predicted_horizon_publish_every', 10)))
+        self.progress_point_publish_every = max(
+            1, int(viz_cfg.get('progress_point_publish_every', 1)))
+        self.progress_point_scale = float(
+            viz_cfg.get('progress_point_scale', 0.2))
+        self.progress_point_color_rgba = _rgba(
+            viz_cfg.get('progress_point_color_rgba'),
+            [1.0, 1.0, 0.0, 1.0])
+        self.progress_line_width = float(
+            viz_cfg.get('progress_line_width', 0.03))
+        self.progress_line_color_rgba = _rgba(
+            viz_cfg.get('progress_line_color_rgba'),
+            [1.0, 0.5, 0.0, 0.9])
+
+        self._model = DroneMpccPpModel(
+            model_params=get_section(self._parameters, 'model'))
+        self._opt: DroneOptimizerMpccPp = None   # built lazily in initialize()
+        weight_keys = ('ql', 'Qw', 'r_dvt', 'R_df', 'mu', 'track_weight')
+        self._weights = {k: float(cost_cfg[k]) for k in weight_keys if k in cost_cfg}
+        if weights:
+            self._weights.update(weights)
+        self._track_barrier_alpha = float(
+            cost_cfg.get('track_barrier_alpha', DroneOptimizerMpccPp._ALPHA_TRACK))
+        self._solver_options = get_section(self._parameters, 'solver')
 
         # Save gates config for deferred path rebuild with drone start position
         self._gates_config  = gates
-        self._track_params  = tp
         self._needs_start_position = gates is not None  # only for gate-based mode
-        self._show_tunnel = bool(tp.get('SHOW_TUNNEL', True))
+        self._show_tunnel = bool(tunnel_cfg.get('show_tunnel', True))
+        self._W_nominal = float(tunnel_cfg.get('W_nominal', 3.0))
+        self._H_nominal = float(tunnel_cfg.get('H_nominal', 3.0))
+        self._sigma_gate = float(tunnel_cfg.get('sigma_gate', 2.0))
+        self._tunnel_tau = float(tunnel_cfg.get('tau', 0.95))
+        self._disabled_W = float(tunnel_cfg.get('disabled_W', 1000.0))
+        self._disabled_H = float(tunnel_cfg.get('disabled_H', 1000.0))
+        self._qc_nom = float(contour_cfg.get('qc_nom', 0.5))
+        self._qc_gate = float(contour_cfg.get('qc_gate', 10.0))
+        self._sigma_qc = float(contour_cfg.get('sigma_qc', 0.5))
 
         if gates is not None:
             # ── Gate-based mode: Track Constraint active ──────────────────
             self._path = GatedRacingPath(
                 gates,
-                W_nominal  = tp.get('W_nominal',  3.0),
-                H_nominal  = tp.get('H_nominal',  3.0),
-                sigma_gate = tp.get('sigma_gate', 2.0),
-                sigma_qc   = tp.get('sigma_qc',   0.5),
+                W_nominal  = self._W_nominal,
+                H_nominal  = self._H_nominal,
+                sigma_gate = self._sigma_gate,
+                sigma_qc   = self._sigma_qc,
+                tau_scale  = self._tunnel_tau,
             )
-            # Merge track_weight from YAML into weights dict for the OCP
-            if 'track_weight' in tp and self._weights is None:
-                self._weights = {'track_weight': tp['track_weight']}
-            elif 'track_weight' in tp:
-                self._weights.setdefault('track_weight', tp['track_weight'])
         elif waypoints is not None:
             # ── Waypoints fallback: Track Constraint inactive (W=H=1000) ──
+            waypoint_sigma = self._sigma_qc if sigma is None else sigma
             self._path = RacingPath(waypoints,
                                     gate_positions=gate_positions,
-                                    sigma=sigma)
+                                    sigma=waypoint_sigma)
         else:
             raise ValueError(
                 "DroneMpccPpController requires either 'gates' or 'waypoints'.")
-
-        # Store qc params from track config for the control loop
-        self._qc_nom  = tp.get('qc_nom',  0.5)
-        self._qc_gate = tp.get('qc_gate', 10.0)
 
         # Internal state: carried between control steps
         self._theta:       float      = 0.0
@@ -169,6 +238,8 @@ class DroneMpccPpController(ControllerInterface):
             t_horizon=self.t_H,
             n_nodes=self.Nnodes,
             weights=self._weights,
+            solver_options=self._solver_options,
+            track_barrier_alpha=self._track_barrier_alpha,
             enable_logging=True,
         )
         mode = ("GatedRacingPath (Track Constraint active)"
@@ -240,12 +311,14 @@ class DroneMpccPpController(ControllerInterface):
             return None
         return pred[:, 0:3]
 
-    def sample_reference_path(self, n: int = 300) -> np.ndarray:
+    def sample_reference_path(self, n: int = None) -> np.ndarray:
         """Return (n, 3) NED positions sampled uniformly along the reference spline."""
+        if n is None:
+            n = self.reference_path_samples
         thetas = np.linspace(0.0, self._path.total_length, n)
         return np.array([self._path.position(t) for t in thetas])
 
-    def sample_tunnel(self, n: int = 160) -> 'dict[str, np.ndarray] | None':
+    def sample_tunnel(self, n: int = None) -> 'dict[str, np.ndarray] | None':
         """
         Return sampled tunnel geometry for RViz visualisation.
 
@@ -257,6 +330,8 @@ class DroneMpccPpController(ControllerInterface):
         if not isinstance(self._path, GatedRacingPath):
             return None
 
+        if n is None:
+            n = self.tunnel_samples
         thetas = np.linspace(0.0, self._path.total_length, n)
         positions = np.zeros((n, 3), dtype=np.float64)
         normals = np.zeros((n, 3), dtype=np.float64)
@@ -314,13 +389,13 @@ class DroneMpccPpController(ControllerInterface):
         # position so the reference trajectory begins at the drone, not gate 1.
         if self._needs_start_position:
             drone_pos = np.asarray(x_ext[0:3], dtype=np.float64)
-            tp = self._track_params
             self._path = GatedRacingPath(
                 self._gates_config,
-                W_nominal    = tp.get('W_nominal',  3.0),
-                H_nominal    = tp.get('H_nominal',  3.0),
-                sigma_gate   = tp.get('sigma_gate', 2.0),
-                sigma_qc     = tp.get('sigma_qc',   0.5),
+                W_nominal     = self._W_nominal,
+                H_nominal     = self._H_nominal,
+                sigma_gate    = self._sigma_gate,
+                sigma_qc      = self._sigma_qc,
+                tau_scale     = self._tunnel_tau,
                 start_position = drone_pos,
             )
             self._theta   = 0.0
@@ -341,7 +416,7 @@ class DroneMpccPpController(ControllerInterface):
         x_aug[17] = self._theta
 
         # Lap detection — wrap θ to gate 1 (skip lead-in on subsequent laps)
-        if self._path.total_length - self._theta < 0.3:
+        if self._path.total_length - self._theta < self._lap_wrap_threshold:
             circuit_start = (self._path.circuit_start_theta
                              if isinstance(self._path, GatedRacingPath)
                              else 0.0)
@@ -354,9 +429,11 @@ class DroneMpccPpController(ControllerInterface):
             theta        = self._theta,
             n_stages     = self.Nnodes + 1,
             dt           = self._dt,
-            vtheta_guess = max(self._vtheta, 1.0),
+            vtheta_guess = max(self._vtheta, self._min_prediction_speed),
             qc_nom       = self._qc_nom,
             qc_gate      = self._qc_gate,
+            W_default    = self._disabled_W,
+            H_default    = self._disabled_H,
         )
 
         # Solve mpcc_pp OCP
@@ -364,7 +441,7 @@ class DroneMpccPpController(ControllerInterface):
         self._last_x_pred = x_pred   # expose for debug / visualisation
 
         self._debug_counter += 1
-        if self.verbose and self._debug_counter % 50 == 0:
+        if self.verbose and self._debug_counter % self._debug_log_interval == 0:
             f_raw = x_pred[1, 13:17]
             thrust_raw = float(np.sum(f_raw) / (4.0 * self._model.F_MAX))
             print(f"[DEBUG] mpcc_pp solver: theta={self._theta:.3f} m, "
@@ -397,15 +474,18 @@ class DroneMpccPpController(ControllerInterface):
         Total thrust: sum(x_pred[1, 13:17]) / (4 * F_MAX)  → normalised [0, 1]
         """
         omega_next = x_pred[1, 10:13]
-        roll_deg_s  = float(np.clip(np.degrees(omega_next[0]), -_MAX_RATE_DEG, _MAX_RATE_DEG))
-        pitch_deg_s = float(np.clip(np.degrees(omega_next[1]), -_MAX_RATE_DEG, _MAX_RATE_DEG))
-        yaw_deg_s   = float(np.clip(np.degrees(omega_next[2]), -_MAX_RATE_DEG, _MAX_RATE_DEG))
+        roll_deg_s = float(np.clip(
+            np.degrees(omega_next[0]), -self._max_rate_deg, self._max_rate_deg))
+        pitch_deg_s = float(np.clip(
+            np.degrees(omega_next[1]), -self._max_rate_deg, self._max_rate_deg))
+        yaw_deg_s = float(np.clip(
+            np.degrees(omega_next[2]), -self._max_rate_deg, self._max_rate_deg))
 
         f_next = np.clip(x_pred[1, 13:17], self._model.F_MIN, self._model.F_MAX)
         thrust_norm = float(np.clip(
             np.sum(f_next) / (4.0 * self._model.F_MAX), 0.0, 1.0))
 
-        if self.verbose and self._debug_counter % 50 == 0:
+        if self.verbose and self._debug_counter % self._debug_log_interval == 0:
             print(f"[DEBUG] mpcc_pp AttitudeRate: thrust={thrust_norm:.3f}, "
                   f"wx={roll_deg_s:.1f} deg/s, wy={pitch_deg_s:.1f} deg/s, "
                   f"wz={yaw_deg_s:.1f} deg/s")

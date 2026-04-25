@@ -479,7 +479,7 @@ class DroneController(Node):
 
     def _publish_mpcc_reference_path(self) -> None:
         """Publish the MPCC reference spline once as a latching MarkerArray."""
-        pts = self.controller.sample_reference_path(n=300)
+        pts = self.controller.sample_reference_path()
         m = Marker()
         m.header.frame_id = 'world'
         m.header.stamp = self.get_clock().now().to_msg()
@@ -498,7 +498,7 @@ class DroneController(Node):
 
     def _publish_mpcc_tunnel(self) -> None:
         """Publish the MPCC track-constraint tube as a latching MarkerArray."""
-        tunnel = self.controller.sample_tunnel(n=180)
+        tunnel = self.controller.sample_tunnel()
         if tunnel is None:
             return
 
@@ -574,7 +574,9 @@ class DroneController(Node):
     def _publish_mpcc_horizon(self) -> None:
         """Publish the MPCC predicted horizon at ~10 Hz (throttled)."""
         self._mpcc_pub_counter += 1
-        if self._mpcc_pub_counter % 10 != 0:
+        publish_every = max(
+            1, int(getattr(self.controller, 'horizon_publish_every', 10)))
+        if self._mpcc_pub_counter % publish_every != 0:
             return
         pred = self.controller.last_predicted_positions
         if pred is None:
@@ -597,6 +599,11 @@ class DroneController(Node):
 
     def _publish_mpcc_progress_point(self) -> None:
         """Publish the path reference point and contouring error line at every control step."""
+        publish_every = max(
+            1, int(getattr(self.controller, 'progress_point_publish_every', 1)))
+        if self._mpcc_pub_counter % publish_every != 0:
+            return
+
         path_pos = self.controller.current_path_position  # NED (3,)
 
         now = self.get_clock().now().to_msg()
@@ -614,8 +621,11 @@ class DroneController(Node):
         sphere.pose.position.y = float(path_pos[0])    # NED north → RViz y
         sphere.pose.position.z = float(-path_pos[2])   # NED down  → RViz z
         sphere.pose.orientation.w = 1.0
-        sphere.scale.x = sphere.scale.y = sphere.scale.z = 0.2
-        sphere.color.r, sphere.color.g, sphere.color.b, sphere.color.a = 1.0, 1.0, 0.0, 1.0
+        point_scale = float(getattr(self.controller, 'progress_point_scale', 0.2))
+        point_color = getattr(
+            self.controller, 'progress_point_color_rgba', (1.0, 1.0, 0.0, 1.0))
+        sphere.scale.x = sphere.scale.y = sphere.scale.z = point_scale
+        sphere.color.r, sphere.color.g, sphere.color.b, sphere.color.a = point_color
         markers.markers.append(sphere)
 
         # Orange line: drone position → path reference point (contouring error)
@@ -630,8 +640,10 @@ class DroneController(Node):
         line.type = Marker.LINE_LIST
         line.action = Marker.ADD
         line.pose.orientation.w = 1.0
-        line.scale.x = 0.03
-        line.color.r, line.color.g, line.color.b, line.color.a = 1.0, 0.5, 0.0, 0.9
+        line.scale.x = float(getattr(self.controller, 'progress_line_width', 0.03))
+        line_color = getattr(
+            self.controller, 'progress_line_color_rgba', (1.0, 0.5, 0.0, 0.9))
+        line.color.r, line.color.g, line.color.b, line.color.a = line_color
         line.points.append(Point(
             x=float(drone_pos[1]), y=float(drone_pos[0]), z=float(-drone_pos[2])))
         line.points.append(Point(
@@ -704,6 +716,8 @@ class DroneController(Node):
         Returns a dict with keys:
           'gates'     — list of gate dicts (only for gates format)
           'track'     — tunnel parameter dict (only for gates format)
+          'track_name'— selected track name, used by MPCC++ parameter profiles
+          'parameter_file' — optional MPCC++ parameter YAML override path
           'waypoints' — (N, 3) float64 array (always present; for gates format
                         this contains the gate centres so non-MPCC controllers
                         can still use it as a waypoint list)
@@ -713,27 +727,40 @@ class DroneController(Node):
         try:
             with open(filepath, 'r') as f:
                 data = yaml.safe_load(f)
+            parameter_file = (
+                data.get('mpcc_pp_parameters_file') or data.get('parameter_file'))
             if 'tracks' in data:
                 active = data.get('active_track', next(iter(data['tracks'])))
                 if active not in data['tracks']:
                     raise RuntimeError(
                         f"Track '{active}' not found. Available: {list(data['tracks'].keys())}")
                 track_data = data['tracks'][active]
+                parameter_file = (
+                    track_data.get('mpcc_pp_parameters_file')
+                    or track_data.get('parameter_file')
+                    or parameter_file)
                 gates = track_data.get('gates', [])
                 track = track_data.get('track', {})
             elif 'gates' in data:
+                active = data.get('track_name')
                 gates = data['gates']
                 track = data.get('track', {})
             elif 'waypoints' in data:
                 pts = data['waypoints']
                 waypoints = np.array(
                     [[p['x'], p['y'], p['z']] for p in pts], dtype=np.float64)
-                return {'waypoints': waypoints}
+                return {'waypoints': waypoints, 'parameter_file': parameter_file}
             else:
                 return {}
             waypoints = np.array(
                 [[g['x'], g['y'], g['z']] for g in gates], dtype=np.float64)
-            return {'gates': gates, 'track': track, 'waypoints': waypoints}
+            return {
+                'gates': gates,
+                'track': track,
+                'track_name': active,
+                'parameter_file': parameter_file,
+                'waypoints': waypoints,
+            }
         except Exception as e:
             raise RuntimeError(f"Failed to load track config from '{filepath}': {e}")
 

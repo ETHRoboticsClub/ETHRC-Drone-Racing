@@ -8,6 +8,7 @@ setup(
     packages=find_packages(exclude=['test']),
     package_data={
         'mpcc_pp': [
+            'parameters.yaml',
             'acados_models/**',
             'drone_mpcc_pp_acados_ocp.json',
         ],
@@ -22,8 +23,9 @@ setup(
         'numpy',
         'scipy',
         'casadi',
+        'PyYAML',
     ],
-    zip_safe=True,
+    zip_safe=False,
     maintainer='todo',
     maintainer_email='todo@todo.com',
     description='mpcc_pp for drone racing',

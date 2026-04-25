@@ -33,6 +33,16 @@ import numpy as np
 import casadi as ca
 from acados_template import AcadosModel
 
+from .parameters import get_section, load_mpcc_pp_parameters
+
+
+def _array_param(value, default, length: int, name: str) -> np.ndarray:
+    """Read a fixed-length numeric array parameter."""
+    arr = np.asarray(default if value is None else value, dtype=np.float64)
+    if arr.shape != (length,):
+        raise ValueError(f"{name} must contain {length} values, got shape {arr.shape}")
+    return arr
+
 
 class DroneMpccPpModel:
     """CasADi / ACADOS augmented model for mpcc_pp."""
@@ -68,9 +78,38 @@ class DroneMpccPpModel:
     # Drag coefficients — linear drag in body frame (eq. 14), set to 0
     DRAG = np.zeros(3)
 
-    def __init__(self):
+    def __init__(self, model_params: dict = None):
         model = AcadosModel()
         constraint = ca.types.SimpleNamespace()
+        if model_params is None:
+            model_params = get_section(load_mpcc_pp_parameters(), 'model')
+        physical = model_params.get('physical', {}) or {}
+        constraint_params = model_params.get('constraints', {}) or {}
+
+        self.MASS = float(physical.get('mass_kg', self.MASS))
+        self.G = float(physical.get('gravity_mps2', self.G))
+        inertia = _array_param(
+            physical.get('inertia_kg_m2'),
+            [self.I_XX, self.I_YY, self.I_ZZ],
+            3,
+            'model.physical.inertia_kg_m2',
+        )
+        self.I_XX, self.I_YY, self.I_ZZ = inertia.tolist()
+
+        self.F_MIN = float(physical.get('rotor_thrust_min_n', self.F_MIN))
+        self.F_MAX = float(physical.get('rotor_thrust_max_n', self.F_MAX))
+        self.ROTOR_PX = _array_param(
+            physical.get('rotor_x_m'), self.ROTOR_PX, 4,
+            'model.physical.rotor_x_m')
+        self.ROTOR_PY = _array_param(
+            physical.get('rotor_y_m'), self.ROTOR_PY, 4,
+            'model.physical.rotor_y_m')
+        self.ROTOR_KM = _array_param(
+            physical.get('rotor_km'), self.ROTOR_KM, 4,
+            'model.physical.rotor_km')
+        self.DRAG = _array_param(
+            physical.get('drag_coefficients'), self.DRAG, 3,
+            'model.physical.drag_coefficients')
 
         # ── State symbols ──────────────────────────────────────────────
         p  = ca.MX.sym('p',  3)   # position (NED)
@@ -178,7 +217,7 @@ class DroneMpccPpModel:
 
         # ── Constraint bounds ───────────────────────────────────────────
         # Body rates [rad/s] — indices 10, 11, 12
-        w_max = np.pi
+        w_max = float(constraint_params.get('body_rate_max_rad_s', np.pi))
         constraint.w_min = np.full(3, -w_max)
         constraint.w_max = np.full(3,  w_max)
 
@@ -187,18 +226,21 @@ class DroneMpccPpModel:
         constraint.f_max = np.full(4, self.F_MAX)
 
         # Per-rotor thrust rate [N/s] — controls 1:5
-        df_rate = 20.0
+        df_rate = float(constraint_params.get('rotor_thrust_rate_max_nps', 20.0))
         constraint.df_min = np.full(4, -df_rate)
         constraint.df_max = np.full(4,  df_rate)
 
         # Progress velocity [m/s] — index 18
-        constraint.vt_min = 0.0
-        constraint.vt_max = 8.0
+        constraint.vt_min = float(
+            constraint_params.get('progress_velocity_min_mps', 0.0))
+        constraint.vt_max = float(
+            constraint_params.get('progress_velocity_max_mps', 8.0))
 
         # Progress acceleration [m/s²] — control 0
-        dvt_rate = 10.0
-        constraint.dvt_min = -dvt_rate
-        constraint.dvt_max =  dvt_rate
+        constraint.dvt_min = float(
+            constraint_params.get('progress_acceleration_min_mps2', -10.0))
+        constraint.dvt_max = float(
+            constraint_params.get('progress_acceleration_max_mps2', 10.0))
 
         self.model      = model
         self.constraint = constraint
@@ -206,6 +248,17 @@ class DroneMpccPpModel:
         self.nu = int(controls.size1())  # 5
 
         self.f_hover = np.full(4, self.MASS * self.G / 4.0)   # ≈ 2.38 N each
+        self.config_hash_payload = {
+            'mass_kg': self.MASS,
+            'gravity_mps2': self.G,
+            'inertia_kg_m2': [self.I_XX, self.I_YY, self.I_ZZ],
+            'rotor_thrust_min_n': self.F_MIN,
+            'rotor_thrust_max_n': self.F_MAX,
+            'rotor_x_m': self.ROTOR_PX.tolist(),
+            'rotor_y_m': self.ROTOR_PY.tolist(),
+            'rotor_km': self.ROTOR_KM.tolist(),
+            'drag_coefficients': self.DRAG.tolist(),
+        }
 
         print(f"DroneMpccPpModel: nx={self.nx}, nu={self.nu}")
         print(f"  f_hover per rotor: {self.f_hover[0]:.3f} N  "

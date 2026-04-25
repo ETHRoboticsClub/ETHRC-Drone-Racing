@@ -52,6 +52,8 @@ import numpy as np
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
 
+from .parameters import get_section, load_mpcc_pp_parameters
+
 
 def _makedirs(path: str):
     if not os.path.exists(path):
@@ -100,14 +102,30 @@ class DroneOptimizerMpccPp:
     _ALPHA_TRACK = 150.0
 
     def __init__(self, model, t_horizon: float = 1.5, n_nodes: int = 40,
-                 weights: dict = None, enable_logging: bool = True):
+                 weights: dict = None, solver_options: dict = None,
+                 track_barrier_alpha: float = None,
+                 enable_logging: bool = True):
         self.T  = t_horizon
         self.N  = n_nodes
         self.nx = model.nx   # 19
         self.nu = model.nu   # 5
         self._enable_logging = enable_logging
 
-        w = {**self._DEFAULTS, **(weights or {})}
+        parameter_file = load_mpcc_pp_parameters()
+        cost_parameters = get_section(parameter_file, 'cost')
+        file_weights = {
+            key: cost_parameters[key]
+            for key in self._DEFAULTS
+            if key in cost_parameters
+        }
+        w = {**self._DEFAULTS, **file_weights, **(weights or {})}
+
+        solver_parameters = get_section(parameter_file, 'solver')
+        solver_options = {**solver_parameters, **(solver_options or {})}
+        self._alpha_track = float(
+            cost_parameters.get('track_barrier_alpha', self._ALPHA_TRACK)
+            if track_barrier_alpha is None
+            else track_barrier_alpha)
         c = model.constraint
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -164,7 +182,7 @@ class DroneOptimizerMpccPp:
         # Numerically stable log-barrier: p(h) = log(1 + exp(-α·h))
         # Written as softplus(-α·h) = max(-α·h, 0) + log(1 + exp(-|α·h|))
         # This avoids exp overflow regardless of h magnitude.
-        alpha = self._ALPHA_TRACK
+        alpha = self._alpha_track
 
         def _barrier(h):
             z = -alpha * h
@@ -228,30 +246,63 @@ class DroneOptimizerMpccPp:
         ocp.constraints.x0 = x0
 
         # ── Solver options (SQP_RTI, as used in paper Section VII-A) ────
-        ocp.solver_options.qp_solver             = 'PARTIAL_CONDENSING_HPIPM'
-        ocp.solver_options.hessian_approx        = 'GAUSS_NEWTON'
-        ocp.solver_options.integrator_type       = 'ERK'
-        ocp.solver_options.sim_method_num_stages = 4   # RK4
-        ocp.solver_options.sim_method_num_steps  = 2
-        ocp.solver_options.nlp_solver_type       = 'SQP_RTI'
-        ocp.solver_options.print_level           = 0
-        ocp.solver_options.nlp_solver_tol_eq     = 1e-3
-        ocp.solver_options.nlp_solver_tol_ineq   = 1e-3
-        ocp.solver_options.nlp_solver_tol_stat   = 1e-2
-        ocp.solver_options.nlp_solver_tol_comp   = 1e-3
-        ocp.solver_options.regularize_method     = 'CONVEXIFY'
-        ocp.solver_options.levenberg_marquardt   = 1e-2
+        solver_cfg = {
+            'qp_solver': str(solver_options.get(
+                'qp_solver', 'PARTIAL_CONDENSING_HPIPM')),
+            'hessian_approx': str(solver_options.get(
+                'hessian_approx', 'GAUSS_NEWTON')),
+            'integrator_type': str(solver_options.get(
+                'integrator_type', 'ERK')),
+            'sim_method_num_stages': int(solver_options.get(
+                'sim_method_num_stages', 4)),
+            'sim_method_num_steps': int(solver_options.get(
+                'sim_method_num_steps', 2)),
+            'nlp_solver_type': str(solver_options.get(
+                'nlp_solver_type', 'SQP_RTI')),
+            'print_level': int(solver_options.get('print_level', 0)),
+            'nlp_solver_tol_eq': float(solver_options.get(
+                'nlp_solver_tol_eq', 1e-3)),
+            'nlp_solver_tol_ineq': float(solver_options.get(
+                'nlp_solver_tol_ineq', 1e-3)),
+            'nlp_solver_tol_stat': float(solver_options.get(
+                'nlp_solver_tol_stat', 1e-2)),
+            'nlp_solver_tol_comp': float(solver_options.get(
+                'nlp_solver_tol_comp', 1e-3)),
+            'regularize_method': str(solver_options.get(
+                'regularize_method', 'CONVEXIFY')),
+            'levenberg_marquardt': float(solver_options.get(
+                'levenberg_marquardt', 1e-2)),
+            'qp_solver_warm_start': bool(solver_options.get(
+                'qp_solver_warm_start', True)),
+        }
+
+        ocp.solver_options.qp_solver = solver_cfg['qp_solver']
+        ocp.solver_options.hessian_approx = solver_cfg['hessian_approx']
+        ocp.solver_options.integrator_type = solver_cfg['integrator_type']
+        ocp.solver_options.sim_method_num_stages = solver_cfg['sim_method_num_stages']
+        ocp.solver_options.sim_method_num_steps = solver_cfg['sim_method_num_steps']
+        ocp.solver_options.nlp_solver_type = solver_cfg['nlp_solver_type']
+        ocp.solver_options.print_level = solver_cfg['print_level']
+        ocp.solver_options.nlp_solver_tol_eq = solver_cfg['nlp_solver_tol_eq']
+        ocp.solver_options.nlp_solver_tol_ineq = solver_cfg['nlp_solver_tol_ineq']
+        ocp.solver_options.nlp_solver_tol_stat = solver_cfg['nlp_solver_tol_stat']
+        ocp.solver_options.nlp_solver_tol_comp = solver_cfg['nlp_solver_tol_comp']
+        ocp.solver_options.regularize_method = solver_cfg['regularize_method']
+        ocp.solver_options.levenberg_marquardt = solver_cfg['levenberg_marquardt']
 
         if hasattr(ocp.solver_options, 'qp_solver_warm_start'):
-            ocp.solver_options.qp_solver_warm_start = 1
+            ocp.solver_options.qp_solver_warm_start = int(
+                solver_cfg['qp_solver_warm_start'])
 
         # ── Build-cache: skip recompilation when nothing changed ────────
         model_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'drone_model.py')
         with open(model_file, 'rb') as _f:
             model_hash = hashlib.md5(_f.read()).hexdigest()
 
+        model_payload = getattr(model, 'config_hash_payload', {})
         config_str = (f"{self.T}:{self.N}:{self.nx}:{self.nu}:{self.NP}:"
-                      f"{self._ALPHA_TRACK}:{sorted(w.items())}:"
+                      f"{self._alpha_track}:{sorted(w.items())}:"
+                      f"{sorted(solver_cfg.items())}:{model_payload}:"
                       f"{lbu.tolist()}:{ubu.tolist()}:{lbx.tolist()}:{ubx.tolist()}:"
                       f"{model_hash}")
         config_hash = hashlib.md5(config_str.encode()).hexdigest()
@@ -295,6 +346,7 @@ class DroneOptimizerMpccPp:
             print(f"  Weights: ql={w['ql']}, mu={w['mu']}, "
                   f"Qw={w['Qw']}, r_dvt={w['r_dvt']}, R_df={w['R_df']}, "
                   f"track_weight={w['track_weight']}")
+            print(f"  Track barrier alpha: {self._alpha_track}")
 
     # ------------------------------------------------------------------
     # Public interface
