@@ -210,8 +210,8 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   w13  = (w11*w13);
   /* #28: @5 = (@5+@13) */
   w05 += w13;
-  /* #29: @13 = -8 */
-  w13 = -8.;
+  /* #29: @13 = -10 */
+  w13 = -10.;
   /* #30: @14 = input[0][6] */
   w14 = arg[0] ? arg[0][18] : 0;
   /* #31: @14 = (@13*@14) */

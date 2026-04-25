@@ -17,11 +17,11 @@
 controller:
   # Prediction horizon duration [s]. Larger values see farther ahead but make
   # the OCP heavier. Smaller values react faster but can become myopic.
-  t_horizon: 0.8
+  t_horizon: 1.2
 
   # Number of shooting intervals in the horizon. dt = t_horizon / n_nodes.
   # Larger values improve discretization at higher CPU cost.
-  n_nodes: 20
+  n_nodes: 21
 
   # Minimum speed used to roll reference parameters forward along the horizon
   # when vtheta is still small. This mostly affects takeoff/lead-in behavior.
@@ -91,7 +91,7 @@ cost:
 
   # Progress reward. Increase for faster racing; decrease when tracking and
   # stability should dominate.
-  mu: 8.0
+  mu: 10.0
 
   # Soft-barrier weight for tunnel halfspace violations.
   track_weight: 10.0

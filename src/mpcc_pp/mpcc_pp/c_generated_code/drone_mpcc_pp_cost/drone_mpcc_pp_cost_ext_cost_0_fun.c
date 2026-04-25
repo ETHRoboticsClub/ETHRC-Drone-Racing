@@ -164,8 +164,8 @@ static int casadi_f0(const casadi_real** arg, casadi_real** res, casadi_int* iw,
   w05 *= w04;
   /* #28: @0 = (@0+@5) */
   w00 += w05;
-  /* #29: @5 = -8 */
-  w05 = -8.;
+  /* #29: @5 = -10 */
+  w05 = -10.;
   /* #30: @4 = input[0][6] */
   w04 = arg[0] ? arg[0][18] : 0;
   /* #31: @5 = (@5*@4) */

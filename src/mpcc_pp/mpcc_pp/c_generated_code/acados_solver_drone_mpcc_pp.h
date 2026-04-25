@@ -64,7 +64,7 @@
 #define DRONE_MPCC_PP_NY0    0
 #define DRONE_MPCC_PP_NY     0
 #define DRONE_MPCC_PP_NYN    0
-#define DRONE_MPCC_PP_N      20
+#define DRONE_MPCC_PP_N      21
 #define DRONE_MPCC_PP_NH     0
 #define DRONE_MPCC_PP_NHN    0
 #define DRONE_MPCC_PP_NH0    0
