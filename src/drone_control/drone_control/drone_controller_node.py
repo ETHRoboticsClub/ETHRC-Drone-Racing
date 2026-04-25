@@ -713,18 +713,27 @@ class DroneController(Node):
         try:
             with open(filepath, 'r') as f:
                 data = yaml.safe_load(f)
-            if 'gates' in data:
+            if 'tracks' in data:
+                active = data.get('active_track', next(iter(data['tracks'])))
+                if active not in data['tracks']:
+                    raise RuntimeError(
+                        f"Track '{active}' not found. Available: {list(data['tracks'].keys())}")
+                track_data = data['tracks'][active]
+                gates = track_data.get('gates', [])
+                track = track_data.get('track', {})
+            elif 'gates' in data:
                 gates = data['gates']
                 track = data.get('track', {})
-                waypoints = np.array(
-                    [[g['x'], g['y'], g['z']] for g in gates], dtype=np.float64)
-                return {'gates': gates, 'track': track, 'waypoints': waypoints}
             elif 'waypoints' in data:
                 pts = data['waypoints']
                 waypoints = np.array(
                     [[p['x'], p['y'], p['z']] for p in pts], dtype=np.float64)
                 return {'waypoints': waypoints}
-            return {}
+            else:
+                return {}
+            waypoints = np.array(
+                [[g['x'], g['y'], g['z']] for g in gates], dtype=np.float64)
+            return {'gates': gates, 'track': track, 'waypoints': waypoints}
         except Exception as e:
             raise RuntimeError(f"Failed to load track config from '{filepath}': {e}")
 

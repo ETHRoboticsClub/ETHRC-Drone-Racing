@@ -68,7 +68,14 @@ class WaypointVisualizer(Node):
         with open(wp_file) as f:
             raw = yaml.safe_load(f)
 
-        if 'gates' in raw:
+        if 'tracks' in raw:
+            active = raw.get('active_track', next(iter(raw['tracks'])))
+            if active not in raw['tracks']:
+                raise RuntimeError(
+                    f"Track '{active}' not found. Available: {list(raw['tracks'].keys())}")
+            self._gates: list[dict] = raw['tracks'][active].get('gates', [])
+            self._mode = 'gates'
+        elif 'gates' in raw:
             self._gates: list[dict] = raw['gates']
             self._mode = 'gates'
         else:
