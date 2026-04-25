@@ -61,7 +61,9 @@ def generate_launch_description():
             'port': LaunchConfiguration('imu_port'),
             'baud': 1500000,
             'imu_topic': '/imu0',
-            'enable_msp_control': False  # Explicitly disabled in separate port mode
+            'enable_msp_control': False, # Explicitly disabled in separate port mode
+            'motor_poles': 14,
+            'rpm_topic': '/motor_rpm',
         }],
         output='screen'
     )

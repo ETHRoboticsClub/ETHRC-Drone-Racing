@@ -31,6 +31,8 @@ public:
         this->declare_parameter("debug_raw", false);
         this->declare_parameter("enable_msp_control", false);
         this->declare_parameter("attitude_command_topic", "/drone_attitude_cmd");
+        this->declare_parameter("motor_poles", 14);
+        this->declare_parameter("rpm_topic", "/motor_rpm");
 
         std::string port_name = this->get_parameter("port").as_string();
         int baud = this->get_parameter("baud").as_int();
@@ -40,8 +42,11 @@ public:
         debug_raw_ = this->get_parameter("debug_raw").as_bool();
         bool enable_msp_control = this->get_parameter("enable_msp_control").as_bool();
         std::string attitude_command_topic = this->get_parameter("attitude_command_topic").as_string();
+        motor_poles_ = this->get_parameter("motor_poles").as_int();
+        std::string rpm_topic = this->get_parameter("rpm_topic").as_string();
 
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic, 10);
+        rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, 10);
         
         if (enable_msp_control) {
             // Subscription for Shared UART Control
@@ -111,6 +116,9 @@ public:
         buffer_.resize(CIRCULAR_SIZE);
         thread_ = std::thread(&BlackboxDriverNode::readLoop, this);
         
+        // RPM Health Check Timer (every 10 seconds)
+        health_check_timer_ = this->create_wall_timer(std::chrono::seconds(10), std::bind(&BlackboxDriverNode::rpmHealthCheck, this));
+        
         // Try to Boost thread priority to Real-Time
         struct sched_param param;
         param.sched_priority = 80;
@@ -134,6 +142,8 @@ private:
         int32_t gyro[3];
         int32_t accel[3];
         uint32_t time;
+        int32_t motor[4];
+        int32_t erpm[4];
     };
 
     enum class ParseState { SYNC, HEADER, INTRA, INTER, MSP_V1, MSP_V2 };
@@ -148,6 +158,8 @@ private:
         int time_idx = -1;
         int gyro_idx[3] = {-1, -1, -1};
         int accel_idx[3] = {-1, -1, -1};
+        int motor_idx[4] = {-1, -1, -1, -1};
+        int erpm_idx[4] = {-1, -1, -1, -1};
         int total_fields = 0;
     };
 
@@ -173,8 +185,18 @@ private:
 
     struct sp_port* port_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr rpm_pub_;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr att_sub_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
+    rclcpp::TimerBase::SharedPtr health_check_timer_;
+    
+    int motor_poles_ = 14;
+    bool motor_poles_from_header_ = false;
+    bool has_erpm_mapped_ = false;
+    bool has_motor_mapped_ = false;
+    bool erpm_valid_ = false;
+    std::chrono::steady_clock::time_point last_nonzero_motor_time_;
+    std::chrono::steady_clock::time_point last_erpm_check_time_;
     
     float max_rate_deg_s_ = 500.0;
     rclcpp::Time last_cmd_time_;
@@ -518,8 +540,20 @@ private:
                                 last_frame_.accel[1] = frame[start + i_map_.accel_idx[1]];
                                 last_frame_.accel[2] = frame[start + i_map_.accel_idx[2]];
                             }
+                            if (has_erpm_mapped_) {
+                                for (int m = 0; m < 4; m++) {
+                                    if (i_map_.erpm_idx[m] >= 0) last_frame_.erpm[m] = frame[start + i_map_.erpm_idx[m]];
+                                }
+                                erpm_valid_ = true;
+                            }
+                            if (has_motor_mapped_) {
+                                for (int m = 0; m < 4; m++) {
+                                    if (i_map_.motor_idx[m] >= 0) last_frame_.motor[m] = frame[start + i_map_.motor_idx[m]];
+                                }
+                            }
                             has_first_intra_ = true;
                             publishIMU();
+                            publishRPM();
                         }
                     } catch (...) {}
                     state_ = ParseState::SYNC;
@@ -566,7 +600,18 @@ private:
                             last_frame_.accel[1] += frame[start + p_map_.accel_idx[1]];
                             last_frame_.accel[2] += frame[start + p_map_.accel_idx[2]];
                         }
+                        if (has_erpm_mapped_ && erpm_valid_) {
+                            for (int m = 0; m < 4; m++) {
+                                if (p_map_.erpm_idx[m] >= 0) last_frame_.erpm[m] += frame[start + p_map_.erpm_idx[m]];
+                            }
+                        }
+                        if (has_motor_mapped_) {
+                            for (int m = 0; m < 4; m++) {
+                                if (p_map_.motor_idx[m] >= 0) last_frame_.motor[m] += frame[start + p_map_.motor_idx[m]];
+                            }
+                        }
                         publishIMU();
+                        publishRPM();
                     } catch (...) {}
                     state_ = ParseState::SYNC;
                 } else if (state_ == ParseState::MSP_V1) {
@@ -639,6 +684,42 @@ private:
         }
     }
 
+    void publishRPM() {
+        if (!has_erpm_mapped_ || !erpm_valid_) return;
+
+        auto msg = std_msgs::msg::Float64MultiArray();
+        msg.data.resize(4);
+
+        // Convert eRPM/100 -> mechanical RPM
+        // true_RPM = (raw_eRPM * 100) / (motor_poles / 2)
+        double pole_pairs = motor_poles_ / 2.0;
+        for (int i = 0; i < 4; i++) {
+            double erpm = last_frame_.erpm[i] * 100.0;
+            msg.data[i] = erpm / pole_pairs;
+        }
+
+        rpm_pub_->publish(msg);
+    }
+
+    void rpmHealthCheck() {
+        if (has_erpm_mapped_ && erpm_valid_) {
+            bool all_zero = true;
+            bool motor_spinning = false;
+            for (int i = 0; i < 4; i++) {
+                if (last_frame_.erpm[i] != 0) all_zero = false;
+                if (last_frame_.motor[i] > 1100) motor_spinning = true;
+            }
+
+            if (all_zero && motor_spinning) {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 10000, 
+                    "eRPM values are all zero but motor outputs are non-zero! Check DShot Bidirectional settings.");
+            }
+        } else if (headers_locked_) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 10000,
+                "eRPM fields NOT found in Blackbox header! Ensure Bidirectional DShot is enabled.");
+        }
+    }
+
     void parseHeaderLine(const std::string& line) {
         if (line.find("Field I name:") != std::string::npos) {
             mapFields(line, i_map_);
@@ -660,6 +741,14 @@ private:
             has_gyro_mapped_ = true;
             has_accel_mapped_ = true;
         }
+        if (i_map_.erpm_idx[0] != -1) {
+            has_erpm_mapped_ = true;
+            RCLCPP_INFO(this->get_logger(), "eRPM fields mapped (indices: %d,%d,%d,%d)",
+                        i_map_.erpm_idx[0], i_map_.erpm_idx[1], i_map_.erpm_idx[2], i_map_.erpm_idx[3]);
+        }
+        if (i_map_.motor_idx[0] != -1) {
+            has_motor_mapped_ = true;
+        }
 
         if (i_map_.total_fields > 0 && !headers_locked_) {
             // BF 4.5+ doesn't send "Field P name:" — P frames use the same field layout
@@ -669,6 +758,24 @@ private:
                         i_map_.total_fields, p_map_.total_fields);
             if (!has_gyro_mapped_) RCLCPP_WARN(this->get_logger(), "Gyro fields not found in header");
             if (!has_accel_mapped_) RCLCPP_WARN(this->get_logger(), "Accel fields not found in header");
+            if (!has_erpm_mapped_) {
+                RCLCPP_WARN(this->get_logger(), "eRPM fields NOT found in Blackbox header!");
+                RCLCPP_WARN(this->get_logger(), "Ensure Bidirectional DShot is enabled in Betaflight Motors tab.");
+            }
+        }
+
+        // Parse motor_poles from "H motor_poles:14"
+        if (line.find("motor_poles:") != std::string::npos) {
+            size_t pos = line.find("motor_poles:");
+            std::string val = line.substr(pos + 12);
+            try {
+                int poles = std::stoi(val);
+                if (poles >= 2 && poles <= 50) {
+                    motor_poles_ = poles;
+                    motor_poles_from_header_ = true;
+                    RCLCPP_INFO(this->get_logger(), "Auto-detected motor_poles = %d from header", motor_poles_);
+                }
+            } catch (...) {}
         }
     }
 
@@ -710,6 +817,14 @@ private:
             else if (f == "accelADC[0]" || f == "accSmooth[0]" || f == "accelRaw[0]" || f == "ai[0]") map.accel_idx[0] = local_idx;
             else if (f == "accelADC[1]" || f == "accSmooth[1]" || f == "accelRaw[1]" || f == "ai[1]") map.accel_idx[1] = local_idx;
             else if (f == "accelADC[2]" || f == "accSmooth[2]" || f == "accelRaw[2]" || f == "ai[2]") map.accel_idx[2] = local_idx;
+            else if (f == "motor[0]") map.motor_idx[0] = local_idx;
+            else if (f == "motor[1]") map.motor_idx[1] = local_idx;
+            else if (f == "motor[2]") map.motor_idx[2] = local_idx;
+            else if (f == "motor[3]") map.motor_idx[3] = local_idx;
+            else if (f == "eRPM[0]")  map.erpm_idx[0] = local_idx;
+            else if (f == "eRPM[1]")  map.erpm_idx[1] = local_idx;
+            else if (f == "eRPM[2]")  map.erpm_idx[2] = local_idx;
+            else if (f == "eRPM[3]")  map.erpm_idx[3] = local_idx;
             
             map.total_fields++;
         }
