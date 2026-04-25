@@ -48,8 +48,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('plotjuggler', default_value='true',
             description='Launch PlotJuggler alongside the controller'),
-        DeclareLaunchArgument('controller_type', default_value='mpcc',
-            description='Controller type: mpc, mpcc, mpc_rotor, position_ned, rl'),
+        DeclareLaunchArgument('controller_type', default_value='mpcc_pp',
+            description='Controller type: mpc, mpcc, mpcc_pp, mpc_rotor, position_ned, rl'),
         DeclareLaunchArgument('waypoints_file', default_value=default_waypoints_file,
             description='Path to YAML file with waypoints for the controller'),
         DeclareLaunchArgument('verbose_input', default_value='false',

@@ -42,7 +42,7 @@ path:
   contouring:
     # Nominal contouring weight qc between gates.
     # Increase when the drone cuts corners or stays too far from the spline.
-    qc_nom: 3.0
+    qc_nom: 5.0
 
     # Contouring weight qc near gate centers.
     # Increase when gate traversal accuracy matters more than speed.
@@ -77,7 +77,7 @@ path:
 cost:
   # Lag error weight. Penalizes being ahead/behind the reference point along
   # the tangent direction.
-  ql: 7.0
+  ql: 9.0
 
   # Body-rate regularization. Increase to reduce aggressive rotations.
   Qw: 0.0001
@@ -91,7 +91,7 @@ cost:
 
   # Progress reward. Increase for faster racing; decrease when tracking and
   # stability should dominate.
-  mu: 7.0
+  mu: 8.0
 
   # Soft-barrier weight for tunnel halfspace violations.
   track_weight: 10.0
