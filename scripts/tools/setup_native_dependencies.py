@@ -14,7 +14,10 @@ def setup_native():
     run("sudo apt-get update && sudo apt-get install -y "
         "libprotobuf-dev protobuf-compiler libcurl4-openssl-dev libtinyxml2-dev "
         "libjsoncpp-dev libssl-dev libblas-dev liblapack-dev libopenblas-dev "
-        "liblapacke-dev gfortran cmake python3-pip python3-dev libserialport-dev")
+        "liblapacke-dev gfortran cmake python3-pip python3-dev libserialport-dev "
+        "libasio-dev libceres-dev libgoogle-glog-dev libgflags-dev "
+        "libatlas-base-dev libsuitesparse-dev python3-matplotlib python3-psutil "
+        "python3-tk")
 
     # 2. MAVSDK C++
     if not os.path.exists("/usr/local/include/mavsdk"):
@@ -33,7 +36,14 @@ def setup_native():
             f"mkdir -p build && cd build && cmake -DACADOS_SHARED_LIBS=ON -DACADOS_WITH_QPOASES=ON .. && "
             f"make install -j$(nproc)")
 
-    # 4. Tera Renderer (arm64)
+    # 4. MSP C++ Library
+    if not os.path.exists("/usr/local/include/msp"):
+        print("--- Building MSP Library ---")
+        run("git clone https://github.com/christianrauch/msp.git /tmp/msp && "
+            "cd /tmp/msp && cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && "
+            "cmake --build build -j$(nproc) && sudo cmake --install build && sudo ldconfig")
+
+    # 5. Tera Renderer (arm64)
     tera_path = os.path.join(acados_path, "bin/t_renderer")
     if not os.path.exists(tera_path):
         print("--- Downloading Tera Renderer ---")
@@ -64,6 +74,7 @@ def setup_native():
 
     print("\n=== SETUP COMPLETE ===")
     print("Please run: source ~/.bashrc")
+    print("Note: Ensure submodules are initialized: git submodule update --init --recursive")
 
 if __name__ == "__main__":
     setup_native()
