@@ -95,6 +95,26 @@ docker compose up dev -d
 docker compose exec dev bash
 ```
 
+### 🍏 macOS Users: One-Time Setup
+
+The Docker services in this repo use `network_mode: host`. On Linux this works out of the box, but on **macOS** Docker Desktop runs containers inside a Linux VM, so host networking is **disabled by default** — ports like `http://localhost:8000` (docs), and any other service port, will not be reachable from your Mac browser even when the container is running and serving correctly.
+
+You only need to do this once:
+
+1.  Open **Docker Desktop → Settings → Resources → Network**.
+2.  Check **“Enable host networking”**.
+3.  Click **Apply & restart**.
+
+Requires **Docker Desktop 4.34 or newer**. After enabling, all host-networked services in `docker-compose.yaml` (`dev`, `docs`, `perception`, `mpc`, `rl`) behave the same on macOS as on Linux — no changes to the compose file needed.
+
+> **If the “Enable host networking” checkbox is missing**, sign in to your Docker account in Docker Desktop (free account) and reopen the Network settings. Docker gates the option behind sign-in for some users.
+
+To verify, after starting the docs service you should get `HTTP/1.0 200 OK`:
+```bash
+docker compose up docs -d
+curl -sI http://localhost:8000/
+```
+
 ### 3. Build & Fly
 Inside the container:
 ```bash
