@@ -16,7 +16,7 @@ from geometry_msgs.msg import PoseStamped, Pose
 
 # drone
 from mavsdk.offboard import AttitudeRate, PositionNedYaw
-from mpc.drone_mpc_controller import DroneMpcController
+from rl.drone_rl_controller import DroneRLController
 
 # general
 import numpy as np
@@ -32,7 +32,7 @@ class thresholds:
 
 class DroneController(Node):
 
-    controller : DroneMpcController
+    controller : DroneRLController
 
     # parameters
     control_rate: float
@@ -63,7 +63,7 @@ class DroneController(Node):
     def __init__(self):
         super().__init__('drone_controller_node')
 
-        self.controller = DroneMpcController()
+        self.controller = DroneRLController()
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
         self.state[6] = 1.0
