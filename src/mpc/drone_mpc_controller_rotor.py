@@ -3,7 +3,7 @@ from .drone_opt_rotor import DroneOptimizerRotor
 import numpy as np
 from interfaces import ControllerInterface
 
-DEBUG_INFO_PRINTS = True
+DEBUG_INFO_PRINTS = False
 
 
 class DroneMpcControllerRotor(ControllerInterface):
@@ -33,11 +33,12 @@ class DroneMpcControllerRotor(ControllerInterface):
     def __init__(self, t_H=1.5, Nnodes=15):
         self.t_H = t_H
         self.Nnodes = Nnodes
+        self.verbose = DEBUG_INFO_PRINTS
 
         self.drone_model = DroneModelRotor()
         self.hover_normalized = float(self.drone_model.hover_normalized)
 
-        if DEBUG_INFO_PRINTS:
+        if self.verbose:
             print(f"\n{'='*60}")
             print(f"Drone Rotor Controller parameters:")
             print(f"  Mass: {self.drone_model.m:.2f} kg")
@@ -52,7 +53,7 @@ class DroneMpcControllerRotor(ControllerInterface):
             t_horizon=self.t_H,
             n_nodes=self.Nnodes,
             hover_normalized=self.hover_normalized,
-            enable_logging=True)
+            enable_logging=self.verbose)
 
     def controller_update(self, x_current: np.ndarray, goal_state: np.ndarray) -> np.ndarray:
         """
@@ -74,7 +75,7 @@ class DroneMpcControllerRotor(ControllerInterface):
 
             self.consecutive_failures = 0
 
-            if DEBUG_INFO_PRINTS:
+            if self.verbose:
                 self._debug_print(u0)
 
             # u0 is [u0, u1, u2, u3] already in [0, 1] from solver constraints
@@ -108,7 +109,7 @@ class DroneMpcControllerRotor(ControllerInterface):
 
             self.consecutive_failures = 0
 
-            if DEBUG_INFO_PRINTS:
+            if self.verbose:
                 self._debug_print(u0)
 
             return np.clip(u0, 0.0, 1.0)

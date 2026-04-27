@@ -24,6 +24,7 @@
 
     # ── Control loop ──────────────────────────────────────────────────
     controller_rate: 100.0   # Hz
+    speed_report_interval_sec: 5.0
 
     # ── Waypoint-reached thresholds ───────────────────────────────────
     threshold:

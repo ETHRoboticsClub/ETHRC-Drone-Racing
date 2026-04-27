@@ -6,7 +6,7 @@
 #   active_track: vertical     → straight climbing row with lead-in
 #   active_track: circular     → 8 gates equally spaced on an offset circle
 #   active_track: SplitS       → circuit with one Split-S maneuver:
-#                                G4 (entry) directly above G5 (exit), 5 m lower,
+#                                G4 (entry) directly above G5 (exit), 3.5 m lower,
 #                                yaw reversed 180° — drone rolls inverted and
 #                                pulls a downward half-loop between the two gates.
 #
@@ -29,7 +29,7 @@
 #   track_weight penalty weight for track-constraint soft barrier in OCP cost
 #   SHOW_TUNNEL  publish the MPCC tunnel in RViz
 
-active_track: circular  # horizontal, vertical, circular, or SplitS
+active_track: SplitS  # horizontal, vertical, circular, or SplitS
 
 tracks:
 
@@ -278,11 +278,11 @@ tracks:
   # SplitS — circuit with exactly one Split-S maneuver
   #
   #   G4 (entry)  x=40, y=0, z=-3.0, yaw=  0°  ← heading North
-  #   G5 (exit)   x=40, y=0, z=-8.0, yaw=180°  ← heading South, 5 m lower
+  #   G5 (exit)   x=40, y=0, z=-6.5, yaw=180°  ← heading South, 3.5 m lower
   #
   #   G4 and G5 share the same (x, y) — one gate literally above the other.
   #   The drone rolls inverted at G4, pulls a downward half-loop, and exits
-  #   G5 in the opposite direction 5 m below the entry altitude.
+  #   G5 in the opposite direction 3.5 m below the entry altitude.
   #   H_nominal is enlarged to accommodate the altitude gap within the tunnel.
   # ──────────────────────────────────────────────────────────────────
   SplitS:
@@ -332,11 +332,11 @@ tracks:
         width:  2.0
         height: 2.0
 
-      # G5 — SPLIT-S EXIT: same (x,y), 5 m lower, now heading South
+      # G5 — SPLIT-S EXIT: same (x,y), 3.5 m lower, now heading South
       - name: G5
         x: 40.0
         y:  0.0
-        z: -8.0
+        z: -6.5
         yaw_deg: 180.0
         width:  2.0
         height: 2.0

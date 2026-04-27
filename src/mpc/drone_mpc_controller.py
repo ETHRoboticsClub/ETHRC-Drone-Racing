@@ -6,7 +6,7 @@ from mavsdk.offboard import AttitudeRate
 
 from interfaces import ControllerInterface
 
-DEBUG_INFO_PRINTS = True
+DEBUG_INFO_PRINTS = False
 
 class DroneMpcController(ControllerInterface):
 
@@ -38,6 +38,7 @@ class DroneMpcController(ControllerInterface):
     def __init__(self, t_H = 1.5, Nnodes = 15):
         self.t_H = t_H
         self.Nnodes = Nnodes
+        self.verbose = DEBUG_INFO_PRINTS
 
         self.drone_model = DroneModel()
 
@@ -49,7 +50,7 @@ class DroneMpcController(ControllerInterface):
             np.degrees(np.max(np.abs(self.drone_model.constraint.w_state_max)))
         )
 
-        if DEBUG_INFO_PRINTS:
+        if self.verbose:
             print(f"\n{'='*60}")
             print(f"Drone parameters:")
             print(f"  Mass: {self.drone_mass:.2f} kg")
@@ -66,7 +67,7 @@ class DroneMpcController(ControllerInterface):
         self.opt = DroneOptimizer(  d_model=self.drone_model,
                             t_horizon=self.t_H,
                             n_nodes=self.Nnodes,
-                            enable_logging=True)
+                            enable_logging=self.verbose)
 
     def trajectory_controller_update(self, x_current :np.ndarray, goal_trajectory :np.ndarray):
         # TODO: bad, 2 change
@@ -79,7 +80,7 @@ class DroneMpcController(ControllerInterface):
             #TODO: bound solution time, ensure RT
             u0 = self.opt.compute_control_once(self.x_current, goal_trajectory, is_trajectory=True)
 
-            if DEBUG_INFO_PRINTS:
+            if self.verbose:
                 self._debug_print(u0)
 
         except Exception as e:
@@ -105,7 +106,7 @@ class DroneMpcController(ControllerInterface):
             #TODO: bound solution time, ensure RT
             u0, _, _, _ = self.opt.compute_control_once(self.x_current, self.goal_position)
 
-            if DEBUG_INFO_PRINTS:
+            if self.verbose:
                 self._debug_print(u0)
 
         except Exception as e:
@@ -152,4 +153,3 @@ class DroneMpcController(ControllerInterface):
             # u0 is [thrust_N, wx, wy, wz]
             print(f"  u=[T={float(u0[0]):.2f}N, "
                     f"wx={float(u0[1]):.3f}, wy={float(u0[2]):.3f}, wz={float(u0[3]):.3f}]")
-

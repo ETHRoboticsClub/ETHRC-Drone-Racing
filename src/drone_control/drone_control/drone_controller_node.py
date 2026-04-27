@@ -17,6 +17,7 @@ from rclpy.action.server import ServerGoalHandle as GoalHandle
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 import time
+import math
 
 # msgs
 from std_msgs.msg import Float64MultiArray
@@ -171,6 +172,7 @@ class DroneController(Node):
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('verbose_input', False)
+        self.declare_parameter('speed_report_interval_sec', 5.0)
         self.declare_parameter('threshold.positon', 0.1)  # typo kept for backwards compatibility
         self.declare_parameter('threshold.velocity', 0.02)
         self.declare_parameter('threshold.angular_velocity', 0.02)
@@ -188,6 +190,15 @@ class DroneController(Node):
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
         self._verbose = self.get_parameter('verbose_input').get_parameter_value().bool_value
         self._publish_debug_counter = 0
+        self._speed_report_interval_s = max(
+            0.1,
+            self.get_parameter('speed_report_interval_sec').get_parameter_value().double_value)
+        self._speed_interval_start = None
+        self._speed_sum_kmh = 0.0
+        self._speed_max_kmh = 0.0
+        self._speed_samples = 0
+        self._path_timer_start = None
+        self._last_lap_count = 0
         self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
         self.thresholds_.velocity = self.get_parameter('threshold.velocity').get_parameter_value().double_value
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
@@ -287,6 +298,7 @@ class DroneController(Node):
             self._mpc_hover_controller = self.controller
         else:
             self._mpc_hover_controller = DroneMpcController()
+            self._mpc_hover_controller.verbose = self._verbose
             self._mpc_hover_controller.initialize()
 
         self.get_logger().info("Controller node initialized")
@@ -387,7 +399,7 @@ class DroneController(Node):
             with self.state_lock:
                 current_state = self.state.copy()
             cmd = self._mpc_hover_controller.controller_update(current_state, hover_state)
-            self._publish_command(cmd)
+            self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
 
         if not rclpy.ok() or self.stop_hover.is_set():
@@ -396,13 +408,15 @@ class DroneController(Node):
             return
 
         self.get_logger().info("MPCC: stabilisation done, starting racing loop")
+        self._reset_path_timer()
 
         # Phase 2: MPCC racing loop — runs until stop_hover is set externally
         while rclpy.ok() and not self.stop_hover.is_set():
             with self.state_lock:
                 current_state = self.state.copy()
             cmd = self.controller.controller_update(current_state, current_state)
-            self._publish_command(cmd)
+            self._publish_command(cmd, current_state)
+            self._report_mpcc_lap_if_completed()
             # Republish reference path once after lead-in is added (first step)
             if isinstance(self.controller, _MPCC_CLASSES) and self.controller.path_updated:
                 self._publish_mpcc_reference_path()
@@ -445,7 +459,7 @@ class DroneController(Node):
             with self.state_lock:
                 current_state = self.state.copy()
             cmd = controller.controller_update(current_state, current_goal_state)
-            self._publish_command(cmd)
+            self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
 
         self.stop_hover.clear()
@@ -652,7 +666,7 @@ class DroneController(Node):
 
         self.mpcc_progress_point_publisher.publish(markers)
 
-    def _publish_command(self, cmd) -> None:
+    def _publish_command(self, cmd, current_state: Optional[np.ndarray] = None) -> None:
         """
         Publish a control command to the correct ROS topic.
 
@@ -662,6 +676,9 @@ class DroneController(Node):
           - anything else   → rotor_command_publisher      (/drone_rotor_cmd)
             (per-rotor thrust: np.ndarray (4,), used by mpc_rotor)
         """
+        if current_state is not None:
+            self._record_speed_sample(current_state)
+
         if isinstance(self.controller, _MPCC_CLASSES):
             self._publish_mpcc_horizon()
             self._publish_mpcc_progress_point()
@@ -695,6 +712,55 @@ class DroneController(Node):
             # Per-rotor thrust: np.ndarray (4,) or similar sequence
             msg.data = [float(cmd[0]), float(cmd[1]), float(cmd[2]), float(cmd[3])]
             self.rotor_command_publisher.publish(msg)
+
+    def _record_speed_sample(self, current_state: np.ndarray) -> None:
+        """Accumulate speed stats and print them every fixed interval."""
+        now = time.monotonic()
+        if self._speed_interval_start is None:
+            self._speed_interval_start = now
+
+        vx, vy, vz = current_state[3], current_state[4], current_state[5]
+        speed_kmh = math.sqrt(vx * vx + vy * vy + vz * vz) * 3.6
+        self._speed_sum_kmh += speed_kmh
+        if speed_kmh > self._speed_max_kmh:
+            self._speed_max_kmh = speed_kmh
+        self._speed_samples += 1
+
+        elapsed = now - self._speed_interval_start
+        if elapsed < self._speed_report_interval_s:
+            return
+
+        avg_kmh = (self._speed_sum_kmh / self._speed_samples
+                   if self._speed_samples else 0.0)
+        self.get_logger().info(
+            f'[Speed] intervallo {elapsed:.1f}s: '
+            f'media={avg_kmh:.1f} km/h, max={self._speed_max_kmh:.1f} km/h')
+        self._speed_interval_start = now
+        self._speed_sum_kmh = 0.0
+        self._speed_max_kmh = 0.0
+        self._speed_samples = 0
+
+    def _reset_path_timer(self) -> None:
+        self._path_timer_start = time.monotonic()
+        self._last_lap_count = int(getattr(self.controller, 'lap_count', 0))
+
+    def _report_mpcc_lap_if_completed(self) -> None:
+        if not isinstance(self.controller, _MPCC_CLASSES):
+            return
+        lap_count = int(getattr(self.controller, 'lap_count', 0))
+        if self._path_timer_start is None or lap_count < self._last_lap_count:
+            self._reset_path_timer()
+            return
+        if lap_count == self._last_lap_count:
+            return
+
+        now = time.monotonic()
+        for completed_lap in range(self._last_lap_count + 1, lap_count + 1):
+            elapsed = now - self._path_timer_start
+            self.get_logger().info(
+                f'[Lap] percorso {completed_lap} completato in {elapsed:.2f} s')
+            self._path_timer_start = now
+        self._last_lap_count = lap_count
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -821,7 +887,7 @@ class DroneController(Node):
             with self.state_lock:
                 current_state = self.state.copy()
             cmd = self.controller.controller_update(current_state, self.current_goal_state)
-            self._publish_command(cmd)
+            self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
 
         self.get_logger().info('[Pose Goal] Exiting control loop')
@@ -876,10 +942,12 @@ class DroneController(Node):
         # (handles the case where _mpcc_auto_start already advanced θ past G1).
         if isinstance(self.controller, _MPCC_CLASSES):
             self.controller.reset()
+            self._reset_path_timer()
 
         lap = 0
         while rclpy.ok() and not goal_handle.is_cancel_requested:
             lap += 1
+            lap_start = time.monotonic()
             self.get_logger().info(f'[Trajectory Goal] Starting lap {lap}')
 
             for i, pose in enumerate(waypoints):
@@ -895,8 +963,13 @@ class DroneController(Node):
                     with self.state_lock:
                         current_state = self.state.copy()
                     cmd = self.controller.controller_update(current_state, self.current_goal_state)
-                    self._publish_command(cmd)
+                    self._publish_command(cmd, current_state)
                     self.controller_rate.sleep()
+
+            if not goal_handle.is_cancel_requested:
+                elapsed = time.monotonic() - lap_start
+                self.get_logger().info(
+                    f'[Trajectory Goal] Percorso {lap} completato in {elapsed:.2f} s')
 
         self.get_logger().info('[Trajectory Goal] Cancelled — hovering')
         threading.Thread(target=self.hover_at_currrent_position).start()

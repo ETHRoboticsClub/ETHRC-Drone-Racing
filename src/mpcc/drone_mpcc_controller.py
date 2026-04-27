@@ -147,6 +147,8 @@ class DroneMpccController(ControllerInterface):
         self._f_state: np.ndarray = self._model.f_hover.copy()
         self._lap:     int        = 0
         self._debug_counter: int  = 0
+        self.horizon_publish_every = 10
+        self.progress_point_publish_every = 10
 
         # Set to True after path rebuild (lead-in); node can check and republish.
         self.path_updated: bool = False
@@ -176,6 +178,21 @@ class DroneMpccController(ControllerInterface):
                 else "RacingPath (Track Constraint inactive)")
         print(f"[DroneMpccController] Optimizer ready. "
               f"Path: {mode}, length: {self._path.total_length:.2f} m")
+
+    def reset(self) -> None:
+        """Reset path progress and warm-start state before a new run."""
+        self._theta = 0.0
+        self._theta_solve = 0.0
+        self._vtheta = 0.0
+        self._f_state = self._model.f_hover.copy()
+        self._lap = 0
+        self._debug_counter = 0
+        self._last_x_pred = None
+        self.path_updated = False
+        if self._gates_config is not None:
+            self._needs_start_position = True
+        if self._opt is not None:
+            self._opt._warm = False
 
     def controller_update(self, x_current: np.ndarray,
                           goal_position: np.ndarray) -> AttitudeRate:

@@ -46,7 +46,7 @@ path:
 
     # Contouring weight qc near gate centers.
     # Increase when gate traversal accuracy matters more than speed.
-    qc_gate: 15.0
+    qc_gate: 18.0
 
     # Gaussian width [m] for the gate-centered qc increase.
     # Larger values make the high-tracking region start earlier and last longer.
@@ -161,7 +161,7 @@ visualization:
 
   # Publish throttles in controller iterations.
   predicted_horizon_publish_every: 10
-  progress_point_publish_every: 1
+  progress_point_publish_every: 10
 
   # RViz progress point and contouring-error line styling.
   progress_point_scale: 0.2
