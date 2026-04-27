@@ -92,7 +92,7 @@ list: ## List all tags in the shared manual ECR repo (aeronautics/droneracing)
 	    --repository-name $(ECR_REPO) \
 	    --region $(REGION) \
 	    $(PROFILE_FLAG) \
-	    --query 'sort_by(imageDetails,&imagePushedAt)[?imageTags!=`null`].{Tags:join(`, `,imageTags),Pushed:imagePushedAt,SizeMB:to_string(imageSizeInBytes)}' \
+	    --query 'sort_by(imageDetails,&imagePushedAt)[?imageTags!=`null`].{Tags:join(`", "`,imageTags),Pushed:imagePushedAt,SizeMB:to_string(imageSizeInBytes)}' \
 	    --output table
 
 tags: ## List all tags in any REPO (default: shared manual repo, override with REPO=...)
