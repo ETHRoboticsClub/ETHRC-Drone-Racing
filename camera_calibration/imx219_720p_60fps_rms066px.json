@@ -1,0 +1,92 @@
+{
+  "$schema_note": "TII-compatible field names (mtx, dist) carry the radtan/plumb_bob fit. The 'fisheye' block carries the recommended Kannala-Brandt model and should be preferred for downstream perception (OpenVINS, ArUco) on the IMX219 wide-angle. See README in this directory.",
+  "camera": "imx219_wide_angle",
+  "resolution": [
+    1280,
+    720
+  ],
+  "framerate_hz": 60.0,
+  "mtx": [
+    [
+      567.9572011187687,
+      0.0,
+      636.2552965111129
+    ],
+    [
+      0.0,
+      567.412396438925,
+      347.6583602703447
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "dist": [
+    [
+      -0.274613492153982,
+      0.1054566033110182,
+      0.001977291026398373,
+      0.0011789340977131765,
+      -0.02178618021333653
+    ]
+  ],
+  "fisheye": {
+    "model": "pinhole-equi",
+    "intrinsics": {
+      "fx": 559.381783658702,
+      "fy": 559.454491361351,
+      "cx": 637.688519620621,
+      "cy": 352.82329454271405
+    },
+    "K": [
+      [
+        559.381783658702,
+        0.0,
+        637.688519620621
+      ],
+      [
+        0.0,
+        559.454491361351,
+        352.82329454271405
+      ],
+      [
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "distortion_model": "equidistant",
+    "distortion_coeffs": {
+      "k1": 0.06702863120032837,
+      "k2": -0.028541813941209592,
+      "k3": -0.018213245805178305,
+      "k4": 0.05872486156737494
+    },
+    "D": [
+      0.06702863120032837,
+      -0.028541813941209592,
+      -0.018213245805178305,
+      0.05872486156737494
+    ]
+  },
+  "calibration": {
+    "tool": "opencv cv2.fisheye.calibrate + cv2.calibrateCamera",
+    "opencv_version": "4.13.0",
+    "pattern": {
+      "type": "checkerboard",
+      "inner_corners_cols": 9,
+      "inner_corners_rows": 6,
+      "square_size_mm": 34.0
+    },
+    "n_images_used": 80,
+    "n_frames_considered": 80,
+    "rms_reprojection_error_px": {
+      "fisheye_pinhole_equi": 0.6603727025031514,
+      "radtan_plumb_bob": 0.6525741916326381
+    },
+    "bag_path": "/home/aero/proj/ETHRC-Drone-Racing/bags/imx219_calib_20260425_132014",
+    "calibrated_at_utc": "2026-04-25T13:36:51+00:00"
+  }
+}

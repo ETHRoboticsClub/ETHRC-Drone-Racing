@@ -1,0 +1,28 @@
+argus_camera_node:
+  ros__parameters:
+    sensor_id: 0
+    width: 1280
+    height: 720
+    framerate: 90.0
+    output_encoding: "mono8"
+    frame_id: "cam0"
+
+    # ISP tuning — short exposure to reduce motion blur at racing speeds
+    exposure_time_range_ns: [1000000.0, 5000000.0]   # 1 ms – 5 ms
+    gain_range: [1.0, 8.0]
+    denoise_mode: "fast"            # off | fast | high_quality
+    edge_enhance_mode: "fast"       # off | fast | high_quality
+
+    # CameraInfo — calibrated 2026-04-25 (see camera_calibration/imx219_720p_60fps.json
+    # for full provenance, RMS, and the radtan equivalent).
+    # Model: equidistant (Kannala-Brandt 4-coeff) — correct for ~131 deg
+    # HFOV wide-angle. Reprojection RMS = 0.66 px.
+    # K matrix (row-major 3x3): [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+    camera_matrix: [559.381783658702, 0.0,                637.688519620621,
+                    0.0,              559.454491361351,   352.82329454271405,
+                    0.0,              0.0,                1.0]
+    distortion_coefficients: [0.06702863120032837,
+                              -0.028541813941209592,
+                              -0.018213245805178305,
+                              0.05872486156737494]
+    distortion_model: "equidistant"

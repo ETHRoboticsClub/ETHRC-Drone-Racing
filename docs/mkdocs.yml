@@ -78,6 +78,9 @@ nav:
     - Vicon: perception/vicon.md
     - Gate Detection: perception/gate_detection.md
     - EKF: perception/EKF.md
+    - Camera Calibration:
+      - Overview: calibration/index.md
+      - IMX219 Intrinsics: calibration/imx219_intrinsics.md
   - Controls:
     - Overview: controls/index.md
     - Drone Control: controls/drone_control.md

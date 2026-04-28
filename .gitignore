@@ -28,3 +28,13 @@ docs/site/
 # AWS CLI installation artifacts
 aws/
 awscliv2.zip
+
+# Local-only instructions / scratch
+CLAUDE.md
+
+# LaTeX build artefacts (under docs/)
+docs/**/*.aux
+docs/**/*.log
+docs/**/*.out
+docs/**/*.toc
+docs/**/*.synctex.gz
