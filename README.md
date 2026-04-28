@@ -161,7 +161,7 @@ The simulation stack (Gazebo Harmonic and the ROS 2 Gazebo bridge) is conditiona
 
 Are you passionate about robotics, computer vision, or control theory? We are always looking for motivated engineers to join the ETHRC Aeronautics division.
 
-- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs -d`)
+- 📖 **Documentation:** [http://localhost:8000](http://localhost:8000) (if running locally via `docker compose up docs -d`) or [https://racing.deonix.org](https://racing.deonix.org) (access protected, credentials shared internally)
 - 📝 **Guidelines (with Coding Agents):** Check out `aeronautics-utility/agents/AGENT.md` for our coding standards.
 - 💬 **Get Involved:** Reach out to the team on Discord or Open an Issue!
 
