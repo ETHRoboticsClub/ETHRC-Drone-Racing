@@ -49,8 +49,8 @@ fi
 
 # ── Check optuna is available ──────────────────────────────────────────────────
 if ! python3 -c "import optuna" 2>/dev/null; then
-    echo "[run_autotuning] optuna not found. Installing..."
-    pip3 install optuna
+    echo "[run_autotuning] ERROR: optuna not found. Rebuild the Docker image or install the mpcc_pp dependencies."
+    exit 1
 fi
 
 # ── Parameters ────────────────────────────────────────────────────────────────
