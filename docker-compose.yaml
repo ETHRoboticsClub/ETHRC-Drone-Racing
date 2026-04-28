@@ -1,4 +1,12 @@
 services:
+  # --- Base Dependencies (For offline local building) ---
+  base:
+    build:
+      context: .
+      dockerfile: docker/untracked/Dockerfile.base
+      target: shared-perception-controls-deps
+    image: 916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
+
   dev:
     build:
       context: .
