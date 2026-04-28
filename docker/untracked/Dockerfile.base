@@ -94,7 +94,7 @@ FROM base AS shared-perception-controls-deps
 # Perception system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libopencv-dev python3-opencv \
-    libeigen3-dev libyaml-cpp-dev libboost-all-dev \
+    libeigen3-dev libyaml-cpp-dev libboost-all-dev libasio-dev \
     libceres-dev libsuitesparse-dev libgoogle-glog-dev libgflags-dev \
     ros-humble-robot-localization \
     && rm -rf /var/lib/apt/lists/*

@@ -17,3 +17,6 @@
 [submodule "src/px4_msgs"]
 	path = src/px4_msgs
 	url = git@github.com:PX4/px4_msgs.git
+[submodule "src/msp"]
+	path = src/msp
+	url = https://github.com/christianrauch/msp
