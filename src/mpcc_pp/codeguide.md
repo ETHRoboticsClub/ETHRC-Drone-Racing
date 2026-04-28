@@ -681,10 +681,10 @@ Use the in-process runner only if simulation throughput becomes the bottleneck.
 
 ## 16. Optimizer: Optuna (Current)
 
-`optuna_tuner.py` adds the command:
+`optuna_tuner.py` adds the ROS executable:
 
 ```bash
-mpcc_pp_optuna_tune
+ros2 run mpcc_pp mpcc_pp_optuna_tune
 ```
 
 The loop:
@@ -943,7 +943,7 @@ physical state, velocity, PX4 mode, and residual setpoints of the previous one. 
 makes it unclear whether a parameter set is genuinely better or just received a favorable
 initial condition.
 
-The command `mpcc_pp_gazebo_trial` manages one clean episode:
+The ROS executable `mpcc_pp_gazebo_trial` manages one clean episode:
 
 1. starts PX4 SITL and Gazebo,
 2. waits for PX4 readiness patterns in the log,
@@ -955,12 +955,12 @@ The command `mpcc_pp_gazebo_trial` manages one clean episode:
 Usage with the Optuna tuner:
 
 ```bash
-mpcc_pp_optuna_tune \
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 30 \
   --laps-per-episode 3 \
   --timeout-s 120 \
   --output-dir runs/mpcc_pp_optuna \
-  --command "mpcc_pp_gazebo_trial \
+  --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
     --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
     --px4-model gz_zephyros \
     --ros-command 'ros2 launch drone_control sim.launch.py \
@@ -970,7 +970,7 @@ mpcc_pp_optuna_tune \
 Dry-run to verify without starting anything:
 
 ```bash
-mpcc_pp_gazebo_trial \
+ros2 run mpcc_pp mpcc_pp_gazebo_trial \
   --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
   --px4-model gz_zephyros \
   --dry-run
@@ -1146,10 +1146,32 @@ colcon build --packages-select mpcc_pp drone_control
 source install/setup.bash
 ```
 
+Because `mpcc_pp` is an `ament_python` package, `setup.cfg` installs console scripts
+under `install/mpcc_pp/lib/mpcc_pp`, which is where `ros2 run` looks for them. They are
+not installed as bare shell commands on `PATH`, so `mpcc_pp_optuna_tune` by itself can
+print `command not found` even when the package is installed correctly.
+
+Rebuild `mpcc_pp`, source the workspace setup file from the repository root, and invoke
+the executable through `ros2 run`:
+
+```bash
+colcon build --symlink-install --packages-select mpcc_pp drone_control
+source install/setup.bash
+ros2 run mpcc_pp mpcc_pp_optuna_tune --help
+```
+
+Run `source install/setup.bash` again in every new terminal before using the command. If
+there is no `install/` directory, the workspace has not been built in that environment
+yet. The direct installed path, after building, is usually:
+
+```bash
+./install/mpcc_pp/lib/mpcc_pp/mpcc_pp_optuna_tune
+```
+
 Verify file generation without launching simulation:
 
 ```bash
-mpcc_pp_optuna_tune \
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --dry-run \
   --output-dir runs/mpcc_pp_optuna
 ```
@@ -1164,7 +1186,7 @@ runs/mpcc_pp_optuna/dry_run/trial_params.json
 Short smoke test with ROS simulation:
 
 ```bash
-mpcc_pp_optuna_tune \
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 10 \
   --laps-per-episode 1 \
   --timeout-s 60 \
@@ -1176,12 +1198,12 @@ mpcc_pp_optuna_tune \
 Full tuning run (paper budget):
 
 ```bash
-mpcc_pp_optuna_tune \
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 600 \
   --laps-per-episode 3 \
   --timeout-s 120 \
   --output-dir runs/mpcc_pp_optuna \
-  --command "mpcc_pp_gazebo_trial \
+  --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
     --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
     --px4-model gz_zephyros \
     --ros-command 'ros2 launch drone_control sim.launch.py \
@@ -1191,7 +1213,7 @@ mpcc_pp_optuna_tune \
 Evaluate best result:
 
 ```bash
-mpcc_pp_optuna_tune \
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --eval-only runs/mpcc_pp_optuna/best_parameters.yaml \
   --eval-episodes 10 \
   --laps-per-episode 3
@@ -1200,7 +1222,7 @@ mpcc_pp_optuna_tune \
 Using explicit placeholder substitution:
 
 ```bash
-mpcc_pp_optuna_tune \
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --command "python3 my_eval.py --params {parameter_file} --metrics {metrics_file}"
 ```
 
