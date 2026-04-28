@@ -104,7 +104,16 @@ class ManagedProcess:
 
 
 def _default_px4_dir() -> Path:
-    return Path(__file__).resolve().parents[4] / 'px4' / 'PX4-Autopilot'
+    this_file = Path(__file__).resolve()
+    # Running from source: src/mpcc_pp/mpcc_pp/tuning/gazebo_trial_runner.py
+    #   parents[4] = workspace root
+    # Running installed: install/mpcc_pp/lib/python3.10/site-packages/mpcc_pp/tuning/...
+    #   parents[7] = workspace root
+    for depth in (4, 7):
+        candidate = this_file.parents[depth] / 'px4' / 'PX4-Autopilot'
+        if candidate.exists():
+            return candidate
+    return this_file.parents[4] / 'px4' / 'PX4-Autopilot'
 
 
 def _compiled_patterns(patterns: list[str]) -> tuple[re.Pattern[str], ...]:

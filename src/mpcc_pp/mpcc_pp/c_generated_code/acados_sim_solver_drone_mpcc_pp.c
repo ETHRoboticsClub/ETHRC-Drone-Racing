@@ -183,6 +183,12 @@ int drone_mpcc_pp_acados_sim_create(drone_mpcc_pp_sim_solver_capsule * capsule)
     /* initialize parameter values */
     double* p = calloc(np, sizeof(double));
     
+    p[15] = 0.013023563655574276;
+    p[16] = 0.006573581842114829;
+    p[17] = 0.06271345948783975;
+    p[18] = 0.0000017637652927199516;
+    p[19] = 0.01897976403380808;
+    p[20] = 73.41859361733466;
 
     drone_mpcc_pp_acados_sim_update_params(capsule, p, np);
     free(p);

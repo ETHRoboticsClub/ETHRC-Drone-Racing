@@ -415,6 +415,12 @@ void drone_mpcc_pp_acados_create_set_default_parameters(drone_mpcc_pp_solver_cap
     const int N = capsule->nlp_solver_plan->N;
     // initialize parameters to nominal value
     double* p = calloc(NP, sizeof(double));
+    p[15] = 0.013023563655574276;
+    p[16] = 0.006573581842114829;
+    p[17] = 0.06271345948783975;
+    p[18] = 0.0000017637652927199516;
+    p[19] = 0.01897976403380808;
+    p[20] = 73.41859361733466;
 
     for (int i = 0; i <= N; i++) {
         drone_mpcc_pp_acados_update_params(capsule, i, p, NP);
@@ -1054,7 +1060,7 @@ int drone_mpcc_pp_acados_update_params(drone_mpcc_pp_solver_capsule* capsule, in
 {
     int solver_status = 0;
 
-    int casadi_np = 15;
+    int casadi_np = 21;
     if (casadi_np != np) {
         printf("acados_update_params: trying to set %i parameters for external functions."
             " External function has %i parameters. Exiting.\n", np, casadi_np);
