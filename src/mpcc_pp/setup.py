@@ -24,6 +24,7 @@ setup(
         'scipy',
         'casadi',
         'PyYAML',
+        'optuna',
     ],
     zip_safe=False,
     maintainer='todo',
@@ -31,5 +32,10 @@ setup(
     description='mpcc_pp for drone racing',
     license='TODO',
     extras_require={'test': ['pytest']},
-    entry_points={'console_scripts': []},
+    entry_points={
+        'console_scripts': [
+            'mpcc_pp_optuna_tune = mpcc_pp.tuning.optuna_tuner:main',
+            'mpcc_pp_gazebo_trial = mpcc_pp.tuning.gazebo_trial_runner:main',
+        ],
+    },
 )

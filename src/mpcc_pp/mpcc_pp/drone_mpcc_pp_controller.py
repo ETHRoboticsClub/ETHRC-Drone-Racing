@@ -168,9 +168,17 @@ class DroneMpccPpController(ControllerInterface):
             model_params=get_section(self._parameters, 'model'))
         self._opt: DroneOptimizerMpccPp = None   # built lazily in initialize()
         weight_keys = ('ql', 'Qw', 'r_dvt', 'R_df', 'mu', 'track_weight')
-        self._weights = {k: float(cost_cfg[k]) for k in weight_keys if k in cost_cfg}
+        self._runtime_weights = {
+            key: float(DroneOptimizerMpccPp._DEFAULTS[key])
+            for key in weight_keys
+        }
+        self._runtime_weights.update({
+            k: float(cost_cfg[k]) for k in weight_keys if k in cost_cfg
+        })
         if weights:
-            self._weights.update(weights)
+            self._runtime_weights.update({
+                k: float(v) for k, v in weights.items() if k in weight_keys
+            })
         self._track_barrier_alpha = float(
             cost_cfg.get('track_barrier_alpha', DroneOptimizerMpccPp._ALPHA_TRACK))
         self._solver_options = get_section(self._parameters, 'solver')
@@ -216,6 +224,10 @@ class DroneMpccPpController(ControllerInterface):
         self._f_state: np.ndarray = self._model.f_hover.copy()
         self._lap:     int        = 0
         self._debug_counter: int  = 0
+        self._solve_count: int = 0
+        self._solver_fail_count: int = 0
+        self._solver_status_counts: dict[int, int] = {}
+        self._last_solve_info: dict | None = None
 
         # Set to True after path rebuild (lead-in); node can check and republish.
         self.path_updated: bool = False
@@ -237,7 +249,7 @@ class DroneMpccPpController(ControllerInterface):
             model=self._model,
             t_horizon=self.t_H,
             n_nodes=self.Nnodes,
-            weights=self._weights,
+            weights=self._runtime_weights,
             solver_options=self._solver_options,
             track_barrier_alpha=self._track_barrier_alpha,
             enable_logging=True,
@@ -257,6 +269,7 @@ class DroneMpccPpController(ControllerInterface):
         self._lap = 0
         self._debug_counter = 0
         self._last_x_pred = None
+        self.reset_episode_stats()
         self.path_updated = False
         if self._gates_config is not None:
             self._needs_start_position = True
@@ -388,6 +401,72 @@ class DroneMpccPpController(ControllerInterface):
         """Number of completed laps."""
         return self._lap
 
+    def set_tuning_parameters(self, params: dict) -> None:
+        """
+        Update BO-tuned parameters without rebuilding ACADOS.
+
+        The OCP receives these weights as runtime stage parameters.  The
+        contouring values remain path parameters because qc is computed along
+        the horizon from qc_nom/qc_gate and the gate-centered Gaussian profile.
+        """
+        if not params:
+            return
+
+        allowed = set(DroneOptimizerMpccPp.WEIGHT_ORDER)
+        allowed.update({'qc_nom', 'qc_gate', 'qc_gate_ratio'})
+        unknown = sorted(set(params) - allowed)
+        if unknown:
+            raise ValueError(f"Unknown MPCC++ tuning parameter(s): {unknown}")
+
+        for key in DroneOptimizerMpccPp.WEIGHT_ORDER:
+            if key in params:
+                self._runtime_weights[key] = self._positive_float(
+                    key, params[key])
+
+        qc_nom = self._positive_float(
+            'qc_nom', params.get('qc_nom', self._qc_nom))
+        if 'qc_gate' in params:
+            qc_gate = self._positive_float('qc_gate', params['qc_gate'])
+        elif 'qc_gate_ratio' in params:
+            ratio = self._positive_float(
+                'qc_gate_ratio', params['qc_gate_ratio'])
+            qc_gate = qc_nom * ratio
+        else:
+            qc_gate = self._positive_float('qc_gate', self._qc_gate)
+
+        self._qc_nom = qc_nom
+        self._qc_gate = qc_gate
+
+    def get_tuning_parameters(self) -> dict:
+        """Return the currently active runtime tuning parameters."""
+        params = dict(self._runtime_weights)
+        params['qc_nom'] = float(self._qc_nom)
+        params['qc_gate'] = float(self._qc_gate)
+        params['qc_gate_ratio'] = float(self._qc_gate / self._qc_nom)
+        return params
+
+    def reset_episode_stats(self) -> None:
+        """Reset solver counters used by the Optuna episode evaluator."""
+        self._solve_count = 0
+        self._solver_fail_count = 0
+        self._solver_status_counts = {}
+        self._last_solve_info = None
+
+    def get_solver_stats(self) -> dict:
+        """Return cumulative solver diagnostics for the current episode."""
+        fail_rate = (self._solver_fail_count / self._solve_count
+                     if self._solve_count else 0.0)
+        last_status = None
+        if self._last_solve_info is not None:
+            last_status = self._last_solve_info.get('status')
+        return {
+            'solve_count': self._solve_count,
+            'solver_fail_count': self._solver_fail_count,
+            'solver_fail_rate': float(fail_rate),
+            'status_counts': dict(self._solver_status_counts),
+            'last_status': last_status,
+        }
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -396,8 +475,9 @@ class DroneMpccPpController(ControllerInterface):
         """
         Core mpcc_pp step shared by controller_update and mpcc_pp_update.
 
-        Uses get_tunnel_params() which provides the full 15-column parameter
-        matrix for the Track-Constraint OCP.  For plain RacingPath (no gates),
+        Uses get_tunnel_params() for the 15-column path/tunnel geometry, then
+        appends the 6 runtime tuning weights expected by the OCP.  For plain
+        RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
         # On the first call in gate-based mode: rebuild path with drone start
@@ -439,7 +519,7 @@ class DroneMpccPpController(ControllerInterface):
             self._lap  += 1
             self._opt._warm = False   # force cold start after lap wrap
 
-        # Compute path + tunnel parameters for the OCP horizon (15 columns)
+        # Compute path + tunnel geometry and append runtime tuning weights.
         stage_params = self._path.get_tunnel_params(
             theta        = self._theta,
             n_stages     = self.Nnodes + 1,
@@ -450,9 +530,11 @@ class DroneMpccPpController(ControllerInterface):
             W_default    = self._disabled_W,
             H_default    = self._disabled_H,
         )
+        stage_params = self._append_weight_params(stage_params)
 
         # Solve mpcc_pp OCP
         u_opt, x_pred, info = self._opt.solve(x_aug, stage_params)
+        self._record_solver_info(info)
         self._last_x_pred = x_pred   # expose for debug / visualisation
 
         self._debug_counter += 1
@@ -480,6 +562,36 @@ class DroneMpccPpController(ControllerInterface):
             self._path.total_length)
 
         return u_opt, x_pred, info
+
+    @staticmethod
+    def _positive_float(name: str, value) -> float:
+        """Convert a tuning value to a finite positive float."""
+        converted = float(value)
+        if not np.isfinite(converted) or converted <= 0.0:
+            raise ValueError(f"{name} must be a finite positive value")
+        return converted
+
+    def _append_weight_params(self, stage_params: np.ndarray) -> np.ndarray:
+        """Append runtime cost weights to path/tunnel stage parameters."""
+        params = np.asarray(stage_params, dtype=np.float64)
+        weights = np.array([
+            self._runtime_weights[key]
+            for key in DroneOptimizerMpccPp.WEIGHT_ORDER
+        ], dtype=np.float64)
+        repeated = np.repeat(weights.reshape(1, -1), params.shape[0], axis=0)
+        return np.hstack([params, repeated])
+
+    def _record_solver_info(self, info: dict) -> None:
+        """Accumulate solver status counters for tuning metrics."""
+        self._solve_count += 1
+        status = int(info.get('status', -1))
+        self._solver_status_counts[status] = (
+            self._solver_status_counts.get(status, 0) + 1)
+        if not bool(info.get('success', False)):
+            self._solver_fail_count += 1
+        self._last_solve_info = {
+            key: value for key, value in info.items() if key != 'u_pred'
+        }
 
     def _x_pred_to_attitude_rate(self, x_pred: np.ndarray) -> AttitudeRate:
         """

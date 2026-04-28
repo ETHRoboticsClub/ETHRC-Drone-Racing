@@ -762,6 +762,16 @@ class DroneController(Node):
             self._path_timer_start = now
         self._last_lap_count = lap_count
 
+        get_solver_stats = getattr(self.controller, 'get_solver_stats', None)
+        if callable(get_solver_stats):
+            stats = get_solver_stats()
+            self.get_logger().info(
+                '[SolverStats] '
+                f"solve_count={stats.get('solve_count', 0)} "
+                f"solver_fail_count={stats.get('solver_fail_count', 0)} "
+                f"solver_fail_rate={stats.get('solver_fail_rate', 0.0):.6f} "
+                f"last_status={stats.get('last_status')}")
+
     # ── Helpers ───────────────────────────────────────────────────────────
 
     def _load_track_config(self, filepath: str) -> dict:

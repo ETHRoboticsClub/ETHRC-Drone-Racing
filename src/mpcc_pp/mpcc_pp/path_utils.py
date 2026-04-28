@@ -178,11 +178,12 @@ class RacingPath:
                           W_default: float = 1000.0,
                           H_default: float = 1000.0) -> np.ndarray:
         """
-        15-column stage parameters compatible with the Track-Constraint OCP.
+        15-column geometry parameters for the Track-Constraint OCP.
 
         This default implementation uses very large W and H (1000 m) so the
         track constraint is inactive.  GatedRacingPath overrides this method
-        with real gate geometry.
+        with real gate geometry.  The controller appends runtime cost weights
+        before passing the full parameter matrix to ACADOS.
 
         Returns:
             params: (n_stages, 15) — columns:
@@ -261,8 +262,8 @@ class GatedRacingPath(RacingPath):
       - Gate positions, yaw angles, and inner aperture dimensions.
       - Arc-length-varying tunnel half-extents W(θ) and H(θ).
       - Local tunnel frame n(θ), b(θ) for halfspace constraints.
-      - get_tunnel_params() returning the full 15-column parameter matrix
-        expected by DroneOptimizerMpcc when the Track Constraint is active.
+      - get_tunnel_params() returning the 15-column geometry matrix that the
+        controller extends with runtime cost weights.
 
     Track Constraint (mpcc_pp paper, Section IV-A, eq. 7):
     --------------------------------------------------------
@@ -425,7 +426,7 @@ class GatedRacingPath(RacingPath):
         return n, b
 
     # ------------------------------------------------------------------
-    # 15-column horizon parameters (overrides RacingPath default)
+    # 15-column geometry horizon parameters (overrides RacingPath default)
     # ------------------------------------------------------------------
 
     def get_tunnel_params(self, theta: float, n_stages: int, dt: float,

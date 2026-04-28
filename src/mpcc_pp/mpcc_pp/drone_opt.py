@@ -28,19 +28,21 @@ Track Constraint (mpcc_pp paper, Section IV-A, eq. 7):
 
 Soft barrier (paper eq. 14):  p(h) = log(1 + exp(−α·h)),  α = 100
 
-Stage parameters (15 values, set per stage):
+Stage parameters (21 values, set per stage):
   [p_ref_x, p_ref_y, p_ref_z,   ← p^d(θk)        indices 0:3
    t_ref_x, t_ref_y, t_ref_z,   ← unit tangent     indices 3:6
    qc,                           ← contouring wt    index  6
    n_ref_x, n_ref_y, n_ref_z,   ← horiz normal     indices 7:10
    b_ref_x, b_ref_y, b_ref_z,   ← vert  normal     indices 10:13
    W,                            ← half-width       index  13
-   H]                            ← half-height      index  14
+   H,                            ← half-height      index  14
+   ql, Qw, r_dvt, R_df, mu,      ← runtime weights  indices 15:20
+   track_weight]
 
 The SQP_RTI scheme is used as in the paper (Section VII-A).
 Warm-starting shifts the previous trajectory by one step (RTI practice).
 
-Note: changing NP from 7 to 15 invalidates any previously compiled
+Note: changing NP from 15 to 21 invalidates any previously compiled
       ACADOS C code.  ACADOS regenerates c_generated_code/ automatically
       on the first call to DroneOptimizerMpccPp().
 """
@@ -94,9 +96,12 @@ class DroneOptimizerMpccPp:
         track_weight=30.0,   # Track Constraint soft-barrier weight
     )
 
-    # Number of parameters per stage (extended for Track Constraint)
-    # [p_ref(3), t_ref(3), qc(1), n_ref(3), b_ref(3), W(1), H(1)]
-    NP = 15
+    # Runtime stage parameters:
+    # [p_ref(3), t_ref(3), qc(1), n_ref(3), b_ref(3), W(1), H(1),
+    #  ql(1), Qw(1), r_dvt(1), R_df(1), mu(1), track_weight(1)]
+    GEOMETRY_NP = 15
+    WEIGHT_ORDER = ('ql', 'Qw', 'r_dvt', 'R_df', 'mu', 'track_weight')
+    NP = GEOMETRY_NP + len(WEIGHT_ORDER)
 
     # Log-barrier steepness.
     _ALPHA_TRACK = 150.0
@@ -119,6 +124,11 @@ class DroneOptimizerMpccPp:
             if key in cost_parameters
         }
         w = {**self._DEFAULTS, **file_weights, **(weights or {})}
+        self._default_weight_params = {
+            key: float(w[key]) for key in self.WEIGHT_ORDER
+        }
+        self._default_weight_vector = self._weight_vector(
+            self._default_weight_params)
 
         solver_parameters = get_section(parameter_file, 'solver')
         solver_options = {**solver_parameters, **(solver_options or {})}
@@ -137,7 +147,7 @@ class DroneOptimizerMpccPp:
         ocp.solver_options.N_horizon = self.N
         ocp.solver_options.tf = self.T
 
-        # ── Per-stage parameters (15 × 1) ──────────────────────────────
+        # ── Per-stage parameters (21 × 1) ──────────────────────────────
         p_ref = ca.MX.sym('p_ref', 3)   # reference position       [0:3]
         t_ref = ca.MX.sym('t_ref', 3)   # unit tangent             [3:6]
         qc    = ca.MX.sym('qc',    1)   # contouring weight        [6]
@@ -146,11 +156,24 @@ class DroneOptimizerMpccPp:
         W     = ca.MX.sym('W',     1)   # tunnel half-width        [13]
         H     = ca.MX.sym('H',     1)   # tunnel half-height       [14]
 
-        params = ca.vertcat(p_ref, t_ref, qc, n_ref, b_ref, W, H)   # 15 × 1
+        ql_p = ca.MX.sym('ql', 1)                      # [15]
+        Qw_p = ca.MX.sym('Qw', 1)                      # [16]
+        r_dvt_p = ca.MX.sym('r_dvt', 1)                # [17]
+        R_df_p = ca.MX.sym('R_df', 1)                  # [18]
+        mu_p = ca.MX.sym('mu', 1)                      # [19]
+        track_weight_p = ca.MX.sym('track_weight', 1)  # [20]
+
+        params = ca.vertcat(
+            p_ref, t_ref, qc, n_ref, b_ref, W, H,
+            ql_p, Qw_p, r_dvt_p, R_df_p, mu_p, track_weight_p,
+        )
 
         ocp.dims.np          = self.NP
         ocp.model.p          = params
-        ocp.parameter_values = np.zeros(self.NP)
+        ocp.parameter_values = np.concatenate([
+            np.zeros(self.GEOMETRY_NP),
+            self._default_weight_vector,
+        ])
 
         # ── State and control aliases ───────────────────────────────────
         x = model.model.x
@@ -188,27 +211,28 @@ class DroneOptimizerMpccPp:
             z = -alpha * h
             return ca.fmax(z, 0.0) + ca.log(1.0 + ca.exp(-ca.fabs(z)))
 
-        cost_track = w['track_weight'] * (
+        barrier_sum = (
             _barrier(h1) + _barrier(h2) + _barrier(h3) + _barrier(h4)
         )
+        cost_track = track_weight_p * barrier_sum
 
         # ── Stage cost ──────────────────────────────────────────────────
-        cost_lag      = w['ql']    * el**2
+        cost_lag      = ql_p       * el**2
         cost_contour  = qc         * ca.dot(ec, ec)
-        cost_omega    = w['Qw']    * ca.dot(w_k, w_k)
-        cost_dvt      = w['r_dvt'] * dvt_k**2
-        cost_df       = w['R_df']  * ca.dot(df_k, df_k)
-        cost_progress = -w['mu']   * vt_k
+        cost_omega    = Qw_p       * ca.dot(w_k, w_k)
+        cost_dvt      = r_dvt_p    * dvt_k**2
+        cost_df       = R_df_p     * ca.dot(df_k, df_k)
+        cost_progress = -mu_p      * vt_k
 
         stage_cost = (cost_lag + cost_contour + cost_omega
                       + cost_dvt + cost_df + cost_progress
                       + cost_track)
 
         # ── Terminal cost (state-only: no control increments) ────────────
-        terminal_cost = (w['ql'] * el**2
+        terminal_cost = (ql_p * el**2
                          + qc * ca.dot(ec, ec)
-                         + w['Qw'] * ca.dot(w_k, w_k)
-                         - w['mu'] * vt_k
+                         + Qw_p * ca.dot(w_k, w_k)
+                         - mu_p * vt_k
                          + cost_track)
 
         ocp.cost.cost_type   = 'EXTERNAL'
@@ -301,7 +325,7 @@ class DroneOptimizerMpccPp:
 
         model_payload = getattr(model, 'config_hash_payload', {})
         config_str = (f"{self.T}:{self.N}:{self.nx}:{self.nu}:{self.NP}:"
-                      f"{self._alpha_track}:{sorted(w.items())}:"
+                      f"{self._alpha_track}:"
                       f"{sorted(solver_cfg.items())}:{model_payload}:"
                       f"{lbu.tolist()}:{ubu.tolist()}:{lbx.tolist()}:{ubx.tolist()}:"
                       f"{model_hash}")
@@ -343,8 +367,9 @@ class DroneOptimizerMpccPp:
             print(f"DroneOptimizerMpccPp: N={self.N}, T={self.T} s, "
                   f"dt={self.T/self.N:.3f} s")
             print(f"  nx={self.nx}, nu={self.nu}, np={self.NP}")
-            print(f"  Weights: ql={w['ql']}, mu={w['mu']}, "
-                  f"Qw={w['Qw']}, r_dvt={w['r_dvt']}, R_df={w['R_df']}, "
+            print("  Runtime weight defaults: "
+                  f"ql={w['ql']}, mu={w['mu']}, Qw={w['Qw']}, "
+                  f"r_dvt={w['r_dvt']}, R_df={w['R_df']}, "
                   f"track_weight={w['track_weight']}")
             print(f"  Track barrier alpha: {self._alpha_track}")
 
@@ -359,15 +384,21 @@ class DroneOptimizerMpccPp:
         Args:
             x0:           Current augmented state (19,).
             stage_params: Path + tunnel parameters for all N+1 stages.
-                          Shape (N+1, 15).
+                          Shape (N+1, 21).  A legacy (N+1, 15) geometry-only
+                          matrix is also accepted and completed with the
+                          optimizer default runtime weights.
                           Columns: [p_ref(3), t_ref(3), qc(1),
-                                    n_ref(3), b_ref(3), W(1), H(1)].
+                                    n_ref(3), b_ref(3), W(1), H(1),
+                                    ql, Qw, r_dvt, R_df, mu, track_weight].
 
         Returns:
             u_opt:  First optimal control (5,) = [Δvθ, Δf1..4].
             x_pred: Predicted state trajectory (N+1, 19).
-            u_pred: Predicted control trajectory (N, 5).
+            info:   Solver diagnostics, including status, success, timing,
+                    and the full predicted control trajectory under 'u_pred'.
         """
+        stage_params = self._complete_stage_params(stage_params)
+
         # Normalise quaternion
         x0 = x0.copy()
         qn = np.linalg.norm(x0[3:7])
@@ -400,15 +431,73 @@ class DroneOptimizerMpccPp:
         qn = np.where(qn < 1e-8, 1.0, qn)
         x_pred[:, 3:7] /= qn
 
+        finite_solution = bool(
+            np.isfinite(x_pred).all() and np.isfinite(u_pred).all())
+        info = {
+            'status': int(status),
+            'success': bool(status in (0, 2) and finite_solution),
+            'finite_solution': finite_solution,
+            'u_pred': u_pred,
+        }
+        for stat_name in ('time_tot', 'time_lin', 'time_sim', 'time_qp'):
+            try:
+                info[stat_name] = self._stat_to_float(
+                    self.solver.get_stats(stat_name))
+            except Exception:
+                info[stat_name] = None
+
         self._x_pred = x_pred.copy()
         self._u_pred = u_pred.copy()
-        self._warm   = bool(np.isfinite(x_pred).all() and np.isfinite(u_pred).all())
+        self._warm   = info['success']
 
-        return u_pred[0].copy(), x_pred, u_pred
+        return u_pred[0].copy(), x_pred, info
 
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    @classmethod
+    def _weight_vector(cls, weights: dict) -> np.ndarray:
+        """Return runtime weights in the exact ACADOS parameter order."""
+        return np.array(
+            [float(weights[key]) for key in cls.WEIGHT_ORDER],
+            dtype=np.float64,
+        )
+
+    def _complete_stage_params(self, stage_params: np.ndarray) -> np.ndarray:
+        """
+        Normalize stage parameters to the 21-column runtime format.
+
+        Keeping the 15-column geometry-only fallback makes old callers usable,
+        but the controller now sends all 21 columns during normal operation.
+        """
+        params = np.asarray(stage_params, dtype=np.float64)
+        if params.ndim != 2:
+            raise ValueError(
+                f"stage_params must be a 2D array, got shape {params.shape}")
+
+        n_cols = params.shape[1]
+        if n_cols == self.NP:
+            return params
+        if n_cols == self.GEOMETRY_NP:
+            repeated = np.repeat(
+                self._default_weight_vector.reshape(1, -1),
+                params.shape[0],
+                axis=0,
+            )
+            return np.hstack([params, repeated])
+        raise ValueError(
+            f"stage_params must have {self.NP} columns "
+            f"({self.GEOMETRY_NP} geometry + {len(self.WEIGHT_ORDER)} weights), "
+            f"or legacy {self.GEOMETRY_NP} columns; got {n_cols}")
+
+    @staticmethod
+    def _stat_to_float(value) -> float:
+        """Convert an ACADOS stats return value to a plain float."""
+        arr = np.asarray(value, dtype=np.float64).reshape(-1)
+        if arr.size == 0:
+            return None
+        return float(arr[-1])
 
     def _init_trajectory(self, x0: np.ndarray, stage_params: np.ndarray):
         """Shift warm-start or set a cold-start trajectory."""
