@@ -168,6 +168,24 @@ Docker Compose identifies images locally by the project name and service name (e
     ```
 Now, `docker compose exec -it dev bash` will put you inside a container running the official CI build.
 
+### Offline / Local Building (AWS Unreachable)
+
+If you are working offline or AWS ECR is unreachable, your `docker compose build dev` command will fail because it cannot pull the `shared-perception-controls-deps` base image from AWS.
+
+To resolve this, you can build the base image locally. `docker-compose.yaml` includes a special `base` service configured exactly for this:
+
+1. **Build the base image locally:**
+   ```bash
+   docker compose build base
+   ```
+   *This automatically builds `Dockerfile.base` and tags it with the AWS URL.*
+
+2. **Build the dev container (without pull):**
+   ```bash
+   docker compose build dev
+   ```
+   *(Ensure you do **not** use the `--pull` flag, otherwise Docker will ignore the local tag and try to contact AWS anyway).*
+
 ### Build and push manually
 
 ```bash

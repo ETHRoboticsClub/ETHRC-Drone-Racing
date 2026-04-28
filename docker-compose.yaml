@@ -9,6 +9,10 @@ services:
 
   dev:
     build:
+      # If 'docker compose build dev' fails because the AWS ECR base image is unreachable,
+      # you can build the base image locally first by running:
+      #   docker compose build base
+      # Then re-run 'docker compose build dev' (without the --pull flag).
       context: .
       dockerfile: docker/Dockerfile
       target: dev
