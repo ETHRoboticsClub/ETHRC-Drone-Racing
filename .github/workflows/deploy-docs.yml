@@ -1,0 +1,29 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**'
+      - 'docker/Dockerfile.docs.prod'
+      - 'docker-compose.yaml'
+      - '.github/workflows/deploy-docs.yml'
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build and Deploy Docs
+        run: |
+          # Rebuild the production docs image
+          docker compose build docs-prod
+          
+          # Restart the service seamlessly
+          docker compose up -d --no-deps --force-recreate docs-prod
+          
+          # Clean up old unused images to save disk space
+          docker image prune -f

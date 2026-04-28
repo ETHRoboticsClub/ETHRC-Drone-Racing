@@ -82,6 +82,15 @@ services:
       - ./docs:/docs:rw
     command: [ "mkdocs", "serve", "-a", "0.0.0.0:8000" ]
 
+  # --- Documentation Production ---
+  docs-prod:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.docs.prod
+    ports:
+      - "8080:80"
+    restart: always
+
   # --- Perception Team ---
   perception:
     extends: dev
