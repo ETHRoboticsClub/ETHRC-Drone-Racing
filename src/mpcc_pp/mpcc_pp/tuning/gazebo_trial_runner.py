@@ -26,13 +26,14 @@ class ManagedProcess:
     """Small wrapper around a subprocess plus its streaming thread."""
 
     def __init__(self, name: str, args, cwd: Path | None,
-                 shell: bool, log_path: Path,
+                 shell: bool, log_path: Path, stream_logs: bool = False,
                  ready_patterns: tuple[re.Pattern[str], ...] = ()):
         self.name = name
         self.args = args
         self.cwd = cwd
         self.shell = shell
         self.log_path = log_path
+        self.stream_logs = stream_logs
         self.ready_patterns = ready_patterns
         self.ready = threading.Event()
         self.lines: queue.Queue[str] = queue.Queue()
@@ -67,7 +68,8 @@ class ManagedProcess:
                     prefixed = f"[{self.name}] {line}"
                     log_file.write(prefixed)
                     log_file.flush()
-                    print(prefixed, end='', flush=True)
+                    if self.stream_logs:
+                        print(prefixed, end='', flush=True)
                     self.lines.put(line)
                     if any(pattern.search(line) for pattern in self.ready_patterns):
                         self.ready.set()
@@ -138,8 +140,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                         help='ROS command to run after PX4/Gazebo startup.')
     parser.add_argument('--startup-timeout-s', type=float, default=60.0,
                         help='Seconds to wait for PX4 readiness patterns.')
-    parser.add_argument('--startup-delay-s', type=float, default=5.0,
+    parser.add_argument('--startup-delay-s', type=float, default=1.0,
                         help='Extra delay before starting ROS after PX4 is ready.')
+    parser.add_argument('--headless', dest='headless', action='store_true',
+                        default=True,
+                        help='Run Gazebo server-only without the GUI.')
+    parser.add_argument('--gui', dest='headless', action='store_false',
+                        help='Launch the Gazebo GUI.')
+    parser.add_argument('--sim-speed-factor', type=float, default=None,
+                        help='Set PX4_SIM_SPEED_FACTOR for faster-than-real-time simulation.')
+    parser.add_argument('--kill-existing', dest='kill_existing',
+                        action='store_true', default=True,
+                        help='Terminate stale PX4/Gazebo sim processes before starting.')
+    parser.add_argument('--keep-existing', dest='kill_existing',
+                        action='store_false',
+                        help='Do not terminate existing sim processes before starting.')
     parser.add_argument('--strict-px4-ready', action='store_true',
                         help='Fail if readiness patterns are not observed.')
     parser.add_argument('--ready-pattern', action='append',
@@ -148,6 +163,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                         help='Optional hard timeout for this wrapper process.')
     parser.add_argument('--log-dir', type=Path, default=None,
                         help='Directory for px4_gazebo.log and ros_launch.log.')
+    parser.add_argument('--stream-logs', action='store_true',
+                        help='Mirror PX4 and ROS child logs to stdout.')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print the commands that would be launched.')
     return parser
@@ -156,6 +173,29 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def _terminate_all(processes: list[ManagedProcess]) -> None:
     for managed in reversed(processes):
         managed.terminate()
+
+
+def _pkill_pattern(pattern: str, signal_name: str) -> None:
+    subprocess.run(
+        ['pkill', f'-{signal_name}', '-f', pattern],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+
+
+def _terminate_existing_simulation(px4_dir: Path, grace_s: float = 2.0) -> None:
+    """Clear stale PX4/Gazebo processes from this workspace before a trial."""
+    px4_path = re.escape(str(px4_dir.resolve()))
+    patterns = (
+        rf'{px4_path}.*/bin/px4',
+        rf'gz\s+sim .*{px4_path}',
+    )
+    for pattern in patterns:
+        _pkill_pattern(pattern, 'TERM')
+    time.sleep(grace_s)
+    for pattern in patterns:
+        _pkill_pattern(pattern, 'KILL')
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -178,13 +218,29 @@ def main(argv: list[str] | None = None) -> int:
         print(f"PX4 dir: {args.px4_dir}")
         print(f"PX4 command: {px4_args}")
         print(f"ROS command: {args.ros_command}")
+        print(f"Headless: {args.headless}")
+        print(f"Startup delay: {args.startup_delay_s}")
+        print(f"Simulation speed factor: {args.sim_speed_factor}")
+        print(f"Kill existing sim processes: {args.kill_existing}")
+        print(f"Stream child logs: {args.stream_logs}")
         print(f"Log dir: {log_dir}")
         return 0
 
     if not args.px4_dir.exists():
         raise SystemExit(f"PX4 directory does not exist: {args.px4_dir}")
 
+    if args.kill_existing:
+        print('[mpcc_pp_gazebo_trial] clearing existing PX4/Gazebo processes',
+              flush=True)
+        _terminate_existing_simulation(args.px4_dir)
+
     env = os.environ.copy()
+    if args.headless:
+        env['HEADLESS'] = '1'
+    else:
+        env.pop('HEADLESS', None)
+    if args.sim_speed_factor is not None:
+        env['PX4_SIM_SPEED_FACTOR'] = str(args.sim_speed_factor)
     processes: list[ManagedProcess] = []
     stop_requested = threading.Event()
 
@@ -209,6 +265,7 @@ def main(argv: list[str] | None = None) -> int:
         cwd=args.px4_dir,
         shell=px4_shell,
         log_path=log_dir / 'px4_gazebo.log',
+        stream_logs=args.stream_logs,
         ready_patterns=_compiled_patterns(ready_patterns),
     )
     processes.append(px4)
@@ -219,6 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         cwd=Path.cwd(),
         shell=True,
         log_path=log_dir / 'ros_launch.log',
+        stream_logs=args.stream_logs,
     )
 
     start_time = time.monotonic()
@@ -274,4 +332,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
-

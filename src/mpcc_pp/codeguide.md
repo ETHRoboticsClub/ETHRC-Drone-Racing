@@ -961,17 +961,31 @@ ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --timeout-s 120 \
   --output-dir src/mpcc_pp/mpcc_pp_optuna_runs \
   --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
-    --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
     --px4-model gz_zephyros \
+    --startup-delay-s 1.0 \
     --ros-command 'ros2 launch drone_control sim.launch.py \
       controller_type:=mpcc_pp rviz:=false plotjuggler:=false'"
 ```
+
+The trial runner uses Gazebo headless mode by default, so no Gazebo GUI, RViz, or
+PlotJuggler windows are launched. To inspect one run visually, add `--gui` to the
+`mpcc_pp_gazebo_trial` command. To try faster-than-real-time simulation, add for
+example `--sim-speed-factor 2.0`; keep this modest and verify lap detection still
+looks sane.
+
+Before each trial, `mpcc_pp_gazebo_trial` clears stale PX4/Gazebo processes from
+this workspace. This avoids `PX4 server already running for instance 0` after an
+interrupted run. Add `--keep-existing` only if you intentionally want to attach to
+an already running simulator.
+
+PX4 and ROS logs are written to each trial directory by default, but are not mirrored
+to the terminal. Add `--stream-logs` to `mpcc_pp_gazebo_trial`, or run the helper
+with `STREAM=1`, when debugging startup.
 
 Dry-run to verify without starting anything:
 
 ```bash
 ros2 run mpcc_pp mpcc_pp_gazebo_trial \
-  --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
   --px4-model gz_zephyros \
   --dry-run
 ```
@@ -1204,8 +1218,8 @@ ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --timeout-s 120 \
   --output-dir src/mpcc_pp/mpcc_pp_optuna_runs \
   --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
-    --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
     --px4-model gz_zephyros \
+    --startup-delay-s 1.0 \
     --ros-command 'ros2 launch drone_control sim.launch.py \
       controller_type:=mpcc_pp rviz:=false plotjuggler:=false'"
 ```

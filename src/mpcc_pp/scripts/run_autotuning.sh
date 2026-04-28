@@ -13,6 +13,10 @@
 #   OUTPUT_DIR output directory               (default: src/mpcc_pp/mpcc_pp_optuna_runs)
 #   STUDY_NAME Optuna study name              (default: mpcc_pp_<timestamp>)
 #   PX4_MODEL  Gazebo model target            (default: gz_zephyros)
+#   STARTUP_DELAY extra seconds after PX4 ready (default: 1.0)
+#   GUI        set to 1 to launch Gazebo GUI    (default: 0)
+#   SIM_SPEED_FACTOR faster-than-real-time sim  (default: unset)
+#   KILL_EXISTING terminate stale sim processes (default: 1)
 #   STREAM     set to 1 to mirror sim stdout  (default: 0)
 
 set -euo pipefail
@@ -57,10 +61,26 @@ SAMPLER="${SAMPLER:-tpe}"
 OUTPUT_DIR="${OUTPUT_DIR:-${MPCC_PP_DIR}/mpcc_pp_optuna_runs}"
 STUDY_NAME="${STUDY_NAME:-mpcc_pp_$(date +%Y%m%d_%H%M%S)}"
 PX4_MODEL="${PX4_MODEL:-gz_zephyros}"
+STARTUP_DELAY="${STARTUP_DELAY:-1.0}"
+GUI="${GUI:-0}"
+SIM_SPEED_FACTOR="${SIM_SPEED_FACTOR:-}"
+KILL_EXISTING="${KILL_EXISTING:-1}"
 STREAM="${STREAM:-0}"
 
 # ── Build the trial runner command ────────────────────────────────────────────
-TRIAL_CMD="python3 -m mpcc_pp.tuning.gazebo_trial_runner --px4-model ${PX4_MODEL}"
+TRIAL_CMD="ros2 run mpcc_pp mpcc_pp_gazebo_trial --px4-model ${PX4_MODEL} --startup-delay-s ${STARTUP_DELAY}"
+if [[ "${GUI}" == "1" ]]; then
+    TRIAL_CMD="${TRIAL_CMD} --gui"
+fi
+if [[ -n "${SIM_SPEED_FACTOR}" ]]; then
+    TRIAL_CMD="${TRIAL_CMD} --sim-speed-factor ${SIM_SPEED_FACTOR}"
+fi
+if [[ "${KILL_EXISTING}" != "1" ]]; then
+    TRIAL_CMD="${TRIAL_CMD} --keep-existing"
+fi
+if [[ "${STREAM}" == "1" ]]; then
+    TRIAL_CMD="${TRIAL_CMD} --stream-logs"
+fi
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 echo ""
@@ -72,6 +92,11 @@ echo "  Timeout:  ${TIMEOUT}s per trial"
 echo "  Sampler:  ${SAMPLER}"
 echo "  Output:   ${OUTPUT_DIR}"
 echo "  PX4 model: ${PX4_MODEL}"
+echo "  Gazebo GUI: ${GUI}"
+echo "  Startup delay: ${STARTUP_DELAY}s"
+echo "  Sim speed factor: ${SIM_SPEED_FACTOR:-default}"
+echo "  Kill existing sim: ${KILL_EXISTING}"
+echo "  Stream child logs: ${STREAM}"
 echo "================================"
 echo ""
 

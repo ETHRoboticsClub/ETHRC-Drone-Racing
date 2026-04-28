@@ -270,6 +270,8 @@ def run_episode(command_template: str,
     failure_reason = None
     if timed_out:
         failure_reason = 'timeout'
+    elif return_code not in (0, None) and len(lap_times) < laps_required:
+        failure_reason = f'command_failed:{return_code}'
     elif len(lap_times) < laps_required:
         failure_reason = 'not_enough_laps'
 
@@ -464,6 +466,16 @@ def main(argv: list[str] | None = None) -> int:
         metrics.reward = reward
         metrics_path = trial_dir / 'trial_metrics.json'
         _write_json(metrics_path, asdict(metrics))
+        print(
+            f"[trial {trial.number:05d}] reward={reward:.6f} "
+            f"success={metrics.success} laps={len(metrics.lap_times)}/"
+            f"{args.laps_per_episode} "
+            f"solver_fail_rate={metrics.solver_fail_rate:.3f} "
+            f"return_code={metrics.return_code} "
+            f"reason={metrics.failure_reason or 'completed'} "
+            f"log={metrics.log_path}",
+            flush=True,
+        )
 
         trial.set_user_attr('metrics_file', str(metrics_path))
         trial.set_user_attr('parameter_file', str(parameter_file))
