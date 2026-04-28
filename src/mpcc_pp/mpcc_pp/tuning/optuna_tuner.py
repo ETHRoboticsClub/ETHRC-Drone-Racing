@@ -24,6 +24,17 @@ from ..parameters import DEFAULT_PARAMETERS_PATH
 from .search_space import SearchSpace, tuning_yaml_patch
 
 
+def _default_output_dir() -> Path:
+    cwd = Path.cwd().resolve()
+    for base in (cwd, *cwd.parents):
+        source_dir = base / 'src' / 'mpcc_pp'
+        if (source_dir / 'package.xml').is_file():
+            return source_dir / 'mpcc_pp_optuna_runs'
+    return Path(__file__).resolve().parents[2] / 'mpcc_pp_optuna_runs'
+
+
+DEFAULT_OUTPUT_DIR = _default_output_dir()
+
 LAP_RE = re.compile(
     r"\[Lap\].*?completato in\s+([0-9]+(?:\.[0-9]+)?)\s*s")
 SOLVER_STATUS_RE = re.compile(r"\[mpcc_pp OCP\]\s+solver status\s+(-?\d+)")
@@ -345,7 +356,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         default=DEFAULT_PARAMETERS_PATH,
                         help='Base MPCC++ parameters.yaml file.')
     parser.add_argument('--output-dir', type=Path,
-                        default=Path('mpcc_pp_optuna_runs'),
+                        default=DEFAULT_OUTPUT_DIR,
                         help='Directory for studies, trial YAMLs, and logs.')
     parser.add_argument('--study-name', default='mpcc_pp_optuna',
                         help='Optuna study name.')
@@ -386,6 +397,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+    args.output_dir = args.output_dir.expanduser()
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     base_parameters = _load_yaml(args.base_parameters)

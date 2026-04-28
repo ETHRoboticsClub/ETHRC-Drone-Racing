@@ -959,7 +959,7 @@ ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 30 \
   --laps-per-episode 3 \
   --timeout-s 120 \
-  --output-dir runs/mpcc_pp_optuna \
+  --output-dir src/mpcc_pp/mpcc_pp_optuna_runs \
   --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
     --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
     --px4-model gz_zephyros \
@@ -1035,7 +1035,7 @@ should be lost.
 Run directory layout:
 
 ```text
-runs/mpcc_pp_optuna/
+src/mpcc_pp/mpcc_pp_optuna_runs/
   trial_00000/
     parameters.yaml
     trial_params.json
@@ -1173,14 +1173,14 @@ Verify file generation without launching simulation:
 ```bash
 ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --dry-run \
-  --output-dir runs/mpcc_pp_optuna
+  --output-dir src/mpcc_pp/mpcc_pp_optuna_runs
 ```
 
 This creates:
 
 ```text
-runs/mpcc_pp_optuna/dry_run/parameters.yaml
-runs/mpcc_pp_optuna/dry_run/trial_params.json
+src/mpcc_pp/mpcc_pp_optuna_runs/dry_run/parameters.yaml
+src/mpcc_pp/mpcc_pp_optuna_runs/dry_run/trial_params.json
 ```
 
 Short smoke test with ROS simulation:
@@ -1190,7 +1190,7 @@ ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 10 \
   --laps-per-episode 1 \
   --timeout-s 60 \
-  --output-dir runs/mpcc_pp_optuna_smoke \
+  --output-dir src/mpcc_pp/mpcc_pp_optuna_runs_smoke \
   --command "ros2 launch drone_control sim.launch.py \
     controller_type:=mpcc_pp rviz:=false plotjuggler:=false"
 ```
@@ -1202,7 +1202,7 @@ ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 600 \
   --laps-per-episode 3 \
   --timeout-s 120 \
-  --output-dir runs/mpcc_pp_optuna \
+  --output-dir src/mpcc_pp/mpcc_pp_optuna_runs \
   --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
     --px4-dir /home/mattia/ETHRC-Drone-Racing/px4/PX4-Autopilot \
     --px4-model gz_zephyros \
@@ -1214,7 +1214,7 @@ Evaluate best result:
 
 ```bash
 ros2 run mpcc_pp mpcc_pp_optuna_tune \
-  --eval-only runs/mpcc_pp_optuna/best_parameters.yaml \
+  --eval-only src/mpcc_pp/mpcc_pp_optuna_runs/best_parameters.yaml \
   --eval-episodes 10 \
   --laps-per-episode 3
 ```
@@ -1243,7 +1243,7 @@ Lap time std: 0.06 s
 Success rate: 100.0 %
 Solver failure rate: 0.0 %
 Minimum tunnel margin: 0.08 m
-Best params written to: runs/mpcc_pp_optuna/best_parameters.yaml
+Best params written to: src/mpcc_pp/mpcc_pp_optuna_runs/best_parameters.yaml
 ```
 
 ---

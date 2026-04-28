@@ -3,14 +3,14 @@
 # Execute this script INSIDE the Docker container (docker compose exec mpc bash).
 #
 # Usage:
-#   ./scripts/run_autotuning.sh [extra optuna args]
+#   ./src/mpcc_pp/scripts/run_autotuning.sh [extra optuna args]
 #
 # Environment overrides (export before calling the script):
 #   N_TRIALS   number of Optuna trials        (default: 30)
 #   LAPS       laps required per trial        (default: 3)
 #   TIMEOUT    max wall-clock seconds/trial   (default: 150)
 #   SAMPLER    tpe | gp | random              (default: tpe)
-#   OUTPUT_DIR output directory               (default: ~/mpcc_pp_optuna_runs)
+#   OUTPUT_DIR output directory               (default: src/mpcc_pp/mpcc_pp_optuna_runs)
 #   STUDY_NAME Optuna study name              (default: mpcc_pp_<timestamp>)
 #   PX4_MODEL  Gazebo model target            (default: gz_zephyros)
 #   STREAM     set to 1 to mirror sim stdout  (default: 0)
@@ -18,7 +18,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+MPCC_PP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+WS_DIR="$(cd "${MPCC_PP_DIR}/../.." && pwd)"
 
 # ── Source ROS + colcon ────────────────────────────────────────────────────────
 if [[ -f /opt/ros/humble/setup.bash ]]; then
@@ -53,7 +54,7 @@ N_TRIALS="${N_TRIALS:-30}"
 LAPS="${LAPS:-3}"
 TIMEOUT="${TIMEOUT:-150}"
 SAMPLER="${SAMPLER:-tpe}"
-OUTPUT_DIR="${OUTPUT_DIR:-${HOME}/mpcc_pp_optuna_runs}"
+OUTPUT_DIR="${OUTPUT_DIR:-${MPCC_PP_DIR}/mpcc_pp_optuna_runs}"
 STUDY_NAME="${STUDY_NAME:-mpcc_pp_$(date +%Y%m%d_%H%M%S)}"
 PX4_MODEL="${PX4_MODEL:-gz_zephyros}"
 STREAM="${STREAM:-0}"
