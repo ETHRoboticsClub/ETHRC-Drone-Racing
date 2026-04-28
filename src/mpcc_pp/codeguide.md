@@ -998,8 +998,10 @@ trial_00000/ros_launch.log
 trial_00000/episode.log
 ```
 
-`episode.log` contains the merged stdout that `mpcc_pp_optuna_tune` parses for `[Lap]`
-and `[SolverStats]` lines. The separate logs are for debugging startup failures.
+`episode.log` contains the runner stdout that `mpcc_pp_optuna_tune` parses for `[Lap]`
+and `[SolverStats]` lines. By default `mpcc_pp_gazebo_trial` forwards only those metric
+lines from ROS stdout; the full PX4 and ROS logs stay in `px4_gazebo.log` and
+`ros_launch.log` unless `--stream-logs` is enabled.
 
 If PX4 does not emit expected readiness patterns, the runner continues after
 `--startup-timeout-s` unless `--strict-px4-ready` is set. Start without strict mode

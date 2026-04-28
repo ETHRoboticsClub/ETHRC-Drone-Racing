@@ -21,13 +21,19 @@ DEFAULT_READY_PATTERNS = (
     r'INFO\s+\[commander\].*ready',
 )
 
+DEFAULT_METRIC_PATTERNS = (
+    r'\[Lap\]',
+    r'\[SolverStats\]',
+)
+
 
 class ManagedProcess:
     """Small wrapper around a subprocess plus its streaming thread."""
 
     def __init__(self, name: str, args, cwd: Path | None,
                  shell: bool, log_path: Path, stream_logs: bool = False,
-                 ready_patterns: tuple[re.Pattern[str], ...] = ()):
+                 ready_patterns: tuple[re.Pattern[str], ...] = (),
+                 forward_patterns: tuple[re.Pattern[str], ...] = ()):
         self.name = name
         self.args = args
         self.cwd = cwd
@@ -35,6 +41,7 @@ class ManagedProcess:
         self.log_path = log_path
         self.stream_logs = stream_logs
         self.ready_patterns = ready_patterns
+        self.forward_patterns = forward_patterns
         self.ready = threading.Event()
         self.lines: queue.Queue[str] = queue.Queue()
         self.proc: subprocess.Popen | None = None
@@ -68,7 +75,11 @@ class ManagedProcess:
                     prefixed = f"[{self.name}] {line}"
                     log_file.write(prefixed)
                     log_file.flush()
-                    if self.stream_logs:
+                    should_forward = any(
+                        pattern.search(line)
+                        for pattern in self.forward_patterns
+                    )
+                    if self.stream_logs or should_forward:
                         print(prefixed, end='', flush=True)
                     self.lines.put(line)
                     if any(pattern.search(line) for pattern in self.ready_patterns):
@@ -165,6 +176,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                         help='Directory for px4_gazebo.log and ros_launch.log.')
     parser.add_argument('--stream-logs', action='store_true',
                         help='Mirror PX4 and ROS child logs to stdout.')
+    parser.add_argument('--forward-metrics', dest='forward_metrics',
+                        action='store_true', default=True,
+                        help='Forward lap/stat metric lines to stdout for the tuner.')
+    parser.add_argument('--no-forward-metrics', dest='forward_metrics',
+                        action='store_false',
+                        help='Do not forward lap/stat metric lines to stdout.')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print the commands that would be launched.')
     return parser
@@ -223,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Simulation speed factor: {args.sim_speed_factor}")
         print(f"Kill existing sim processes: {args.kill_existing}")
         print(f"Stream child logs: {args.stream_logs}")
+        print(f"Forward metric lines: {args.forward_metrics}")
         print(f"Log dir: {log_dir}")
         return 0
 
@@ -258,6 +276,11 @@ def main(argv: list[str] | None = None) -> int:
     ready_patterns = list(DEFAULT_READY_PATTERNS)
     if args.ready_pattern:
         ready_patterns.extend(args.ready_pattern)
+    metric_patterns = (
+        _compiled_patterns(list(DEFAULT_METRIC_PATTERNS))
+        if args.forward_metrics
+        else ()
+    )
 
     px4 = ManagedProcess(
         name='PX4',
@@ -277,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
         shell=True,
         log_path=log_dir / 'ros_launch.log',
         stream_logs=args.stream_logs,
+        forward_patterns=metric_patterns,
     )
 
     start_time = time.monotonic()
