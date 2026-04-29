@@ -3,6 +3,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray, Float64
 from sensor_msgs.msg import Joy
+import errno
+import os
 import serial
 import struct
 import time
@@ -18,6 +20,8 @@ class MspBridge(Node):
         self.declare_parameter('override_switch_id', 5) # AUX2
         self.declare_parameter('attitude_cmd_topic', '/drone_attitude_cmd')
         self.declare_parameter('max_rate_deg_s', 500.0)
+        self.declare_parameter('write_timeout_s', 0.0)
+        self.declare_parameter('serial_warning_interval_s', 1.0)
         
         self.port_name = self.get_parameter('port').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -25,15 +29,28 @@ class MspBridge(Node):
         self.override_switch_id = self.get_parameter('override_switch_id').value
         self.attitude_cmd_topic = self.get_parameter('attitude_cmd_topic').value
         self.max_rate_deg_s = self.get_parameter('max_rate_deg_s').value
+        self.write_timeout_s = self.get_parameter('write_timeout_s').value
+        self.serial_warning_interval_s = self.get_parameter('serial_warning_interval_s').value
         
         # RC State [Roll, Pitch, Throttle, Yaw, AUX1, AUX2, AUX3, AUX4]
         self.rc_channels = [1500, 1500, 1000, 1500, 1000, 1500, 1500, 1500]
         self.is_armed = False
         self.use_override = False
+        self._last_log_time = 0.0
+        self._last_serial_warning_time = 0.0
+        self._serial_write_failures = 0
 
         try:
-            self.serial_port = serial.Serial(self.port_name, self.baudrate, timeout=0.1)
-            self.get_logger().info(f'Opened MSP RX port {self.port_name} at {self.baudrate}')
+            self.serial_port = serial.Serial(
+                self.port_name,
+                self.baudrate,
+                timeout=0.1,
+                write_timeout=self.write_timeout_s,
+            )
+            self.get_logger().info(
+                f'Opened MSP RX port {self.port_name} at {self.baudrate} '
+                f'(write timeout {self.write_timeout_s:.3f}s)'
+            )
         except Exception as e:
             self.get_logger().error(f'Failed to open MSP RX port {self.port_name}: {e}')
             self.serial_port = None
@@ -53,7 +70,6 @@ class MspBridge(Node):
         self.timer = self.create_timer(0.02, self.timer_callback)
         
         self.get_logger().info('MSP Bridge Initialized (Handles Joy and Attitude Cmd)')
-        self._last_log_time = 0.0
 
     def attitude_cmd_callback(self, msg):
         if len(msg.data) < 4:
@@ -102,19 +118,38 @@ class MspBridge(Node):
             )
             self._last_log_time = now
 
+        msg = self.build_msp_set_raw_rc()
+
+        try:
+            written = os.write(self.serial_port.fileno(), msg)
+            if written != len(msg):
+                raise BlockingIOError(
+                    errno.EAGAIN,
+                    f'partial write ({written}/{len(msg)} bytes)'
+                )
+        except Exception as e:
+            self._serial_write_failures += 1
+            try:
+                self.serial_port.reset_output_buffer()
+            except Exception:
+                pass
+
+            if now - self._last_serial_warning_time >= self.serial_warning_interval_s:
+                self.get_logger().warn(
+                    f"MSP serial output is not draining on {self.port_name}; "
+                    f"dropped stale TX buffer ({self._serial_write_failures} failures): {e}"
+                )
+                self._last_serial_warning_time = now
+
+    def build_msp_set_raw_rc(self):
         # MSP_SET_RAW_RC (200)
         payload = struct.pack('<8H', *self.rc_channels)
         size = len(payload)
         cmd = 200
         cs = size ^ cmd
-        for b in payload: cs ^= b
-        msg = b'$M<' + struct.pack('<BB', size, cmd) + payload + struct.pack('<B', cs)
-        
-        try:
-            self.serial_port.write(msg)
-            self.serial_port.flush()
-        except Exception as e:
-            self.get_logger().error(f"Failed to write MSP Bridge command: {e}")
+        for b in payload:
+            cs ^= b
+        return b'$M<' + struct.pack('<BB', size, cmd) + payload + struct.pack('<B', cs)
 
     def destroy_node(self):
         if self.serial_port:
@@ -130,7 +165,8 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()
