@@ -1,5 +1,9 @@
 # AWS Elastic Container Registry (ECR)
 
+**Page Owners:** [Mate Tirpak](https://github.com/matetirpak)
+
+---
+
 AWS ECR is used to store and distribute Docker images for all ETHRC Drone Racing environments. Images are built automatically by CI and can also be pushed manually via the Makefile.
 
 ---

@@ -72,6 +72,7 @@ nav:
     - AWS Setup: infrastructure/aws_setup.md
     - AWS EC2 Instances: infrastructure/aws_ec2.md
     - AWS ECR: infrastructure/aws_ecr.md
+    - AWS Batch RL Training: infrastructure/aws_batch_rl_training.md
   - Perception:
     - Overview: perception/index.md
     - VIO: perception/vio.md
