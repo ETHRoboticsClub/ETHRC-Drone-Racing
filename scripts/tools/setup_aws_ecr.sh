@@ -28,9 +28,23 @@ done
 # 2. Install AWS CLI v2 if missing
 if ! command -v aws &> /dev/null; then
     echo "[2/4] AWS CLI not found. Installing..."
+    
+    # Detect architecture
+    ARCH=$(uname -m)
+    case $ARCH in
+        x86_64) AWS_ARCH="x86_64" ;;
+        aarch64) AWS_ARCH="aarch64" ;;
+        *)
+            echo "Error: Unsupported architecture $ARCH"
+            exit 1
+            ;;
+    esac
+
+    echo "Detected architecture: $ARCH"
+    
     TEMP_DIR=$(mktemp -d)
     cd "$TEMP_DIR"
-    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" -o "awscliv2.zip"
     unzip -q awscliv2.zip
     sudo ./aws/install
     cd - > /dev/null
