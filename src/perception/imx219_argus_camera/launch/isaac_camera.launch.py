@@ -77,7 +77,7 @@ def generate_launch_description():
             description='IMX219 sensor mode index (4 = 1280x720@90fps w/ mod)',
         ),
         DeclareLaunchArgument(
-            'framerate', default_value='90',
+            'framerate', default_value='60',
             description='Target FPS (requires 90Hz driver mod for >60)',
         ),
         DeclareLaunchArgument('width', default_value='1280'),

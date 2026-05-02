@@ -38,3 +38,4 @@ docs/**/*.log
 docs/**/*.out
 docs/**/*.toc
 docs/**/*.synctex.gz
+/src/mpc/mpc/c_generated_code
