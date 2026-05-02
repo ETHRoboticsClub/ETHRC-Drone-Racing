@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from interfaces import PolicyModelInterface 
 
-class PolicyModelInterface(PolicyModelInterface):
+class PolicyModelInterface(ABC):
     '''Interface for the RL policy to allow both pytorch and ONNX models.'''
 
     @abstractmethod
