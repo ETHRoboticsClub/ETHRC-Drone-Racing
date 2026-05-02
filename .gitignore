@@ -54,3 +54,4 @@ docs/**/*.toc
 docs/**/*.synctex.gz
 .codex
 kalibr_20260430_1005
+/src/mpc/mpc/c_generated_code
