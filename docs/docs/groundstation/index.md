@@ -1,6 +1,6 @@
 # Groundstation Team
 
-**Page Owner:** [Hassan El Jamaly](https://github.com/hjamaly)
+**Responsible:** Aaron, Julian
 
 ---
 

@@ -32,11 +32,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-rosdep python3-argcomplete python3-vcstool python3-colcon-common-extensions \
     ros-humble-image-transport ros-humble-cv-bridge ros-humble-rmw-cyclonedds-cpp \
     ros-humble-mavros ros-humble-mavros-extras geographiclib-tools \
+    ros-humble-mavros-msgs ros-humble-camera-calibration-parsers \
     ros-humble-nav2-msgs ros-humble-plotjuggler-ros \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-bad gstreamer1.0-plugins-base \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
-    libopencv-dev python3-opencv \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-tools \
+    libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavdevice-dev \
+    libopencv-dev python3-opencv python3-gi gir1.2-gstreamer-1.0 \
+    python3-matplotlib python3-psutil python3-tk \
     libvulkan1 vulkan-tools clang clang-format \
     && rm -rf /var/lib/apt/lists/*
 RUN rosdep init || true

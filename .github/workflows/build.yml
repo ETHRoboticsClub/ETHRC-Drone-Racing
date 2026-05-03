@@ -71,6 +71,12 @@ jobs:
           echo "Initializing Perception and Vicon submodules..."
           git submodule update --init --recursive --force src/perception/VIO/open_vins
           git submodule update --init --recursive --force src/ros2-vicon-receiver
+          git submodule update --init --recursive --force src/h264_image_transport
+          
+          echo "Initializing MSP and Multiwii submodules..."
+          git submodule update --init --recursive --force src/msp
+          git submodule update --init --recursive --force src/multiwii_ros2
+          git submodule update --init --recursive --force src/px4_msgs
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

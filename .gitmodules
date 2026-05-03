@@ -20,3 +20,6 @@
 [submodule "src/msp"]
 	path = src/msp
 	url = https://github.com/christianrauch/msp
+[submodule "src/h264_image_transport"]
+	path = src/h264_image_transport
+	url = https://github.com/clydemcqueen/h264_image_transport.git

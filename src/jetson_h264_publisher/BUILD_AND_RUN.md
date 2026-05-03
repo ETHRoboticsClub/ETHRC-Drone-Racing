@@ -62,12 +62,35 @@ ros2 topic bw /image_raw/h264
 ## 6. View on a ground station
 
 On the GCS (any x86 / ARM box), republish to raw using
-`h264_image_transport`'s republish node:
+`h264_image_transport`'s republish node. 
+
+> [!IMPORTANT]
+> The Jetson publisher uses **Best Effort** QoS. You **must** override the subscriber's QoS settings, otherwise ROS 2 will not connect them (you will see an `incompatible QoS` warning).
 
 ```bash
-ros2 run image_transport republish h264 in/h264:=/image_raw/h264 raw out:=/image_raw
+ros2 run image_transport republish h264 \
+  --ros-args \
+  --remap in/h264:=/image_raw/h264 \
+  --remap out:=/image_raw \
+  -p qos_overrides./image_raw/h264.subscription.reliability:=best_effort
+```
+
+Now you can view the raw stream:
+```bash
 ros2 run rqt_image_view rqt_image_view /image_raw
 ```
+
+## 7. Viewing in Foxglove Studio (Recommended)
+
+Foxglove Studio is the easiest way to view the H.264 stream without needing a local republisher.
+
+1.  Open **Foxglove Studio** and connect to your ROS 2 stack.
+2.  Add a **"Raw Video"** panel to your layout.
+3.  Select the `/image_raw/h264` topic.
+4.  In the panel settings (gear icon), set the **Format** to `h264`.
+5.  Foxglove handles the QoS automatically.
+
+---
 
 ## Tuning notes
 

@@ -39,7 +39,7 @@ class JetsonH264Publisher(Node):
         self.declare_parameter("preset_level", 1)            # 1=UltraFast .. 4=Slow
         self.declare_parameter("frame_id", "camera")
         self.declare_parameter("topic", "image_raw/h264")
-        self.declare_parameter("flip_method", 0)             # nvvidconv flip-method
+        self.declare_parameter("flip_method", 2)             # nvvidconv flip-method (2 = 180 deg)
         # If your sensor needs a non-default exposure/gain, expose those here too.
 
         p = self.get_parameter

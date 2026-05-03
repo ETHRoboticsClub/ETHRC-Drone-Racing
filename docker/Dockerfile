@@ -28,14 +28,16 @@ USER drone_dev
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
+COPY --chown=drone_dev:drone_dev src/h264_image_transport ${WORKSPACE}/src/h264_image_transport
+COPY --chown=drone_dev:drone_dev src/jetson_h264_publisher ${WORKSPACE}/src/jetson_h264_publisher
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
 USER root
 RUN apt-get update && apt-get install -y libserialport-dev && rm -rf /var/lib/apt/lists/*
 USER drone_dev
 RUN ARCH=$(dpkg --print-architecture); \
-    PKGS="ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt"; \
-    if [ "$ARCH" != "arm64" ]; then PKGS="$PKGS gazebo_ros_bridges"; fi; \
+    PKGS="ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt h264_image_transport"; \
+    if [ "$ARCH" != "arm64" ]; then PKGS="$PKGS gazebo_ros_bridges"; else PKGS="$PKGS jetson_h264_publisher"; fi; \
     source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to $PKGS
 
 # =========================================================

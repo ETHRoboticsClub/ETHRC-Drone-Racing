@@ -32,6 +32,13 @@ def generate_launch_description():
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
+    arg_view_stream = DeclareLaunchArgument('view_stream', default_value='true',
+                                              description='Whether to start the video streaming/republishing pipeline')
+    arg_video_bitrate = DeclareLaunchArgument('video_bitrate', default_value='4000000')
+    arg_video_width = DeclareLaunchArgument('video_width', default_value='1920')
+    arg_video_height = DeclareLaunchArgument('video_height', default_value='1080')
+    arg_video_fps = DeclareLaunchArgument('video_fps', default_value='30')
+    arg_video_flip = DeclareLaunchArgument('video_flip', default_value='2')
 
     # --- 1. IMU DRIVER: Betaflight Blackbox ---
     # This C++ node handles the high-rate IMU telemetry stream (read-only)
@@ -63,7 +70,45 @@ def generate_launch_description():
         output='screen'
     )
 
-    # --- 3. VICON: Ground Truth & Timestamping ---
+    # --- 3. VIDEO: H.264 Publisher (Jetson) or Republisher (GS) ---
+    # Publisher: Runs only on Jetson to capture and compress CSI camera frames
+    video_publisher_node = Node(
+        package='jetson_h264_publisher',
+        executable='encoder_node',
+        name='jetson_h264_publisher',
+        parameters=[{
+            'bitrate': LaunchConfiguration('video_bitrate'),
+            'width': LaunchConfiguration('video_width'),
+            'height': LaunchConfiguration('video_height'),
+            'framerate': LaunchConfiguration('video_fps'),
+            'flip_method': LaunchConfiguration('video_flip')
+        }],
+        condition=launch.conditions.IfCondition('true' if is_jetson else 'false'),
+        output='screen'
+    )
+
+    # Republisher: Runs on GS to decode the H.264 stream back to raw images for RQT/Foxglove
+    video_republisher_node = Node(
+        package='image_transport',
+        executable='republish',
+        name='h264_republisher',
+        arguments=['h264'],
+        remappings=[
+            ('in/h264', '/image_raw/h264'),
+            ('out', '/image_raw')
+        ],
+        parameters=[{
+            'qos_overrides./image_raw/h264.subscription.reliability': 'best_effort'
+        }],
+        condition=launch.conditions.IfCondition(
+            launch.substitutions.PythonExpression([
+                "'", LaunchConfiguration('view_stream'), "' == 'true' and not ", str(is_jetson)
+            ])
+        ),
+        output='screen'
+    )
+
+    # --- 4. VICON: Ground Truth & Timestamping ---
     vicon_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_vicon, 'launch', 'client.launch.py')
@@ -71,7 +116,7 @@ def generate_launch_description():
         launch_arguments={'hostname': '10.200.117.1'}.items() # Standard lab Vicon IP
     )
 
-    # --- 4. CONTROL: Drone Controller (MPC) ---
+    # --- 5. CONTROL: Drone Controller (MPC) ---
     control_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             os.path.join(pkg_drone_control, 'launch', 'drone_controller.launch.py')
@@ -89,8 +134,16 @@ def generate_launch_description():
         arg_attitude_topic,
         arg_use_vicon,
         arg_use_rc_sim,
+        arg_view_stream,
+        arg_video_bitrate,
+        arg_video_width,
+        arg_video_height,
+        arg_video_fps,
+        arg_video_flip,
         blackbox_node,
         msp_bridge_node,
+        video_publisher_node,
+        video_republisher_node,
         vicon_launch,
         control_launch,
     ])

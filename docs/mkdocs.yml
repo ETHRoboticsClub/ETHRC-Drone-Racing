@@ -96,7 +96,9 @@ nav:
     - Boreas (4S): drone-setup/boreas.md
     - VIO Synchronization: drone-setup/vio_synchronization.md
     - Betaflight Setup: betaflight.md
-  - Groundstation: groundstation/index.md
+  - Groundstation:
+    - Overview: groundstation/index.md
+    - Video Streaming: groundstation/video-streaming.md
   - Contributors: contributors.md
   - Deprecated:
     - ArUco: perception/ArUco.md
