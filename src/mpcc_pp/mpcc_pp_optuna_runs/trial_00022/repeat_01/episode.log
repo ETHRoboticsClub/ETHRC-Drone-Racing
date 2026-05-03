@@ -1,0 +1,11 @@
+$ ros2 run mpcc_pp mpcc_pp_gazebo_trial --px4-target px4_sitl --px4-model gz_zephyros --startup-timeout-s 60.0 --startup-delay-s 1.0 --ros-command 'ros2 launch drone_control sim.launch.py controller_type:=mpcc_pp rviz:=true plotjuggler:=false'
+[mpcc_pp_gazebo_trial] clearing existing PX4/Gazebo processes
+[mpcc_pp_gazebo_trial] starting PX4/Gazebo
+[mpcc_pp_gazebo_trial] starting ROS controller launch
+[ROS] [drone_controller_node-1] [INFO] [1777816213.693429927] [drone_controller_node]: [Lap] percorso 1 completato in 18.14 s
+[ROS] [drone_controller_node-1] [INFO] [1777816213.694045691] [drone_controller_node]: [SolverStats] solve_count=799 solver_fail_count=18 solver_fail_rate=0.022528 last_status=0
+[ROS] [drone_controller_node-1] [INFO] [1777816231.812156586] [drone_controller_node]: [Lap] percorso 2 completato in 18.12 s
+[ROS] [drone_controller_node-1] [INFO] [1777816231.812879905] [drone_controller_node]: [SolverStats] solve_count=1654 solver_fail_count=30 solver_fail_rate=0.018138 last_status=0
+[ROS] [drone_controller_node-1] [INFO] [1777816254.263330955] [drone_controller_node]: [Lap] percorso 3 completato in 22.45 s
+[ROS] [drone_controller_node-1] [INFO] [1777816254.264096496] [drone_controller_node]: [SolverStats] solve_count=2694 solver_fail_count=46 solver_fail_rate=0.017075 last_status=0
+[mpcc_pp_gazebo_trial] received signal 15; cleaning up

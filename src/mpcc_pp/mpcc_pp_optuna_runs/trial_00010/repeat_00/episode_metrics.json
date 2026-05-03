@@ -1,0 +1,16 @@
+{
+  "failure_reason": null,
+  "lap_times": [
+    16.88,
+    23.71,
+    18.49
+  ],
+  "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_00/episode.log",
+  "return_code": -15,
+  "reward": -25.79803333333333,
+  "solve_count": 2752,
+  "solver_fail_count": 168,
+  "solver_fail_rate": 0.061047,
+  "success": true,
+  "timeout": false
+}

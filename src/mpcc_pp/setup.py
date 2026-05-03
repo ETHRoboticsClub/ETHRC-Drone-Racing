@@ -9,6 +9,7 @@ setup(
     package_data={
         'mpcc_pp': [
             'parameters.yaml',
+            'tuning/*.yaml',
             'acados_models/**',
             'drone_mpcc_pp_acados_ocp.json',
         ],

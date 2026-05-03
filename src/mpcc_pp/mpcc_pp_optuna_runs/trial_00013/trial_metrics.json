@@ -1,0 +1,65 @@
+{
+  "laps_per_episode": 3,
+  "mean_repeat_reward": -777792.4023444444,
+  "mean_solver_fail_rate": 0.011112333333333333,
+  "median_repeat_reward": -666692.2789666667,
+  "min_repeat_reward": -1000000.0,
+  "repeat_aggregation": "mean",
+  "repeat_count": 3,
+  "repeat_rewards": [
+    -666684.9280666666,
+    -1000000.0,
+    -666692.2789666667
+  ],
+  "repeats": [
+    {
+      "failure_reason": "timeout",
+      "lap_times": [
+        18.15
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00013/repeat_00/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00013/repeat_00/episode_metrics.json",
+      "repeat": 0,
+      "return_code": -15,
+      "reward": -666684.9280666666,
+      "solve_count": 898,
+      "solver_fail_count": 1,
+      "solver_fail_rate": 0.001114,
+      "success": false,
+      "timeout": true
+    },
+    {
+      "failure_reason": "timeout",
+      "lap_times": [],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00013/repeat_01/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00013/repeat_01/episode_metrics.json",
+      "repeat": 1,
+      "return_code": -15,
+      "reward": -1000000.0,
+      "solve_count": 0,
+      "solver_fail_count": 0,
+      "solver_fail_rate": 0.0,
+      "success": false,
+      "timeout": true
+    },
+    {
+      "failure_reason": "timeout",
+      "lap_times": [
+        22.39
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00013/repeat_02/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00013/repeat_02/episode_metrics.json",
+      "repeat": 2,
+      "return_code": -15,
+      "reward": -666692.2789666667,
+      "solve_count": 931,
+      "solver_fail_count": 30,
+      "solver_fail_rate": 0.032223,
+      "success": false,
+      "timeout": true
+    }
+  ],
+  "reward": -777792.4023444444,
+  "success": false,
+  "successful_repeats": 0
+}

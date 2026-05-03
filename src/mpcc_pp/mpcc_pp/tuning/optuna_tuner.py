@@ -13,6 +13,7 @@ import re
 import selectors
 import shlex
 import signal
+import statistics
 import subprocess
 import sys
 import time
@@ -34,6 +35,7 @@ def _default_output_dir() -> Path:
 
 
 DEFAULT_OUTPUT_DIR = _default_output_dir()
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / 'optuna_config.yaml'
 
 LAP_RE = re.compile(
     r"\[Lap\].*?completato in\s+([0-9]+(?:\.[0-9]+)?)\s*s")
@@ -81,6 +83,12 @@ def _load_yaml(path: Path) -> dict:
     return dict(data)
 
 
+def _load_optional_yaml(path: Path) -> dict:
+    if not path.exists():
+        raise FileNotFoundError(f"Optuna config file not found: {path}")
+    return _load_yaml(path)
+
+
 def _write_yaml(path: Path, data: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('w') as f:
@@ -94,6 +102,29 @@ def write_trial_parameters(base_parameters: Mapping[str, Any],
     patched = _deep_merge(base_parameters, tuning_yaml_patch(tuning_params))
     _write_yaml(path, patched)
     return patched
+
+
+def initial_trial_from_parameters(parameters: Mapping[str, Any]) -> dict[str, float]:
+    """Extract the first Optuna trial from a parameters.yaml mapping."""
+    path_cfg = parameters.get('path', {})
+    contouring_cfg = path_cfg.get('contouring', {})
+    cost_cfg = parameters.get('cost', {})
+
+    qc_nom = float(contouring_cfg['qc_nom'])
+    qc_gate = float(contouring_cfg['qc_gate'])
+    if qc_nom <= 0.0:
+        raise ValueError('path.contouring.qc_nom must be positive')
+
+    return {
+        'ql': float(cost_cfg['ql']),
+        'qc_nom': qc_nom,
+        'qc_gate_ratio': qc_gate / qc_nom,
+        'Qw': float(cost_cfg['Qw']),
+        'r_dvt': float(cost_cfg['r_dvt']),
+        'R_df': float(cost_cfg['R_df']),
+        'mu': float(cost_cfg['mu']),
+        'track_weight': float(cost_cfg['track_weight']),
+    }
 
 
 def _format_command(command_template: str, parameter_file: Path,
@@ -201,51 +232,67 @@ def run_episode(command_template: str,
         selector.register(proc.stdout, selectors.EVENT_READ)
         start = time.monotonic()
 
-        while True:
-            for key, _ in selector.select(timeout=0.2):
-                line = key.fileobj.readline()
-                if not line:
-                    continue
-                log_file.write(line)
-                log_file.flush()
-                if stream_logs:
-                    print(line, end='')
+        try:
+            while True:
+                for key, _ in selector.select(timeout=0.2):
+                    line = key.fileobj.readline()
+                    if not line:
+                        continue
+                    log_file.write(line)
+                    log_file.flush()
+                    if stream_logs:
+                        print(line, end='')
 
-                lap_match = LAP_RE.search(line)
-                if lap_match:
-                    lap_times.append(float(lap_match.group(1)))
-                    if len(lap_times) >= laps_required and completed_at is None:
-                        completed_at = time.monotonic()
+                    lap_match = LAP_RE.search(line)
+                    if lap_match:
+                        lap_times.append(float(lap_match.group(1)))
+                        if (len(lap_times) >= laps_required
+                                and completed_at is None):
+                            completed_at = time.monotonic()
 
-                status_match = SOLVER_STATUS_RE.search(line)
-                if status_match:
-                    solver_status_fail_count += 1
+                    status_match = SOLVER_STATUS_RE.search(line)
+                    if status_match:
+                        solver_status_fail_count += 1
 
-                stats_match = SOLVER_STATS_RE.search(line)
-                if stats_match:
-                    latest_solver_stats = {
-                        'solve_count': int(stats_match.group('solve_count')),
-                        'solver_fail_count': int(
-                            stats_match.group('solver_fail_count')),
-                        'solver_fail_rate': float(
-                            stats_match.group('solver_fail_rate')),
-                    }
+                    stats_match = SOLVER_STATS_RE.search(line)
+                    if stats_match:
+                        latest_solver_stats = {
+                            'solve_count': int(
+                                stats_match.group('solve_count')),
+                            'solver_fail_count': int(
+                                stats_match.group('solver_fail_count')),
+                            'solver_fail_rate': float(
+                                stats_match.group('solver_fail_rate')),
+                        }
 
-            if (completed_at is not None
-                    and time.monotonic() - completed_at > 2.0):
-                _terminate_process_group(proc)
-                break
+                if (completed_at is not None
+                        and time.monotonic() - completed_at > 2.0):
+                    _terminate_process_group(proc)
+                    break
 
-            if proc.poll() is not None:
-                break
+                if proc.poll() is not None:
+                    break
 
-            if time.monotonic() - start > timeout_s:
-                timed_out = True
-                _terminate_process_group(proc)
-                break
+                if time.monotonic() - start > timeout_s:
+                    timed_out = True
+                    _terminate_process_group(proc)
+                    break
+        except KeyboardInterrupt:
+            print(
+                '[mpcc_pp_optuna_tune] interrupted; terminating active trial',
+                flush=True,
+            )
+            _terminate_process_group(proc, grace_s=2.0)
+            raise
+        finally:
+            try:
+                selector.unregister(proc.stdout)
+            except Exception:
+                pass
+            if proc.poll() is None:
+                _terminate_process_group(proc, grace_s=2.0)
 
         return_code = proc.poll()
-        selector.unregister(proc.stdout)
         for line in proc.stdout:
             log_file.write(line)
             if stream_logs:
@@ -300,12 +347,31 @@ def compute_reward(metrics: EpisodeMetrics, laps_required: int,
         metrics.failure_reason = (
             f"solver_fail_rate>{max_solver_fail_rate:.3f}")
 
-    if not metrics.success or len(metrics.lap_times) < laps_required:
+    if not metrics.lap_times:
         return float(failed_reward)
 
     lap_times = metrics.lap_times[:laps_required]
     mean_lap_time = sum(lap_times) / len(lap_times)
-    return float(-mean_lap_time - gamma * metrics.solver_fail_rate)
+    missing_laps = max(0, laps_required - len(lap_times))
+    missing_lap_penalty = abs(float(failed_reward)) / max(1, laps_required)
+    return float(
+        -mean_lap_time
+        - gamma * metrics.solver_fail_rate
+        - missing_laps * missing_lap_penalty
+    )
+
+
+def aggregate_rewards(rewards: list[float], method: str) -> float:
+    """Aggregate repeated fresh-episode rewards for one Optuna trial."""
+    if not rewards:
+        raise ValueError('Cannot aggregate an empty reward list')
+    if method == 'mean':
+        return float(sum(rewards) / len(rewards))
+    if method == 'median':
+        return float(statistics.median(rewards))
+    if method == 'min':
+        return float(min(rewards))
+    raise ValueError(f'Unsupported repeat aggregation method: {method}')
 
 
 def _create_sampler(optuna_module, name: str, seed: int | None):
@@ -334,6 +400,124 @@ def _write_json(path: Path, data: Mapping[str, Any]) -> None:
         json.dump(data, f, indent=2, sort_keys=True)
 
 
+def _normalise_config_keys(config: Mapping[str, Any]) -> dict[str, Any]:
+    """Accept either hyphenated CLI names or argparse's underscore names."""
+    return {
+        str(key).replace('-', '_'): value
+        for key, value in dict(config).items()
+    }
+
+
+def _coerce_config_defaults(config: Mapping[str, Any],
+                            parser: argparse.ArgumentParser) -> dict[str, Any]:
+    """Validate and coerce YAML defaults so argparse can consume them."""
+    config = _normalise_config_keys(config)
+    actions = {
+        action.dest: action
+        for action in parser._actions
+        if action.dest not in ('help', 'config', argparse.SUPPRESS)
+    }
+    unknown = sorted(set(config) - set(actions))
+    if unknown:
+        parser.error(
+            'Unknown key(s) in --config file: ' + ', '.join(unknown))
+
+    defaults: dict[str, Any] = {}
+    for key, value in config.items():
+        action = actions[key]
+        if value is None:
+            defaults[key] = None
+        elif action.type is Path:
+            defaults[key] = Path(value).expanduser()
+        elif action.type is not None:
+            defaults[key] = action.type(value)
+        else:
+            defaults[key] = value
+
+        if action.choices is not None and defaults[key] is not None:
+            if defaults[key] not in action.choices:
+                parser.error(
+                    f"Invalid value for {key!r} in --config file: "
+                    f"{defaults[key]!r}. Choose from {list(action.choices)}")
+    return defaults
+
+
+def _as_arg_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return shlex.split(value)
+    if isinstance(value, (list, tuple)):
+        return [str(item) for item in value]
+    raise ValueError(f'Expected string or list of strings, got {type(value)}')
+
+
+def _bool_text(value: bool) -> str:
+    return 'true' if bool(value) else 'false'
+
+
+def _quote_command(parts: list[str]) -> str:
+    return ' '.join(shlex.quote(str(part)) for part in parts)
+
+
+def build_evaluation_command(args: argparse.Namespace) -> str:
+    """Build the default gazebo-trial command from split config fields."""
+    if args.command:
+        return str(args.command)
+
+    if args.ros_launch_command:
+        ros_command = str(args.ros_launch_command)
+    else:
+        ros_parts = [
+            'ros2',
+            'launch',
+            args.ros_package,
+            args.ros_launch_file,
+            f'controller_type:={args.controller_type}',
+            f'rviz:={_bool_text(args.rviz)}',
+            f'plotjuggler:={_bool_text(args.plotjuggler)}',
+        ]
+        if args.verbose_input is not None:
+            ros_parts.append(f'verbose_input:={_bool_text(args.verbose_input)}')
+        if args.waypoints_file is not None:
+            ros_parts.append(f'waypoints_file:={args.waypoints_file}')
+        ros_parts.extend(_as_arg_list(args.extra_ros_args))
+        ros_command = _quote_command(ros_parts)
+
+    parts = _as_arg_list(args.trial_runner)
+    if args.px4_dir is not None:
+        parts.extend(['--px4-dir', str(args.px4_dir)])
+    if args.px4_target:
+        parts.extend(['--px4-target', str(args.px4_target)])
+    if args.px4_model:
+        parts.extend(['--px4-model', str(args.px4_model)])
+    if args.px4_command:
+        parts.extend(['--px4-command', str(args.px4_command)])
+    parts.extend(['--startup-timeout-s', str(args.startup_timeout_s)])
+    parts.extend(['--startup-delay-s', str(args.startup_delay_s)])
+    if not args.headless:
+        parts.append('--gui')
+    if args.sim_speed_factor is not None:
+        parts.extend(['--sim-speed-factor', str(args.sim_speed_factor)])
+    if not args.kill_existing:
+        parts.append('--keep-existing')
+    if args.strict_px4_ready:
+        parts.append('--strict-px4-ready')
+    for pattern in _as_arg_list(args.ready_pattern):
+        parts.extend(['--ready-pattern', pattern])
+    if args.trial_timeout_s is not None:
+        parts.extend(['--trial-timeout-s', str(args.trial_timeout_s)])
+    if args.log_dir is not None:
+        parts.extend(['--log-dir', str(args.log_dir)])
+    if args.trial_stream_logs:
+        parts.append('--stream-logs')
+    if not args.forward_metrics:
+        parts.append('--no-forward-metrics')
+    parts.extend(_as_arg_list(args.extra_trial_runner_args))
+    parts.extend(['--ros-command', ros_command])
+    return _quote_command(parts)
+
+
 def _export_best(study, search_space: SearchSpace,
                  base_parameters: Mapping[str, Any],
                  output_dir: Path) -> None:
@@ -354,6 +538,10 @@ def _export_best(study, search_space: SearchSpace,
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Tune MPCC++ parameters with Optuna.')
+    parser.add_argument('--config', type=Path,
+                        default=None,
+                        help=('YAML file containing Optuna tuner options. '
+                              f'Example: {DEFAULT_CONFIG_PATH}'))
     parser.add_argument('--base-parameters', type=Path,
                         default=DEFAULT_PARAMETERS_PATH,
                         help='Base MPCC++ parameters.yaml file.')
@@ -375,32 +563,120 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help=('Evaluation command. It receives '
                               'MPCC_PP_PARAMETERS_FILE and can use '
                               '{parameter_file}, {trial_dir}, {metrics_file}.'))
-    parser.add_argument('--shell', action='store_true',
+    parser.add_argument('--trial-runner',
+                        default='ros2 run mpcc_pp mpcc_pp_gazebo_trial',
+                        help='Command used to start the managed trial runner.')
+    parser.add_argument('--px4-dir', type=Path, default=None,
+                        help='PX4-Autopilot directory for mpcc_pp_gazebo_trial.')
+    parser.add_argument('--px4-target', default='px4_sitl',
+                        help='PX4 make target for mpcc_pp_gazebo_trial.')
+    parser.add_argument('--px4-model', default='gz_zephyros',
+                        help='PX4/Gazebo model for mpcc_pp_gazebo_trial.')
+    parser.add_argument('--px4-command', default=None,
+                        help='Override PX4 command passed to mpcc_pp_gazebo_trial.')
+    parser.add_argument('--startup-timeout-s', type=float, default=60.0,
+                        help='Seconds for mpcc_pp_gazebo_trial to wait for PX4 readiness.')
+    parser.add_argument('--startup-delay-s', type=float, default=1.0,
+                        help='Extra delay before starting ROS after PX4 readiness.')
+    parser.add_argument('--headless', action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help='Run Gazebo headless through mpcc_pp_gazebo_trial.')
+    parser.add_argument('--sim-speed-factor', type=float, default=None,
+                        help='Optional PX4_SIM_SPEED_FACTOR for the trial runner.')
+    parser.add_argument('--kill-existing', action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help='Clear stale PX4/Gazebo processes before each repeat.')
+    parser.add_argument('--strict-px4-ready', action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help='Fail if PX4 readiness patterns are not observed.')
+    parser.add_argument('--ready-pattern', action='append', default=None,
+                        help='Extra PX4 readiness regex for the trial runner.')
+    parser.add_argument('--trial-timeout-s', type=float, default=None,
+                        help='Optional hard timeout for mpcc_pp_gazebo_trial.')
+    parser.add_argument('--log-dir', type=Path, default=None,
+                        help='Optional shared log directory for mpcc_pp_gazebo_trial.')
+    parser.add_argument('--trial-stream-logs', action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help='Mirror PX4/ROS child logs from mpcc_pp_gazebo_trial.')
+    parser.add_argument('--forward-metrics', action=argparse.BooleanOptionalAction,
+                        default=True,
+                        help='Forward [Lap] and [SolverStats] lines from the trial runner.')
+    parser.add_argument('--extra-trial-runner-args', default=[],
+                        help='Extra arguments appended to mpcc_pp_gazebo_trial.')
+    parser.add_argument('--ros-launch-command', default=None,
+                        help='Raw ROS command passed to mpcc_pp_gazebo_trial --ros-command.')
+    parser.add_argument('--ros-package', default='drone_control',
+                        help='ROS package used when building the launch command.')
+    parser.add_argument('--ros-launch-file', default='sim.launch.py',
+                        help='ROS launch file used when building the launch command.')
+    parser.add_argument('--controller-type', default='mpcc_pp',
+                        help='controller_type launch argument.')
+    parser.add_argument('--waypoints-file', type=Path, default=None,
+                        help='Optional waypoints_file launch argument.')
+    parser.add_argument('--rviz', action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help='rviz launch argument.')
+    parser.add_argument('--plotjuggler', action=argparse.BooleanOptionalAction,
+                        default=False,
+                        help='plotjuggler launch argument.')
+    parser.add_argument('--verbose-input', action=argparse.BooleanOptionalAction,
+                        default=None,
+                        help='Optional verbose_input launch argument.')
+    parser.add_argument('--extra-ros-args', default=[],
+                        help='Extra launch arguments appended to the ROS command.')
+    parser.add_argument('--shell', action=argparse.BooleanOptionalAction,
+                        default=False,
                         help='Run the command through /bin/bash.')
     parser.add_argument('--cwd', type=Path, default=None,
                         help='Working directory for the evaluation command.')
     parser.add_argument('--laps-per-episode', type=int, default=3,
-                        help='Number of completed laps required per trial.')
+                        help='Number of completed laps required per episode.')
+    parser.add_argument('--repeats-per-trial', type=int, default=3,
+                        help=('Fresh simulator episodes to run for each '
+                              'Optuna trial. Each repeat uses the same '
+                              'candidate parameters.'))
+    parser.add_argument('--repeat-aggregation',
+                        choices=('mean', 'median', 'min'),
+                        default='mean',
+                        help=('How to aggregate repeated episode rewards for '
+                              'one Optuna trial. Mean is the robust-tuning '
+                              'default because failed repeats keep their '
+                              'large negative reward.'))
     parser.add_argument('--timeout-s', type=float, default=90.0,
-                        help='Maximum wall-clock seconds per trial.')
+                        help='Maximum wall-clock seconds per episode repeat.')
     parser.add_argument('--gamma', type=float, default=100.0,
                         help='Solver-failure penalty in the reward.')
     parser.add_argument('--failed-reward', type=float, default=-1e6,
                         help='Reward assigned to failed episodes.')
     parser.add_argument('--max-solver-fail-rate', type=float, default=0.30,
                         help='Hard failure threshold for solver failures.')
-    parser.add_argument('--stream-logs', action='store_true',
+    parser.add_argument('--stream-logs', action=argparse.BooleanOptionalAction,
+                        default=False,
                         help='Mirror simulator output to this terminal.')
-    parser.add_argument('--dry-run', action='store_true',
+    parser.add_argument('--dry-run', action=argparse.BooleanOptionalAction,
+                        default=False,
                         help='Write a center-point trial YAML and exit.')
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    raw_argv = list(sys.argv[1:] if argv is None else argv)
     parser = build_arg_parser()
-    args = parser.parse_args(argv)
+    config_parser = argparse.ArgumentParser(add_help=False)
+    config_parser.add_argument('--config', type=Path, default=None)
+    config_args, _ = config_parser.parse_known_args(raw_argv)
+    if config_args.config is not None:
+        config = _load_optional_yaml(config_args.config.expanduser())
+        parser.set_defaults(
+            **_coerce_config_defaults(config, parser),
+            config=config_args.config.expanduser(),
+        )
+
+    args = parser.parse_args(raw_argv)
     args.output_dir = args.output_dir.expanduser()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    if args.repeats_per_trial < 1:
+        parser.error('--repeats-per-trial must be >= 1')
 
     base_parameters = _load_yaml(args.base_parameters)
     search_space = SearchSpace()
@@ -415,8 +691,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote dry-run parameters to {parameter_file}")
         return 0
 
-    if not args.command:
-        parser.error('--command is required unless --dry-run is used')
+    args.command = build_evaluation_command(args)
 
     try:
         import optuna
@@ -434,55 +709,122 @@ def main(argv: list[str] | None = None) -> int:
         sampler=sampler,
         load_if_exists=True,
     )
+    if not study.trials:
+        initial_params = initial_trial_from_parameters(base_parameters)
+        study.enqueue_trial(initial_params)
+        print(
+            'Enqueued initial trial from '
+            f'{args.base_parameters}: {initial_params}',
+            flush=True,
+        )
+    else:
+        print(
+            f"Loaded existing study '{args.study_name}' with "
+            f"{len(study.trials)} trial(s); the base parameters will not be "
+            "inserted as trial_00000. Use a new --output-dir, a new "
+            "--study-name, or archive the old study.db for a fresh study.",
+            flush=True,
+        )
 
     def objective(trial) -> float:
         trial_dir = args.output_dir / f"trial_{trial.number:05d}"
         trial_dir.mkdir(parents=True, exist_ok=True)
         parameter_file = trial_dir / 'parameters.yaml'
-        metrics_file = trial_dir / 'metrics.json'
 
         tuning_params = search_space.suggest(trial)
         write_trial_parameters(base_parameters, tuning_params, parameter_file)
         _write_json(trial_dir / 'trial_params.json', tuning_params)
 
-        metrics = run_episode(
-            command_template=args.command,
-            parameter_file=parameter_file,
-            trial_dir=trial_dir,
-            metrics_file=metrics_file,
-            laps_required=args.laps_per_episode,
-            timeout_s=args.timeout_s,
-            stream_logs=args.stream_logs,
-            use_shell=args.shell,
-            cwd=args.cwd,
-        )
-        reward = compute_reward(
-            metrics=metrics,
-            laps_required=args.laps_per_episode,
-            gamma=args.gamma,
-            failed_reward=args.failed_reward,
-            max_solver_fail_rate=args.max_solver_fail_rate,
-        )
-        metrics.reward = reward
+        repeat_records: list[dict[str, Any]] = []
+        repeat_rewards: list[float] = []
+        for repeat_idx in range(args.repeats_per_trial):
+            repeat_dir = (
+                trial_dir
+                if args.repeats_per_trial == 1
+                else trial_dir / f"repeat_{repeat_idx:02d}"
+            )
+            repeat_dir.mkdir(parents=True, exist_ok=True)
+            metrics_file = repeat_dir / 'metrics.json'
+
+            metrics = run_episode(
+                command_template=args.command,
+                parameter_file=parameter_file,
+                trial_dir=repeat_dir,
+                metrics_file=metrics_file,
+                laps_required=args.laps_per_episode,
+                timeout_s=args.timeout_s,
+                stream_logs=args.stream_logs,
+                use_shell=args.shell,
+                cwd=args.cwd,
+            )
+            reward = compute_reward(
+                metrics=metrics,
+                laps_required=args.laps_per_episode,
+                gamma=args.gamma,
+                failed_reward=args.failed_reward,
+                max_solver_fail_rate=args.max_solver_fail_rate,
+            )
+            metrics.reward = reward
+            repeat_metrics_path = repeat_dir / 'episode_metrics.json'
+            metrics_dict = asdict(metrics)
+            _write_json(repeat_metrics_path, metrics_dict)
+            repeat_records.append({
+                'repeat': repeat_idx,
+                'metrics_file': str(repeat_metrics_path),
+                **metrics_dict,
+            })
+            repeat_rewards.append(reward)
+            print(
+                f"[trial {trial.number:05d} repeat "
+                f"{repeat_idx + 1}/{args.repeats_per_trial}] "
+                f"reward={reward:.6f} success={metrics.success} "
+                f"laps={len(metrics.lap_times)}/{args.laps_per_episode} "
+                f"solver_fail_rate={metrics.solver_fail_rate:.3f} "
+                f"return_code={metrics.return_code} "
+                f"reason={metrics.failure_reason or 'completed'} "
+                f"log={metrics.log_path}",
+                flush=True,
+            )
+
+        reward = aggregate_rewards(repeat_rewards, args.repeat_aggregation)
         metrics_path = trial_dir / 'trial_metrics.json'
-        _write_json(metrics_path, asdict(metrics))
+        success_count = sum(1 for record in repeat_records if record['success'])
+        mean_solver_fail_rate = sum(
+            float(record['solver_fail_rate'])
+            for record in repeat_records
+        ) / len(repeat_records)
+        summary = {
+            'reward': reward,
+            'repeat_count': args.repeats_per_trial,
+            'repeat_aggregation': args.repeat_aggregation,
+            'repeat_rewards': repeat_rewards,
+            'mean_repeat_reward': aggregate_rewards(repeat_rewards, 'mean'),
+            'median_repeat_reward': aggregate_rewards(repeat_rewards, 'median'),
+            'min_repeat_reward': aggregate_rewards(repeat_rewards, 'min'),
+            'success': success_count == len(repeat_records),
+            'successful_repeats': success_count,
+            'laps_per_episode': args.laps_per_episode,
+            'mean_solver_fail_rate': mean_solver_fail_rate,
+            'repeats': repeat_records,
+        }
+        _write_json(metrics_path, summary)
         print(
             f"[trial {trial.number:05d}] reward={reward:.6f} "
-            f"success={metrics.success} laps={len(metrics.lap_times)}/"
-            f"{args.laps_per_episode} "
-            f"solver_fail_rate={metrics.solver_fail_rate:.3f} "
-            f"return_code={metrics.return_code} "
-            f"reason={metrics.failure_reason or 'completed'} "
-            f"log={metrics.log_path}",
+            f"aggregation={args.repeat_aggregation} "
+            f"successful_repeats={success_count}/{len(repeat_records)} "
+            f"mean_solver_fail_rate={mean_solver_fail_rate:.3f} "
+            f"metrics={metrics_path}",
             flush=True,
         )
 
         trial.set_user_attr('metrics_file', str(metrics_path))
         trial.set_user_attr('parameter_file', str(parameter_file))
-        trial.set_user_attr('lap_times', metrics.lap_times)
-        trial.set_user_attr('solver_fail_rate', metrics.solver_fail_rate)
-        trial.set_user_attr('success', metrics.success)
-        trial.set_user_attr('failure_reason', metrics.failure_reason)
+        trial.set_user_attr('repeat_count', args.repeats_per_trial)
+        trial.set_user_attr('repeat_aggregation', args.repeat_aggregation)
+        trial.set_user_attr('repeat_rewards', repeat_rewards)
+        trial.set_user_attr('successful_repeats', success_count)
+        trial.set_user_attr('mean_solver_fail_rate', mean_solver_fail_rate)
+        trial.set_user_attr('success', summary['success'])
         return reward
 
     try:

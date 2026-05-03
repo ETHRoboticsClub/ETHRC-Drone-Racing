@@ -1,0 +1,73 @@
+{
+  "laps_per_episode": 3,
+  "mean_repeat_reward": -23.336877777777776,
+  "mean_solver_fail_rate": 0.04285766666666666,
+  "median_repeat_reward": -24.19696666666667,
+  "min_repeat_reward": -25.79803333333333,
+  "repeat_aggregation": "mean",
+  "repeat_count": 3,
+  "repeat_rewards": [
+    -25.79803333333333,
+    -20.01563333333333,
+    -24.19696666666667
+  ],
+  "repeats": [
+    {
+      "failure_reason": null,
+      "lap_times": [
+        16.88,
+        23.71,
+        18.49
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_00/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_00/episode_metrics.json",
+      "repeat": 0,
+      "return_code": -15,
+      "reward": -25.79803333333333,
+      "solve_count": 2752,
+      "solver_fail_count": 168,
+      "solver_fail_rate": 0.061047,
+      "success": true,
+      "timeout": false
+    },
+    {
+      "failure_reason": null,
+      "lap_times": [
+        17.65,
+        17.81,
+        18.13
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_01/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_01/episode_metrics.json",
+      "repeat": 1,
+      "return_code": -15,
+      "reward": -20.01563333333333,
+      "solve_count": 2509,
+      "solver_fail_count": 54,
+      "solver_fail_rate": 0.021523,
+      "success": true,
+      "timeout": false
+    },
+    {
+      "failure_reason": null,
+      "lap_times": [
+        17.51,
+        20.56,
+        20.72
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_02/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00010/repeat_02/episode_metrics.json",
+      "repeat": 2,
+      "return_code": -15,
+      "reward": -24.19696666666667,
+      "solve_count": 2652,
+      "solver_fail_count": 122,
+      "solver_fail_rate": 0.046003,
+      "success": true,
+      "timeout": false
+    }
+  ],
+  "reward": -23.336877777777776,
+  "success": true,
+  "successful_repeats": 3
+}

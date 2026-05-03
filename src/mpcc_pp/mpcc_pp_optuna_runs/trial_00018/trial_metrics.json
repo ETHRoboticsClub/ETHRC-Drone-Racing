@@ -1,0 +1,71 @@
+{
+  "laps_per_episode": 3,
+  "mean_repeat_reward": -222242.15116666665,
+  "mean_solver_fail_rate": 0.01571166666666667,
+  "median_repeat_reward": -21.980866666666667,
+  "min_repeat_reward": -666684.7916666666,
+  "repeat_aggregation": "mean",
+  "repeat_count": 3,
+  "repeat_rewards": [
+    -19.680966666666666,
+    -666684.7916666666,
+    -21.980866666666667
+  ],
+  "repeats": [
+    {
+      "failure_reason": null,
+      "lap_times": [
+        18.29,
+        17.25,
+        16.95
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00018/repeat_00/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00018/repeat_00/episode_metrics.json",
+      "repeat": 0,
+      "return_code": -15,
+      "reward": -19.680966666666666,
+      "solve_count": 2518,
+      "solver_fail_count": 55,
+      "solver_fail_rate": 0.021843,
+      "success": true,
+      "timeout": false
+    },
+    {
+      "failure_reason": "timeout",
+      "lap_times": [
+        17.89
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00018/repeat_01/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00018/repeat_01/episode_metrics.json",
+      "repeat": 1,
+      "return_code": -15,
+      "reward": -666684.7916666666,
+      "solve_count": 851,
+      "solver_fail_count": 2,
+      "solver_fail_rate": 0.00235,
+      "success": false,
+      "timeout": true
+    },
+    {
+      "failure_reason": null,
+      "lap_times": [
+        17.77,
+        18.17,
+        23.12
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00018/repeat_02/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00018/repeat_02/episode_metrics.json",
+      "repeat": 2,
+      "return_code": -15,
+      "reward": -21.980866666666667,
+      "solve_count": 2746,
+      "solver_fail_count": 63,
+      "solver_fail_rate": 0.022942,
+      "success": true,
+      "timeout": false
+    }
+  ],
+  "reward": -222242.15116666665,
+  "success": false,
+  "successful_repeats": 2
+}

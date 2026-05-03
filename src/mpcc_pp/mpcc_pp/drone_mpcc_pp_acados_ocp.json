@@ -12,7 +12,7 @@
             "qpdunes": "",
             "qpoases": "-lqpOASES_e"
         },
-        "acados_version": "198dac52c",
+        "acados_version": "785a3ad0c",
         "code_export_directory": "/home/drone_dev/ros_ws/src/mpcc_pp/mpcc_pp/c_generated_code",
         "cython_include_dirs": [
             "/usr/local/lib/python3.10/dist-packages/numpy/core/include",
@@ -367,7 +367,7 @@
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.c",
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.c"
     ],
-    "hash": "508fd2bf67626896e340c92a9623590e",
+    "hash": "0e3ffe74d7db08c3cd16bb62bb64c98f",
     "model": {
         "con_h_expr": [],
         "con_h_expr_0": [],
@@ -487,12 +487,12 @@
         0.0,
         0.0,
         0.0,
-        1.3155957235419722,
-        1.1260561407038635e-05,
-        1.8955552233656228e-05,
-        0.00012055705103971255,
-        16.60673480894114,
-        19.049079923064646
+        0.2402287068709523,
+        8.073111842970231e-05,
+        0.08987911840588622,
+        0.0011621720782828086,
+        1.6682705460206881,
+        3.2437217958780518
     ],
     "problem_class": "OCP",
     "ros_opts": null,

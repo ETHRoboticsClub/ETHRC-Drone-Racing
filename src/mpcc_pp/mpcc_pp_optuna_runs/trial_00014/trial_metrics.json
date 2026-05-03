@@ -1,0 +1,70 @@
+{
+  "laps_per_episode": 3,
+  "mean_repeat_reward": -333354.1177555555,
+  "mean_solver_fail_rate": 0.026755333333333336,
+  "median_repeat_reward": -333355.6270333333,
+  "min_repeat_reward": -666686.9606666666,
+  "repeat_aggregation": "mean",
+  "repeat_count": 3,
+  "repeat_rewards": [
+    -666686.9606666666,
+    -333355.6270333333,
+    -19.765566666666665
+  ],
+  "repeats": [
+    {
+      "failure_reason": "timeout",
+      "lap_times": [
+        17.32
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00014/repeat_00/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00014/repeat_00/episode_metrics.json",
+      "repeat": 0,
+      "return_code": -15,
+      "reward": -666686.9606666666,
+      "solve_count": 807,
+      "solver_fail_count": 24,
+      "solver_fail_rate": 0.02974,
+      "success": false,
+      "timeout": true
+    },
+    {
+      "failure_reason": "timeout",
+      "lap_times": [
+        17.19,
+        21.61
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00014/repeat_01/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00014/repeat_01/episode_metrics.json",
+      "repeat": 1,
+      "return_code": -15,
+      "reward": -333355.6270333333,
+      "solve_count": 1797,
+      "solver_fail_count": 52,
+      "solver_fail_rate": 0.028937,
+      "success": false,
+      "timeout": true
+    },
+    {
+      "failure_reason": null,
+      "lap_times": [
+        17.22,
+        17.5,
+        18.1
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00014/repeat_02/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00014/repeat_02/episode_metrics.json",
+      "repeat": 2,
+      "return_code": -15,
+      "reward": -19.765566666666665,
+      "solve_count": 2455,
+      "solver_fail_count": 53,
+      "solver_fail_rate": 0.021589,
+      "success": true,
+      "timeout": false
+    }
+  ],
+  "reward": -333354.1177555555,
+  "success": false,
+  "successful_repeats": 1
+}

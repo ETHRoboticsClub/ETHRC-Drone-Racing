@@ -259,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
         env.pop('HEADLESS', None)
     if args.sim_speed_factor is not None:
         env['PX4_SIM_SPEED_FACTOR'] = str(args.sim_speed_factor)
+    else:
+        env.pop('PX4_SIM_SPEED_FACTOR', None)
     processes: list[ManagedProcess] = []
     stop_requested = threading.Event()
 

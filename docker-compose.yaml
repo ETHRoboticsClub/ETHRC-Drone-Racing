@@ -84,8 +84,8 @@ services:
       # LIBGL_ALWAYS_SOFTWARE: 1
 
       # Uncomment if NVIDIA Container Toolkit is installed
-      # runtime: nvidia
-      # gpus: all
+    runtime: nvidia
+    gpus: all
 
       # --- Documentation Team ---
   docs:

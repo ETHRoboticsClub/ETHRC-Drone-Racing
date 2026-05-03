@@ -1,0 +1,11 @@
+{
+  "Qw": 0.0001,
+  "R_df": 0.0003,
+  "mu": 7.0,
+  "qc_gate": 18.0,
+  "qc_gate_ratio": 3.6,
+  "qc_nom": 5.0,
+  "ql": 9.0,
+  "r_dvt": 0.0002,
+  "track_weight": 30.0
+}

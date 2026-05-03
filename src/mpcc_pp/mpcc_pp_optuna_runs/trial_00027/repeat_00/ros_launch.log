@@ -1,0 +1,1789 @@
+$ ros2 launch drone_control sim.launch.py controller_type:=mpcc_pp rviz:=true plotjuggler:=false
+[ROS] [INFO] [launch]: All log files can be found below /home/drone_dev/.ros/log/2026-05-03-14-14-31-878484-ip-172-31-41-43-85414
+[ROS] [INFO] [launch]: Default logging verbosity is set to INFO
+[ROS] [INFO] [drone_controller_node-1]: process started with pid [85416]
+[ROS] [INFO] [waypoint_visualizer-2]: process started with pid [85432]
+[ROS] [INFO] [rviz2-3]: process started with pid [85434]
+[ROS] [rviz2-3] QStandardPaths: error creating runtime directory '/run/user/1000' (Permission denied)
+[ROS] [rviz2-3] [INFO] [1777817674.413266789] [rviz2]: Stereo is NOT SUPPORTED
+[ROS] [rviz2-3] [INFO] [1777817674.413497294] [rviz2]: OpenGl version: 4.6 (GLSL 4.6)
+[ROS] [rviz2-3] [INFO] [1777817674.439293285] [rviz2]: Stereo is NOT SUPPORTED
+[ROS] [drone_controller_node-1] /usr/local/lib/python3.10/dist-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+[ROS] [drone_controller_node-1]   warnings.warn("Unable to import Axes3D. This may be due to multiple versions of "
+[ROS] [INFO] [mavsdk_client-4]: process started with pid [85469]
+[ROS] [mavsdk_client-4] [INFO] [1777817676.982205066] [mavsdk_client]: [MAV SDK]: Waiting connection...
+[ROS] [mavsdk_client-4] [INFO] [1777817676.983780567] [mavsdk_client]: Connected to vehicle
+[ROS] [mavsdk_client-4] [INFO] [1777817676.984227150] [mavsdk_client]: [MAV SDK]: Waiting for vehicle to be armable...
+[ROS] [mavsdk_client-4] [INFO] [1777817677.214607007] [mavsdk_client]: Health: global=True, local=True, is_armable=True
+[ROS] [mavsdk_client-4] [INFO] [1777817677.223006483] [mavsdk_client]: Initialized — waiting for arm signal from controller node
+[ROS] [drone_controller_node-1] [INFO] [1777817678.325135638] [drone_controller_node]: Using controller: DroneMpccPpController
+[ROS] [drone_controller_node-1] rm -f libacados_ocp_solver_drone_mpcc_pp.so
+[ROS] [drone_controller_node-1] rm -f drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.o acados_solver_drone_mpcc_pp.o
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o acados_solver_drone_mpcc_pp.o acados_solver_drone_mpcc_pp.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_model/drone_mpcc_pp_expl_ode_fun.o drone_mpcc_pp_model/drone_mpcc_pp_expl_ode_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_model/drone_mpcc_pp_expl_vde_forw.o drone_mpcc_pp_model/drone_mpcc_pp_expl_vde_forw.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_mpcc_pp_model/drone_mpcc_pp_expl_vde_adj.o drone_mpcc_pp_model/drone_mpcc_pp_expl_vde_adj.c
+[ROS] [drone_controller_node-1] cc -shared drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_0_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_fun_jac.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.o drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.o acados_solver_drone_mpcc_pp.o drone_mpcc_pp_model/drone_mpcc_pp_expl_ode_fun.o drone_mpcc_pp_model/drone_mpcc_pp_expl_vde_forw.o drone_mpcc_pp_model/drone_mpcc_pp_expl_vde_adj.o -o libacados_ocp_solver_drone_mpcc_pp.so -L/opt/acados/lib -lacados -lhpipm -lblasfeo -lm \
+[ROS] [drone_controller_node-1] -L -l
+[ROS] [drone_controller_node-1] rm -f libacados_ocp_solver_drone_thrust.so
+[ROS] [drone_controller_node-1] rm -f drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.o acados_solver_drone_thrust.o
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o acados_solver_drone_thrust.o acados_solver_drone_thrust.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_model/drone_thrust_expl_ode_fun.o drone_thrust_model/drone_thrust_expl_ode_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_model/drone_thrust_expl_vde_forw.o drone_thrust_model/drone_thrust_expl_vde_forw.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_model/drone_thrust_expl_vde_adj.o drone_thrust_model/drone_thrust_expl_vde_adj.c
+[ROS] [drone_controller_node-1] cc -shared drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.o acados_solver_drone_thrust.o drone_thrust_model/drone_thrust_expl_ode_fun.o drone_thrust_model/drone_thrust_expl_vde_forw.o drone_thrust_model/drone_thrust_expl_vde_adj.o -o libacados_ocp_solver_drone_thrust.so -L/opt/acados/lib -lacados -lhpipm -lblasfeo -lm \
+[ROS] [drone_controller_node-1] -L -l
+[ROS] [drone_controller_node-1] /opt/acados/interfaces/acados_template/acados_template/acados_sim_solver.py:185: UserWarning: An AcadosSimSolver is created from an AcadosOcp description. This only works if you created an AcadosOcpSolver before with the same description. Otherwise it leads to undefined behavior. Using an AcadosSim description is recommended.
+[ROS] [drone_controller_node-1]   warnings.warn("An AcadosSimSolver is created from an AcadosOcp description. This only works if you created an AcadosOcpSolver before with the same description. Otherwise it leads to undefined behavior. Using an AcadosSim description is recommended.")
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o acados_sim_solver_drone_thrust.o acados_sim_solver_drone_thrust.c
+[ROS] [drone_controller_node-1] cc -shared acados_sim_solver_drone_thrust.o drone_thrust_model/drone_thrust_expl_ode_fun.o drone_thrust_model/drone_thrust_expl_vde_forw.o drone_thrust_model/drone_thrust_expl_vde_adj.o -o libacados_sim_solver_drone_thrust.so -L/opt/acados/lib -lacados -lhpipm -lblasfeo -lm
+[ROS] [drone_controller_node-1] [INFO] [1777817690.141952699] [drone_controller_node]: Controller node initialized
+[ROS] [drone_controller_node-1] [INFO] [1777817690.246050303] [drone_controller_node]: Auto-hover will start once drone state is available
+[ROS] [mavsdk_client-4] [INFO] [1777817690.247686282] [mavsdk_client]: [MAV SDK]: Arming...
+[ROS] [mavsdk_client-4] [INFO] [1777817690.267216130] [mavsdk_client]: [MAV SDK]: Starting offboard...
+[ROS] [mavsdk_client-4] [INFO] [1777817690.278158177] [mavsdk_client]: Drone armed
+[ROS] [mavsdk_client-4] Received ack for not-existing command: 176! Ignoring... (mavlink_command_sender.cpp:304)
+[ROS] [drone_controller_node-1] [INFO] [1777817690.297656237] [drone_controller_node]: [DroneController] Drone armed and offboard started
+[ROS] [drone_controller_node-1] [INFO] [1777817690.347384492] [drone_controller_node]: MPCC/MPCC++ mode: hovering 3 s to stabilise, then starting racing loop
+[ROS] [drone_controller_node-1] [INFO] [1777817693.357111432] [drone_controller_node]: MPCC: stabilisation done, starting racing loop
+[ROS] [drone_controller_node-1] [INFO] [1777817695.354854425] [drone_controller_node]: [Speed] intervallo 5.0s: media=3.7 km/h, max=30.3 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] [INFO] [1777817700.377769261] [drone_controller_node]: [Speed] intervallo 5.0s: media=25.8 km/h, max=42.3 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] [INFO] [1777817705.388825906] [drone_controller_node]: [Speed] intervallo 5.0s: media=46.0 km/h, max=100.4 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 41.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 32.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 10.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 9.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 9.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 10.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 29.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 48.
+[ROS] [drone_controller_node-1] [INFO] [1777817710.393764169] [drone_controller_node]: [Speed] intervallo 5.0s: media=39.3 km/h, max=99.8 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 36.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 44.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 44.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 36.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 36.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 37.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 41.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 29.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] DroneMpccPpModel: nx=19, nu=5
+[ROS] [drone_controller_node-1]   f_hover per rotor: 2.376 N  (total 9.51 N ≈ 0.969×9.81 N)
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] WARNING: Gauss-Newton Hessian approximation with EXTERNAL cost type not well defined!
+[ROS] [drone_controller_node-1] got cost_type EXTERNAL for cost_type_0, cost_type, cost_type_e, hessian_approx: 'GAUSS_NEWTON'.
+[ROS] [drone_controller_node-1] With this setting, acados will proceed computing the exact Hessian for the cost term and no Hessian contribution from constraints and dynamics.
+[ROS] [drone_controller_node-1] If the external cost is a linear least squares cost, this coincides with the Gauss-Newton Hessian.
+[ROS] [drone_controller_node-1] Note: There is also the option to use the external cost module with a numerical Hessian approximation (see `ext_cost_num_hess`).
+[ROS] [drone_controller_node-1] OR the option to provide a symbolic custom Hessian approximation (see `cost_expr_ext_cost_custom_hess`).
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] OCP formulation has changed, code reuse not possible.
+[ROS] [drone_controller_node-1] List of mismatching fields:
+[ROS] [drone_controller_node-1]  ['parameter_values']
+[ROS] [drone_controller_node-1] Code reuse not possible! Setting generate and build to True.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] WARNING: Gauss-Newton Hessian approximation with EXTERNAL cost type not well defined!
+[ROS] [drone_controller_node-1] got cost_type EXTERNAL for cost_type_0, cost_type, cost_type_e, hessian_approx: 'GAUSS_NEWTON'.
+[ROS] [drone_controller_node-1] With this setting, acados will proceed computing the exact Hessian for the cost term and no Hessian contribution from constraints and dynamics.
+[ROS] [drone_controller_node-1] If the external cost is a linear least squares cost, this coincides with the Gauss-Newton Hessian.
+[ROS] [drone_controller_node-1] Note: There is also the option to use the external cost module with a numerical Hessian approximation (see `ext_cost_num_hess`).
+[ROS] [drone_controller_node-1] OR the option to provide a symbolic custom Hessian approximation (see `cost_expr_ext_cost_custom_hess`).
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] acados was compiled without OpenMP.
+[ROS] [drone_controller_node-1] DroneOptimizerMpccPp: reusing cached solver (config hash: d0b85428)
+[ROS] [drone_controller_node-1] DroneOptimizerMpccPp: N=21, T=1.2 s, dt=0.057 s
+[ROS] [drone_controller_node-1]   nx=19, nu=5, np=21
+[ROS] [drone_controller_node-1]   Runtime weight defaults: ql=0.2032991337752115, mu=1.7540676423061137, Qw=9.611176032721967e-05, r_dvt=0.0944994859688563, R_df=0.0018370467812233158, track_weight=37.971056328429356
+[ROS] [drone_controller_node-1]   Track barrier alpha: 150.0
+[ROS] [drone_controller_node-1] [DroneMpccPpController] Optimizer ready. Path: GatedRacingPath (Track Constraint active), length: 112.00 m
+[ROS] [drone_controller_node-1] DroneModel (Zephyros): nx=13, nu=4
+[ROS] [drone_controller_node-1]   Mass: 0.969 kg, Max single rotor thrust: 7.70 N
+[ROS] [drone_controller_node-1]   Hover per-rotor (normalized): 0.3087
+[ROS] [drone_controller_node-1]   Output interface: [thrust_N, wx, wy, wz] (attitude_rate compatible)
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] WARNING: Gauss-Newton Hessian approximation with EXTERNAL cost type not well defined!
+[ROS] [drone_controller_node-1] got cost_type EXTERNAL for cost_type_0, cost_type, cost_type_e, hessian_approx: 'GAUSS_NEWTON'.
+[ROS] [drone_controller_node-1] With this setting, acados will proceed computing the exact Hessian for the cost term and no Hessian contribution from constraints and dynamics.
+[ROS] [drone_controller_node-1] If the external cost is a linear least squares cost, this coincides with the Gauss-Newton Hessian.
+[ROS] [drone_controller_node-1] Note: There is also the option to use the external cost module with a numerical Hessian approximation (see `ext_cost_num_hess`).
+[ROS] [drone_controller_node-1] OR the option to provide a symbolic custom Hessian approximation (see `cost_expr_ext_cost_custom_hess`).
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] WARNING: Gauss-Newton Hessian approximation with EXTERNAL cost type not well defined!
+[ROS] [drone_controller_node-1] got cost_type EXTERNAL for cost_type_0, cost_type, cost_type_e, hessian_approx: 'GAUSS_NEWTON'.
+[ROS] [drone_controller_node-1] With this setting, acados will proceed computing the exact Hessian for the cost term and no Hessian contribution from constraints and dynamics.
+[ROS] [drone_controller_node-1] If the external cost is a linear least squares cost, this coincides with the Gauss-Newton Hessian.
+[ROS] [drone_controller_node-1] Note: There is also the option to use the external cost module with a numerical Hessian approximation (see `ext_cost_num_hess`).
+[ROS] [drone_controller_node-1] OR the option to provide a symbolic custom Hessian approximation (see `cost_expr_ext_cost_custom_hess`).
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] acados was compiled without OpenMP.
+[ROS] [drone_controller_node-1] acados was compiled without OpenMP.
+[ROS] [drone_controller_node-1] [DroneMpccPpController] Lead-in: start at (-0.02, -0.01, -0.02), circuit starts at θ=8.56 m
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [INFO] [1777817715.408482374] [drone_controller_node]: [Speed] intervallo 5.0s: media=3.1 km/h, max=10.4 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 48.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 29.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 49.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 40.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 35.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 35.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] [INFO] [1777817720.427779379] [drone_controller_node]: [Speed] intervallo 5.0s: media=1.9 km/h, max=6.0 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 35.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 36.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 40.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 35.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 34.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 31.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 32.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 32.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 44.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] [INFO] [1777817725.435099846] [drone_controller_node]: [Speed] intervallo 5.0s: media=2.7 km/h, max=6.6 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 49.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 41.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 37.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 31.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 29.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 47.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 40.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 40.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] [mpcc_pp OCP] solver status 4
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 32.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 31.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 29.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] [INFO] [1777817730.459092487] [drone_controller_node]: [Speed] intervallo 5.0s: media=3.0 km/h, max=7.3 km/h
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 40.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 44.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 43.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 48.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 35.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 46.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 39.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 42.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 41.
+[ROS] [drone_controller_node-1] [INFO] [1777817735.482927517] [drone_controller_node]: [Speed] intervallo 5.0s: media=4.2 km/h, max=8.6 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 45.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 41.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 26.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 31.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 29.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 37.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 12.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 11.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 24.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 48.
+[ROS] [drone_controller_node-1] [INFO] [1777817740.492964098] [drone_controller_node]: [Speed] intervallo 5.0s: media=5.3 km/h, max=10.0 km/h
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 33.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 38.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 25.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 28.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 40.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 23.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 15.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 30.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 27.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 13.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 14.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 19.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 49.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 18.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 34.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 16.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 17.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 20.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 21.
+[ROS] [drone_controller_node-1] 
+[ROS] [drone_controller_node-1] SQP_RTI: QP solver returned error status 3 (ACADOS_MINSTEP) QP iteration 22.
+[ROS] [drone_controller_node-1] [INFO] [1777817745.513399680] [drone_controller_node]: [Speed] intervallo 5.0s: media=2.4 km/h, max=6.7 km/h
+[ROS] [drone_controller_node-1] [INFO] [1777817750.514327863] [drone_controller_node]: [Speed] intervallo 5.0s: media=0.2 km/h, max=0.3 km/h
+[ROS] [drone_controller_node-1] [INFO] [1777817755.537931027] [drone_controller_node]: [Speed] intervallo 5.0s: media=0.1 km/h, max=0.2 km/h
+[ROS] [drone_controller_node-1] [INFO] [1777817760.539311572] [drone_controller_node]: [Speed] intervallo 5.0s: media=0.1 km/h, max=0.1 km/h
+[ROS] [drone_controller_node-1] [INFO] [1777817765.549313558] [drone_controller_node]: [Speed] intervallo 5.0s: media=0.1 km/h, max=0.1 km/h
+[ROS] [drone_controller_node-1] [INFO] [1777817770.559813572] [drone_controller_node]: [Speed] intervallo 5.0s: media=0.0 km/h, max=0.1 km/h
+[ROS] [drone_controller_node-1] [INFO] [1777817775.563950371] [drone_controller_node]: [Speed] intervallo 5.0s: media=0.0 km/h, max=0.1 km/h

@@ -1,0 +1,73 @@
+{
+  "laps_per_episode": 3,
+  "mean_repeat_reward": -21.524355555555555,
+  "mean_solver_fail_rate": 0.013921333333333334,
+  "median_repeat_reward": -22.5537,
+  "min_repeat_reward": -22.8498,
+  "repeat_aggregation": "mean",
+  "repeat_count": 3,
+  "repeat_rewards": [
+    -22.5537,
+    -22.8498,
+    -19.169566666666665
+  ],
+  "repeats": [
+    {
+      "failure_reason": null,
+      "lap_times": [
+        19.97,
+        18.29,
+        23.66
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00028/repeat_00/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00028/repeat_00/episode_metrics.json",
+      "repeat": 0,
+      "return_code": -15,
+      "reward": -22.5537,
+      "solve_count": 2874,
+      "solver_fail_count": 55,
+      "solver_fail_rate": 0.019137,
+      "success": true,
+      "timeout": false
+    },
+    {
+      "failure_reason": null,
+      "lap_times": [
+        24.96,
+        19.63,
+        19.88
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00028/repeat_01/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00028/repeat_01/episode_metrics.json",
+      "repeat": 1,
+      "return_code": -15,
+      "reward": -22.8498,
+      "solve_count": 2868,
+      "solver_fail_count": 39,
+      "solver_fail_rate": 0.013598,
+      "success": true,
+      "timeout": false
+    },
+    {
+      "failure_reason": null,
+      "lap_times": [
+        19.23,
+        18.74,
+        16.83
+      ],
+      "log_path": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00028/repeat_02/episode.log",
+      "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_runs/trial_00028/repeat_02/episode_metrics.json",
+      "repeat": 2,
+      "return_code": -15,
+      "reward": -19.169566666666665,
+      "solve_count": 2658,
+      "solver_fail_count": 24,
+      "solver_fail_rate": 0.009029,
+      "success": true,
+      "timeout": false
+    }
+  ],
+  "reward": -21.524355555555555,
+  "success": true,
+  "successful_repeats": 3
+}

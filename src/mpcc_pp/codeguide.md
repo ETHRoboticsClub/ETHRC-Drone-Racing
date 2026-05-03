@@ -572,24 +572,41 @@ class EpisodeResult:
 def compute_reward(
     result: EpisodeResult,
     gamma: float = 100.0,
-    failed_episode_reward: float = -1000.0,
+    failed_episode_reward: float = -1e6,
+    laps_required: int = 3,
 ) -> float:
-    if not result.success or not result.lap_times:
+    if not result.lap_times:
         return failed_episode_reward
-    return -float(np.mean(result.lap_times)) - gamma * float(result.solver_fail_rate)
+    missing_laps = max(0, laps_required - len(result.lap_times))
+    missing_lap_penalty = abs(failed_episode_reward) / laps_required
+    return (
+        -float(np.mean(result.lap_times))
+        - gamma * float(result.solver_fail_rate)
+        - missing_laps * missing_lap_penalty
+    )
 ```
 
-For failed episodes the Optuna implementation uses:
+For zero-lap episodes the Optuna implementation uses:
 
 ```text
 failed_reward = -1e6
 ```
 
-An episode is marked as failed if:
+Episodes that complete fewer than the required laps are still rewarded for the laps
+they completed. For example, with `laps_required = 3`, a two-lap episode receives the
+reward from its completed lap times and solver failure rate, minus one missing-lap
+penalty. A one-lap episode receives two missing-lap penalties. This gives Optuna a
+useful ordering between "passed two gates/laps" and "passed nothing" instead of mapping
+every incomplete episode to the same reward.
+
+An episode is marked as unsuccessful if:
 
 - it does not complete the required number of laps,
 - it times out,
 - `solver_fail_rate` exceeds `max_solver_fail_rate`.
+
+Unsuccessful episodes with at least one completed lap still receive the partial-lap
+reward. Unsuccessful episodes with no completed laps receive `failed_reward`.
 
 If TuRBO finds policies that aggressively cut through the tunnel, add an optional
 safety penalty later:
@@ -956,8 +973,30 @@ Usage with the Optuna tuner:
 
 ```bash
 ros2 run mpcc_pp mpcc_pp_optuna_tune \
+  --config src/mpcc_pp/mpcc_pp/tuning/optuna_config.yaml
+```
+
+The documented config file contains all commonly changed Optuna runner options:
+study settings, sampler settings, base MPCC++ parameter file, output directory,
+episode/repeat counts, reward penalties, log streaming, and the full
+`mpcc_pp_gazebo_trial` evaluation setup. The config keeps the evaluator split into
+individual fields such as `px4_model`, `startup_delay_s`, `rviz`, `plotjuggler`, and
+`controller_type`; leave `command: null` to let the tuner assemble the command from
+those fields. CLI flags can still override config values, for example:
+
+```bash
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
+  --config src/mpcc_pp/mpcc_pp/tuning/optuna_config.yaml \
+  --n-trials 5 --stream-logs
+```
+
+Expanded equivalent:
+
+```bash
+ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 30 \
   --laps-per-episode 3 \
+  --repeats-per-trial 3 \
   --timeout-s 120 \
   --output-dir src/mpcc_pp/mpcc_pp_optuna_runs \
   --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \
@@ -966,6 +1005,43 @@ ros2 run mpcc_pp mpcc_pp_optuna_tune \
     --ros-command 'ros2 launch drone_control sim.launch.py \
       controller_type:=mpcc_pp rviz:=false plotjuggler:=false'"
 ```
+
+By default each Optuna trial is evaluated with repeated fresh simulator episodes:
+
+```text
+same candidate parameters
+repeat fresh PX4/Gazebo episode 3 times
+aggregate the 3 rewards into one Optuna reward
+```
+
+`--repeats-per-trial` controls the number of fresh episodes per candidate parameter
+set. `--laps-per-episode` controls how many laps each individual episode must complete.
+`--timeout-s` is applied to each repeat, not to the whole Optuna trial. The default
+aggregation is `--repeat-aggregation mean`, so a crash in one repeat keeps its large
+negative failed reward and makes unstable parameters unattractive. Use
+`--repeat-aggregation median` if you want to reduce outlier sensitivity, or `min` if
+you want the score to represent worst-case behavior.
+
+With the command above, `--n-trials 30` means 30 Optuna parameter vectors and 90 total
+fresh PX4/Gazebo episodes.
+
+`mpcc_pp_optuna_tune` also accepts:
+
+```bash
+--base-parameters path/to/parameters.yaml
+```
+
+This file is the base controller configuration for every trial. The tuner copies it,
+patches in the sampled tuning values, writes the result to
+`trial_XXXXX/parameters.yaml`, and passes that trial-specific file to the ROS
+controller through `MPCC_PP_PARAMETERS_FILE`.
+
+By default `--base-parameters` points to the bundled
+`mpcc_pp/parameters.yaml`. For a fresh Optuna study, the first trial is also enqueued
+from this base file so the optimizer evaluates the current manual parameters before
+trying sampled values. Because Optuna resumes existing studies with `load_if_exists`,
+use a new `--output-dir`, a new `--study-name`, or archive the old `study.db` if you
+want the base parameters to become `trial_00000`.
 
 The trial runner uses Gazebo headless mode by default, so no Gazebo GUI, RViz, or
 PlotJuggler windows are launched. To inspect one run visually, add `--gui` to the
@@ -990,12 +1066,22 @@ ros2 run mpcc_pp mpcc_pp_gazebo_trial \
   --dry-run
 ```
 
-The runner writes separate logs per trial:
+With one repeat, the runner writes separate logs per trial:
 
 ```text
 trial_00000/px4_gazebo.log
 trial_00000/ros_launch.log
 trial_00000/episode.log
+```
+
+With the default repeated evaluation, logs are stored under per-repeat directories:
+
+```text
+trial_00000/repeat_00/px4_gazebo.log
+trial_00000/repeat_00/ros_launch.log
+trial_00000/repeat_00/episode.log
+trial_00000/repeat_01/...
+trial_00000/repeat_02/...
 ```
 
 `episode.log` contains the runner stdout that `mpcc_pp_optuna_tune` parses for `[Lap]`
@@ -1055,7 +1141,15 @@ src/mpcc_pp/mpcc_pp_optuna_runs/
   trial_00000/
     parameters.yaml
     trial_params.json
-    episode.log
+    repeat_00/
+      episode.log
+      px4_gazebo.log
+      ros_launch.log
+      episode_metrics.json
+    repeat_01/
+      ...
+    repeat_02/
+      ...
     trial_metrics.json
   trial_00001/
     ...
@@ -1217,6 +1311,7 @@ Full tuning run (paper budget):
 ros2 run mpcc_pp mpcc_pp_optuna_tune \
   --n-trials 600 \
   --laps-per-episode 3 \
+  --repeats-per-trial 3 \
   --timeout-s 120 \
   --output-dir src/mpcc_pp/mpcc_pp_optuna_runs \
   --command "ros2 run mpcc_pp mpcc_pp_gazebo_trial \

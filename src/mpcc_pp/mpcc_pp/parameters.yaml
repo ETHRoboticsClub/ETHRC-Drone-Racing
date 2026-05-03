@@ -42,11 +42,11 @@ path:
   contouring:
     # Nominal contouring weight qc between gates.
     # Increase when the drone cuts corners or stays too far from the spline.
-    qc_nom: 5.0
+    qc_nom: 8.04235713578984 # was 5.0
 
     # Contouring weight qc near gate centers.
     # Increase when gate traversal accuracy matters more than speed.
-    qc_gate: 18.0
+    qc_gate: 318.17562144715026 # was 18.0
 
     # Gaussian width [m] for the gate-centered qc increase.
     # Larger values make the high-tracking region start earlier and last longer.
@@ -77,24 +77,24 @@ path:
 cost:
   # Lag error weight. Penalizes being ahead/behind the reference point along
   # the tangent direction.
-  ql: 9.0
+  ql: 0.2402287068709523 # was 9.0
 
   # Body-rate regularization. Increase to reduce aggressive rotations.
-  Qw: 0.0001
+  Qw: 8.073111842970231e-05 # was 0.0001
 
   # Progress-acceleration cost. Increase to make vtheta and the RViz progress
   # point move more smoothly; decrease for faster acceleration along the path.
-  r_dvt: 0.0002
+  r_dvt: 0.08987911840588622 # was 0.0002
 
   # Rotor thrust-rate cost. Increase to smooth rotor commands.
-  R_df: 0.0003
+  R_df: 0.0011621720782828086 # was 0.0003
 
   # Progress reward. Increase for faster racing; decrease when tracking and
   # stability should dominate.
-  mu: 10.0
+  mu: 1.6682705460206881 # was 10
 
   # Soft-barrier weight for tunnel halfspace violations.
-  track_weight: 10.0
+  track_weight: 3.2437217958780518 # was 10
 
   # Log-barrier steepness for the tunnel constraint. Higher is sharper but can
   # make the optimization numerically harder.
