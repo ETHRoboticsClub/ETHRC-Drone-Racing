@@ -89,6 +89,7 @@ The system uses `robot_localization` with **Smooth Lagged Data** support.
 
 For deeper technical details on individual components, see:
 - [VIO (OpenVINS)](vio.md)
+- [Blackbox Driver (IMU/RPM)](blackbox.md)
 - [Gate Detection](gate_detection.md)
 - [Sensor Fusion (EKF)](EKF.md)
 - [Vicon Tracking](vicon.md)

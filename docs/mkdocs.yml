@@ -75,6 +75,7 @@ nav:
     - AWS Batch RL Training: infrastructure/aws_batch_rl_training.md
   - Perception:
     - Overview: perception/index.md
+    - Blackbox Driver: perception/blackbox.md
     - VIO: perception/vio.md
     - Vicon: perception/vicon.md
     - Gate Detection: perception/gate_detection.md

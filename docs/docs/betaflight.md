@@ -46,9 +46,9 @@ set blackbox_disable_setpoint = ON
 set blackbox_disable_alt = ON
 set blackbox_disable_rssi = ON
 set blackbox_disable_debug = ON
-set blackbox_disable_motors = ON
+# set blackbox_disable_motors = ON
 set blackbox_disable_gps = ON
-# set blackbox_disable_rpm = ON
+set blackbox_disable_rpm = OFF      # Enable for RPM feedback
 set blackbox_disable_attitude = ON  # Replaces 'mag' in newer versions
 
 # Set the Blackbox rate (assuming 8kHz PID loop)
@@ -99,6 +99,8 @@ graph TD
 1.  **Perception**: High-rate IMU data is streamed via UART1 and processed by the C++ `blackbox_driver_node`. This node identifies 'I' and 'P' frames to reconstruct the state.
 2.  **State Estimation**: The `drone_controller` fuses IMU telemetry with Vicon ground truth (or Gate Detection) to compute optimal actuator commands.
 3.  **Control Injection**: The `msp_bridge` node acts as a virtual RX. It consumes attitude rate commands and injects them into the FC via the MSP protocol over USB, bypassing the serial priority constraints of the primary UART.
+
+For detailed information on the Blackbox Driver configuration and ROS 2 parameters, see the [Blackbox Driver](perception/blackbox.md) page.
 
 ---
 
