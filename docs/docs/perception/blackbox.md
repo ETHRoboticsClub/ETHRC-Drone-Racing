@@ -24,14 +24,17 @@ Unlike standard MSP-based telemetry, this driver utilizes the **Betaflight Black
 | `baud` | `int` | `1500000` | Baud rate for communication (1.5Mbps recommended). |
 | `imu_topic` | `string` | `/imu0` | Topic to publish `sensor_msgs/Imu` data. |
 | `rpm_topic` | `string` | `/rpm` | Topic to publish `std_msgs/Float64MultiArray` RPM data. |
+| `battery_topic` | `string` | `/battery` | Topic to publish `sensor_msgs/BatteryState` data. |
 | `target_hz` | `int` | `400` | Target frequency for the published IMU messages. |
 | `motor_poles` | `int` | `14` | Number of magnetic poles in the motors (used for RPM calculation). |
+| `vbat_scale` | `double` | `0.01` | Scaling factor for battery voltage (Betaflight defaults to 0.01V/unit). |
 | `debug_raw` | `bool` | `false` | If true, dumps raw binary data to `/tmp/capture.bbl`. |
 | `enable_msp_control` | `bool` | `false` | Enables shared UART control for MSP commands (experimental). |
 
 ### Published Topics
 - **`/imu0`** (`sensor_msgs/msg/Imu`): High-rate fused accelerometer and gyroscope data.
 - **`/rpm`** (`std_msgs/msg/Float64MultiArray`): Array of 4 values representing the mechanical RPM of each motor.
+- **`/battery`** (`sensor_msgs/msg/BatteryState`): Real-time battery voltage telemetry.
 
 ---
 
@@ -69,12 +72,12 @@ set blackbox_disable_rpm = OFF
 ```
 
 ### 3. Minimize Bandwidth
-To ensure stable 2kHz operation, disable unnecessary fields:
+To ensure stable 2kHz operation, disable unnecessary fields. Note that **Battery** fields should be kept `OFF` (enabled) to receive voltage data:
 ```bash
 set blackbox_disable_pids = ON
 set blackbox_disable_rc = ON
 set blackbox_disable_setpoint = ON
-set blackbox_disable_bat = ON
+set blackbox_disable_bat = OFF # Enable for Battery Voltage
 set blackbox_disable_alt = ON
 set blackbox_disable_rssi = ON
 set blackbox_disable_debug = ON

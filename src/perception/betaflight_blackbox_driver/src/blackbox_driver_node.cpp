@@ -6,11 +6,13 @@
 #include <thread>
 #include <sstream>
 #include <iomanip>
+#include <limits>
 extern "C" {
 #include <libserialport.h>
 }
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/imu.hpp>
+#include <sensor_msgs/msg/battery_state.hpp>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/serial.h>
@@ -33,6 +35,8 @@ public:
         this->declare_parameter("attitude_command_topic", "/drone_attitude_cmd");
         this->declare_parameter("motor_poles", 14);
         this->declare_parameter("rpm_topic", "/motor_rpm");
+        this->declare_parameter("battery_topic", "/battery");
+        this->declare_parameter("vbat_scale", 0.01); // Betaflight vbat is usually 10mV/unit
 
         std::string port_name = this->get_parameter("port").as_string();
         int baud = this->get_parameter("baud").as_int();
@@ -44,9 +48,12 @@ public:
         std::string attitude_command_topic = this->get_parameter("attitude_command_topic").as_string();
         motor_poles_ = this->get_parameter("motor_poles").as_int();
         std::string rpm_topic = this->get_parameter("rpm_topic").as_string();
+        std::string battery_topic = this->get_parameter("battery_topic").as_string();
+        vbat_scale_ = this->get_parameter("vbat_scale").as_double();
 
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic, 10);
         rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, 10);
+        battery_pub_ = this->create_publisher<sensor_msgs::msg::BatteryState>(battery_topic, 10);
         
         if (enable_msp_control) {
             // Subscription for Shared UART Control
@@ -144,6 +151,7 @@ private:
         uint32_t time;
         int32_t motor[4];
         int32_t erpm[4];
+        int32_t vbat;
     };
 
     enum class ParseState { SYNC, HEADER, INTRA, INTER, MSP_V1, MSP_V2 };
@@ -160,6 +168,7 @@ private:
         int accel_idx[3] = {-1, -1, -1};
         int motor_idx[4] = {-1, -1, -1, -1};
         int erpm_idx[4] = {-1, -1, -1, -1};
+        int vbat_idx = -1;
         int total_fields = 0;
     };
 
@@ -186,6 +195,7 @@ private:
     struct sp_port* port_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr rpm_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr battery_pub_;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr att_sub_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
     rclcpp::TimerBase::SharedPtr health_check_timer_;
@@ -194,7 +204,9 @@ private:
     bool motor_poles_from_header_ = false;
     bool has_erpm_mapped_ = false;
     bool has_motor_mapped_ = false;
+    bool has_vbat_mapped_ = false;
     bool erpm_valid_ = false;
+    double vbat_scale_ = 0.01;
     std::chrono::steady_clock::time_point last_nonzero_motor_time_;
     std::chrono::steady_clock::time_point last_erpm_check_time_;
     
@@ -551,9 +563,14 @@ private:
                                     if (i_map_.motor_idx[m] >= 0) last_frame_.motor[m] = frame[start + i_map_.motor_idx[m]];
                                 }
                             }
+                            if (i_map_.vbat_idx >= 0) {
+                                last_frame_.vbat = frame[start + i_map_.vbat_idx];
+                                has_vbat_mapped_ = true;
+                            }
                             has_first_intra_ = true;
                             publishIMU();
                             publishRPM();
+                            publishBattery();
                         }
                     } catch (...) {}
                     state_ = ParseState::SYNC;
@@ -610,8 +627,12 @@ private:
                                 if (p_map_.motor_idx[m] >= 0) last_frame_.motor[m] += frame[start + p_map_.motor_idx[m]];
                             }
                         }
+                        if (has_vbat_mapped_ && p_map_.vbat_idx >= 0) {
+                            last_frame_.vbat += frame[start + p_map_.vbat_idx];
+                        }
                         publishIMU();
                         publishRPM();
+                        publishBattery();
                     } catch (...) {}
                     state_ = ParseState::SYNC;
                 } else if (state_ == ParseState::MSP_V1) {
@@ -699,6 +720,31 @@ private:
         }
 
         rpm_pub_->publish(msg);
+    }
+
+    void publishBattery() {
+        if (!has_vbat_mapped_ || !time_synced_) return;
+        
+        static int battery_subsample = 0;
+        if (++battery_subsample < 40) return; // Publish at ~10Hz if IMU is 400Hz
+        battery_subsample = 0;
+
+        auto msg = sensor_msgs::msg::BatteryState();
+        int64_t true_capture_time_us = last_frame_.time + time_offset_us_;
+        msg.header.stamp = rclcpp::Time(true_capture_time_us * 1000);
+        msg.header.frame_id = "imu_link";
+        msg.voltage = last_frame_.vbat * (float)vbat_scale_;
+        msg.current = std::numeric_limits<float>::quiet_NaN();
+        msg.charge = std::numeric_limits<float>::quiet_NaN();
+        msg.capacity = std::numeric_limits<float>::quiet_NaN();
+        msg.design_capacity = std::numeric_limits<float>::quiet_NaN();
+        msg.percentage = std::numeric_limits<float>::quiet_NaN();
+        msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_UNKNOWN;
+        msg.power_supply_health = sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_UNKNOWN;
+        msg.power_supply_technology = sensor_msgs::msg::BatteryState::POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+        msg.present = true;
+
+        battery_pub_->publish(msg);
     }
 
     void rpmHealthCheck() {
@@ -825,6 +871,7 @@ private:
             else if (f == "eRPM[1]")  map.erpm_idx[1] = local_idx;
             else if (f == "eRPM[2]")  map.erpm_idx[2] = local_idx;
             else if (f == "eRPM[3]")  map.erpm_idx[3] = local_idx;
+            else if (f == "vbatLatest" || f == "vbat") map.vbat_idx = local_idx;
             
             map.total_fields++;
         }
