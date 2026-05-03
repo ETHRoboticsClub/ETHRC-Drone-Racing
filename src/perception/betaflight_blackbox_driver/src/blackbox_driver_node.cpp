@@ -800,10 +800,14 @@ private:
             headers_locked_ = true;
             RCLCPP_INFO(this->get_logger(), "Dictionary locked (I:%d fields, P:%d fields)",
                         i_map_.total_fields, p_map_.total_fields);
-
+            
             if (has_erpm_mapped_) {
                 RCLCPP_INFO(this->get_logger(), "eRPM fields mapped (indices: %d,%d,%d,%d)",
                             i_map_.erpm_idx[0], i_map_.erpm_idx[1], i_map_.erpm_idx[2], i_map_.erpm_idx[3]);
+            }
+            
+            if (i_map_.vbat_idx != -1) {
+                RCLCPP_INFO(this->get_logger(), "vbat field mapped (index: %d)", i_map_.vbat_idx);
             }
 
             if (!has_gyro_mapped_) RCLCPP_WARN(this->get_logger(), "Gyro fields not found in header");
@@ -847,10 +851,15 @@ private:
         if (pos == std::string::npos) return;
         std::string names = line.substr(pos + 1);
         std::vector<std::string> fields;
-        std::stringstream ss(names);
-        std::string field;
-        while (std::getline(ss, field, ',')) fields.push_back(field);
+        std::string item;
+        std::stringstream ss(line.substr(pos + 1));
+        while (std::getline(ss, item, ',')) {
+            fields.push_back(item);
+        }
 
+        if (line.find("vbat") != std::string::npos) {
+            RCLCPP_INFO(this->get_logger(), "Header line containing vbat: %s", line.c_str());
+        }
         map.total_fields = 0;
         int start_idx = (line.find("Field I") != std::string::npos) ? 2 : 1;
 
