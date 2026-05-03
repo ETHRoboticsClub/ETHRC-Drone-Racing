@@ -1,7 +1,9 @@
 from mavsdk.offboard import AttitudeRate
 import numpy as np
 import torch
+import os
 from scipy.spatial.transform import Rotation as R
+from ament_index_python.packages import get_package_share_directory
 from interfaces import ControllerInterface
 
 from rl.policy_model import PolicyModel
@@ -16,7 +18,9 @@ class DroneRLController(ControllerInterface):
         self.rate_error_scale = 300.0 # Default value, can be overridden by node parameter
 
     def initialize(self):
-        self.policy_model = PolicyModel("src/rl/models/pytorch/policy_weights.pt")
+        package_share_directory = get_package_share_directory('rl')
+        model_path = os.path.join(package_share_directory, 'models', 'policy.pt')
+        self.policy_model = PolicyModel(model_path)
 
     def controller_update(self, x_current: np.ndarray, goal_position: np.ndarray) -> AttitudeRate:
         # Extract state components
