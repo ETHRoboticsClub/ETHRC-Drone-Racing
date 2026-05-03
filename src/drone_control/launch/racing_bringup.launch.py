@@ -88,6 +88,12 @@ def generate_launch_description():
     bench_config_path = os.path.join(ws_root, 'docs', 'docs', 'files', 'betaflight_conf', 'ZEPHYRUS_MSP_BENCH.txt')
     flight_config_path = os.path.join(ws_root, 'docs', 'docs', 'files', 'betaflight_conf', 'zephyrus_KAKUTEH7.txt')
 
+    # RL Controller Arguments
+    arg_controller_type = DeclareLaunchArgument('controller_type', default_value='rl',
+                                              description='Type of controller: "mpc" or "rl"')
+    arg_rate_error_scale = DeclareLaunchArgument('rate_error_scale', default_value='300.0',
+                                               description='Torque-to-rate scaling for RL controller')
+
     # --- 1. IMU DRIVER: Betaflight Blackbox ---
     blackbox_node = Node(
         package='betaflight_blackbox_driver',
@@ -354,7 +360,9 @@ def generate_launch_description():
         ),
         launch_arguments={
             'plotjuggler': 'false',
-            'use_mavsdk': 'false'
+            'use_mavsdk': 'false',
+            'controller_type': LaunchConfiguration('controller_type'),
+            'rate_error_scale': LaunchConfiguration('rate_error_scale')
         }.items() 
     )
 
@@ -382,6 +390,8 @@ def generate_launch_description():
         arg_use_vio,
         arg_msp_bench_mode,
         arg_load_bf_config,
+        arg_controller_type,
+        arg_rate_error_scale,
         blackbox_node,
         msp_bridge_node,
         bench_mode_warning,

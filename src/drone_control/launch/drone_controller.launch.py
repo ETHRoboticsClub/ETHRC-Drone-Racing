@@ -23,6 +23,10 @@ def generate_launch_description():
             description='Launch PlotJuggler alongside the controller'),
         DeclareLaunchArgument('use_mavsdk', default_value='true',
             description='Whether to launch the MAVSDK client'),
+        DeclareLaunchArgument('controller_type', default_value='rl',
+            description='Type of controller to use: "mpc" or "rl"'),
+        DeclareLaunchArgument('rate_error_scale', default_value='300.0',
+            description='Torque-to-rate scaling for RL controller'),
 
         Node(
             package="my_mavsdk",
@@ -36,7 +40,10 @@ def generate_launch_description():
             package="drone_control",
             executable="drone_controller_node",
             name="drone_controller_node",
-            parameters=[controller_params],
+            parameters=[controller_params, {
+                'controller_type': LaunchConfiguration('controller_type'),
+                'rl.rate_error_scale': LaunchConfiguration('rate_error_scale')
+            }],
             output="screen",
         ),
         Node(

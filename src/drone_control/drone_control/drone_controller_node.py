@@ -17,6 +17,8 @@ from geometry_msgs.msg import PoseStamped, Pose
 # drone
 from mavsdk.offboard import AttitudeRate, PositionNedYaw
 from rl.drone_rl_controller import DroneRLController
+from mpc.drone_mpc_controller import DroneMpcController
+from interfaces import ControllerInterface
 
 # general
 import numpy as np
@@ -32,7 +34,7 @@ class thresholds:
 
 class DroneController(Node):
 
-    controller : DroneRLController
+    controller: ControllerInterface
 
     # parameters
     control_rate: float
@@ -63,7 +65,6 @@ class DroneController(Node):
     def __init__(self):
         super().__init__('drone_controller_node')
 
-        self.controller = DroneRLController()
         self.active_goal_lock = threading.Lock()
         self.state_lock = threading.Lock()
         self.state[6] = 1.0
@@ -84,6 +85,7 @@ class DroneController(Node):
         self.declare_parameter('trajectory_max_desired_velocity.linear',1)
         self.declare_parameter('trajectory_max_desired_velocity.angular',1)
         self.declare_parameter('rl.rate_error_scale', 300.0)
+        self.declare_parameter('controller_type', 'rl') # 'mpc' or 'rl'
 
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
@@ -94,7 +96,15 @@ class DroneController(Node):
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
         
-        self.controller.rate_error_scale = self.get_parameter('rl.rate_error_scale').get_parameter_value().double_value
+        controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
+        if controller_type == 'mpc':
+            self.controller = DroneMpcController()
+            self.get_logger().info("Using MPC Controller")
+        else:
+            self.controller = DroneRLController()
+            self.get_logger().info("Using RL Controller")
+            # RL specific parameters
+            self.controller.rate_error_scale = self.get_parameter('rl.rate_error_scale').get_parameter_value().double_value
 
         #TODO: maybe change to joint_states (Michalis)
         self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)

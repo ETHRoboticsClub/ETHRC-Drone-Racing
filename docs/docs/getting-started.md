@@ -240,12 +240,25 @@ Once built, you can launch the entire racing stack across all modules (Comms, Pe
 
 ```bash
 source install/setup.bash
-ros2 launch drone_control racing_bringup.launch.py msp_port:=/dev/ttyTHS1
+ros2 launch drone_control racing_bringup.launch.py controller_type:=rl
 ```
+
+#### Bringup Arguments
+
+| Argument | Default | Description |
+| :--- | :--- | :--- |
+| `controller_type` | `rl` | Choice of high-level controller: `rl` or `mpc`. |
+| `rate_error_scale`| `300.0`| **(RL Only)** Scaling factor to map neural network torques to Betaflight attitude rates. |
+| `msp_port` | `/dev/ttyTCU0`| Serial port for Betaflight MSP control (dedicated port). |
+| `imu_port` | `/dev/ttyTHS1`| Serial port for Blackbox high-rate IMU telemetry. |
+| `use_vicon` | `true` | Whether to launch the Vicon receiver for ground truth. |
+| `use_rc_sim` | `true` | Whether to simulate an RC receiver for arming via MSP. |
+| `view_stream` | `true` | Start the video decoding/republishing pipeline (GS only). |
 
 ### 4. Configuration Tips
 - **Serial Ports:** If you are using a USB-to-Serial adapter instead of the internal UART, use `msp_port:=/dev/ttyUSB0`.
-- **Persisting Settings:** You can edit the default parameters in `src/betaflight_msp_controller/config/msp_params.yaml` so you don't have to pass them every time.
+- **RL Tuning:** If the drone feels sluggish under RL control, increase `rate_error_scale` (e.g., to `500.0`). If it oscillates, decrease it.
+- **Persisting Settings:** You can edit the default parameters in `src/drone_control/config/drone_controller_config.yaml` so you don't have to pass them every time.
 
 ### 5. MSP Bench Mode
 When testing the drone on a bench without a physical RC transmitter, you can use the MSP Bench Mode. This provides an interactive TUI to emulate a remote controller directly over the MSP protocol.

@@ -3,10 +3,11 @@ from .drone_opt import DroneOptimizer
 import numpy as np
 
 from mavsdk.offboard import AttitudeRate
+from interfaces import ControllerInterface
 
 DEBUG_INFO_PRINTS = True
 
-class DroneMpcController():
+class DroneMpcController(ControllerInterface):
 
     drone_model : DroneModel
     opt: DroneOptimizer
