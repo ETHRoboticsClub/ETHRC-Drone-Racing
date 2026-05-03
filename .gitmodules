@@ -23,6 +23,3 @@
 [submodule "src/h264_image_transport"]
 	path = src/h264_image_transport
 	url = https://github.com/clydemcqueen/h264_image_transport.git
-[submodule "src/kalibr"]
-	path = src/kalibr
-	url = https://github.com/ethz-asl/kalibr
