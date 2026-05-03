@@ -147,10 +147,25 @@ def setup_native():
     py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "setuptools==58.2.0"]
     
     # RL/Inference dependencies
-    # Note: On Jetson, you may want to install the NVIDIA-optimized torch wheels manually
-    py_deps.extend(["torch", "torchvision", "torchaudio"])
+    # On Jetson, we use the NVIDIA-optimized torch wheels for CUDA support
+    if arch == "aarch64":
+        print("--- Detected Jetson (aarch64). Attempting to install NVIDIA-optimized Torch ---")
+        # Default for JetPack 6.2 (JP6.2 / CUDA 12.6)
+        torch_url = "https://developer.download.nvidia.com/compute/redist/jp/v62/pytorch/torch-2.5.0a0+872d974e.nv24.08-cp310-cp310-linux_aarch64.whl"
+        torchvision_url = "https://developer.download.nvidia.com/compute/redist/jp/v62/pytorch/torchvision-0.20.0a0+635759a-cp310-cp310-linux_aarch64.whl"
+        
+        try:
+            # Adding torch-tensorrt for maximum inference performance on Orin
+            run(f"pip3 install --user {torch_url} {torchvision_url} torch-tensorrt")
+            # Filter out torch/vision from py_deps so they aren't re-installed
+            py_deps = [d for d in py_deps if d not in ["torch", "torchvision", "torchaudio"]]
+        except Exception as e:
+            print(f"Warning: Optimized Torch install failed: {e}. Falling back to standard pip.")
     
-    run(f"pip3 install --user {' '.join(py_deps)}")
+    # Quote dependencies to prevent shell redirection (e.g., 'numpy<2.0')
+    quoted_deps = [f"'{d}'" for d in py_deps]
+    
+    run(f"pip3 install --user {' '.join(quoted_deps)}")
     run(f"pip3 install --user -e {acados_path}/interfaces/acados_template")
 
     # 7. Environment Variables
