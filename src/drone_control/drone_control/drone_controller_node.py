@@ -83,6 +83,7 @@ class DroneController(Node):
         self.declare_parameter('threshold.orientation',0.1)
         self.declare_parameter('trajectory_max_desired_velocity.linear',1)
         self.declare_parameter('trajectory_max_desired_velocity.angular',1)
+        self.declare_parameter('rl.rate_error_scale', 300.0)
 
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
@@ -92,6 +93,8 @@ class DroneController(Node):
         self.thresholds_.velocity = self.get_parameter('threshold.velocity').get_parameter_value().double_value
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
+        
+        self.controller.rate_error_scale = self.get_parameter('rl.rate_error_scale').get_parameter_value().double_value
 
         #TODO: maybe change to joint_states (Michalis)
         self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)
