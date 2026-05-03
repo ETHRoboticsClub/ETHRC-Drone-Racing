@@ -789,8 +789,6 @@ private:
         }
         if (i_map_.erpm_idx[0] != -1) {
             has_erpm_mapped_ = true;
-            RCLCPP_INFO(this->get_logger(), "eRPM fields mapped (indices: %d,%d,%d,%d)",
-                        i_map_.erpm_idx[0], i_map_.erpm_idx[1], i_map_.erpm_idx[2], i_map_.erpm_idx[3]);
         }
         if (i_map_.motor_idx[0] != -1) {
             has_motor_mapped_ = true;
@@ -802,6 +800,12 @@ private:
             headers_locked_ = true;
             RCLCPP_INFO(this->get_logger(), "Dictionary locked (I:%d fields, P:%d fields)",
                         i_map_.total_fields, p_map_.total_fields);
+
+            if (has_erpm_mapped_) {
+                RCLCPP_INFO(this->get_logger(), "eRPM fields mapped (indices: %d,%d,%d,%d)",
+                            i_map_.erpm_idx[0], i_map_.erpm_idx[1], i_map_.erpm_idx[2], i_map_.erpm_idx[3]);
+            }
+
             if (!has_gyro_mapped_) RCLCPP_WARN(this->get_logger(), "Gyro fields not found in header");
             if (!has_accel_mapped_) RCLCPP_WARN(this->get_logger(), "Accel fields not found in header");
             if (!has_erpm_mapped_) {
