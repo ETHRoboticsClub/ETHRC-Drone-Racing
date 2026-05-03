@@ -48,14 +48,20 @@ def setup_native():
     if arch != "aarch64":
         sys_deps.append("gstreamer1.0-plugins-bad")
     
-    # ROS 2 Humble specific dependencies
+    # ROS distro detection
+    ros_distro = "humble"
+    if os.path.exists("/opt/ros/jazzy"):
+        ros_distro = "jazzy"
+    print(f"Detected ROS distro: {ros_distro}")
+
+    # ROS 2 specific dependencies
     sys_deps.extend([
-        "ros-humble-mavros",
-        "ros-humble-mavros-msgs",
-        "ros-humble-nav2-msgs",
-        "ros-humble-camera-calibration-parsers",
-        "ros-humble-cv-bridge",
-        "ros-humble-image-transport",
+        f"ros-{ros_distro}-mavros",
+        f"ros-{ros_distro}-mavros-msgs",
+        f"ros-{ros_distro}-nav2-msgs",
+        f"ros-{ros_distro}-camera-calibration-parsers",
+        f"ros-{ros_distro}-cv-bridge",
+        f"ros-{ros_distro}-image-transport",
     ])
 
     run(f"sudo apt-get update || echo 'Warning: apt-get update failed' && sudo apt-get install -y {' '.join(sys_deps)}")
@@ -77,9 +83,10 @@ def setup_native():
     )
 
     # MAVROS GeographicLib datasets
-    if os.path.exists("/opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"):
+    geo_path = f"/opt/ros/{ros_distro}/lib/mavros/install_geographiclib_datasets.sh"
+    if os.path.exists(geo_path):
         print("--- Installing MAVROS GeographicLib Datasets ---")
-        run("sudo /opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh")
+        run(f"sudo {geo_path}")
 
     # 2. MAVSDK C++
     if not os.path.exists("/usr/local/include/mavsdk"):
@@ -135,7 +142,15 @@ def setup_native():
     print("--- Installing Python Dependencies ---")
     # Ensure pyserial is installed and the conflicting 'serial' package is removed
     run("pip3 uninstall -y serial || true")
-    run("pip3 install --user pyserial 'numpy<2.0' mavsdk casadi cython setuptools==58.2.0")
+    
+    # Core dependencies
+    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "setuptools==58.2.0"]
+    
+    # RL/Inference dependencies
+    # Note: On Jetson, you may want to install the NVIDIA-optimized torch wheels manually
+    py_deps.extend(["torch", "torchvision", "torchaudio"])
+    
+    run(f"pip3 install --user {' '.join(py_deps)}")
     run(f"pip3 install --user -e {acados_path}/interfaces/acados_template")
 
     # 7. Environment Variables
@@ -145,7 +160,7 @@ def setup_native():
         f'export TERA_PATH="{tera_path}"',
         f'export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:{acados_path}/lib"',
         f'export PYTHONPATH="$PYTHONPATH:{acados_path}/interfaces/acados_template"',
-        'source /opt/ros/humble/setup.bash'
+        f'source /opt/ros/{ros_distro}/setup.bash'
     ]
     
     with open(bashrc, "a+") as f:
