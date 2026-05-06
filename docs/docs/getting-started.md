@@ -247,6 +247,30 @@ ros2 launch drone_control racing_bringup.launch.py msp_port:=/dev/ttyTHS1
 - **Serial Ports:** If you are using a USB-to-Serial adapter instead of the internal UART, use `msp_port:=/dev/ttyUSB0`.
 - **Persisting Settings:** You can edit the default parameters in `src/betaflight_msp_controller/config/msp_params.yaml` so you don't have to pass them every time.
 
+### 5. MSP Bench Mode
+When testing the drone on a bench without a physical RC transmitter, you can use the MSP Bench Mode. This provides an interactive TUI to emulate a remote controller directly over the MSP protocol.
+
+```bash
+# Launch the bringup with bench mode enabled
+ros2 launch drone_control racing_bringup.launch.py msp_bench_mode:=true
+
+# In a separate terminal, run the standalone TX emulator TUI
+ros2 run betaflight_msp_controller msp_tx_emulator
+```
+
+> [!WARNING]
+> **Serial Port Contention:** When `msp_bench_mode:=true` is used, the `msp_bridge` node is explicitly disabled to free up the serial port for the TX emulator. You must run the `msp_tx_emulator` in another terminal to send commands to the drone.
+
+#### Betaflight Configuration
+Bench mode requires specific settings in Betaflight (e.g., disabling physical RX, enabling MSP overrides). While we provide a `load_bf_config` flag in the launch file to attempt automatic loading, it is **unreliable** due to the timing-sensitive nature of serial CLI handshakes.
+
+**It is strongly recommended to manually load the configuration using the Betaflight Configurator:**
+1.  Open Betaflight Configurator.
+2.  Go to the **CLI** tab.
+3.  Copy the contents of `docs/docs/files/betaflight_conf/ZEPHYRUS_MSP_BENCH.txt`.
+4.  Paste it into the CLI and type `save`.
+5.  To revert to flight mode, repeat the process with `docs/docs/files/betaflight_conf/zephyrus_KAKUTEH7.txt`.
+
 ---
 
 ## Next Steps

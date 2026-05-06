@@ -6,8 +6,9 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess, LogInfo
 
 def generate_launch_description():
     # --- Machine Detection ---
@@ -39,6 +40,16 @@ def generate_launch_description():
     arg_video_height = DeclareLaunchArgument('video_height', default_value='1080')
     arg_video_fps = DeclareLaunchArgument('video_fps', default_value='30')
     arg_video_flip = DeclareLaunchArgument('video_flip', default_value='2')
+    
+    arg_msp_bench_mode = DeclareLaunchArgument('msp_bench_mode', default_value='false',
+                                               description='Disable MSP Bridge to allow standalone TX emulator')
+    arg_load_bf_config = DeclareLaunchArgument('load_bf_config', default_value='false',
+                                               description='Automatically load Betaflight config on startup')
+    
+    # Paths to config files
+    ws_root = os.path.abspath(os.path.join(pkg_drone_control, '../../../../'))
+    bench_config_path = os.path.join(ws_root, 'docs', 'docs', 'files', 'betaflight_conf', 'ZEPHYRUS_MSP_BENCH.txt')
+    flight_config_path = os.path.join(ws_root, 'docs', 'docs', 'files', 'betaflight_conf', 'zephyrus_KAKUTEH7.txt')
 
     # --- 1. IMU DRIVER: Betaflight Blackbox ---
     # This C++ node handles the high-rate IMU telemetry stream (read-only)
@@ -66,8 +77,33 @@ def generate_launch_description():
             'baudrate': 115200 if not is_jetson else 1500000,
             'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic')
         }],
-        condition=launch.conditions.IfCondition(LaunchConfiguration('use_rc_sim')),
+        condition=launch.conditions.IfCondition(
+            PythonExpression([
+                "'", LaunchConfiguration('use_rc_sim'), "' == 'true' and '",
+                LaunchConfiguration('msp_bench_mode'), "' == 'false'"
+            ])
+        ),
         output='screen'
+    )
+    
+    # --- 2.1 Bench Mode Warning ---
+    bench_mode_warning = LogInfo(
+        msg="WARNING: msp_bench_mode is active! The msp_bridge node is disabled. "
+            "Please run 'ros2 run betaflight_msp_controller msp_tx_emulator' in another terminal.",
+        condition=launch.conditions.IfCondition(LaunchConfiguration('msp_bench_mode'))
+    )
+    
+    # --- 2.2 Auto-load Betaflight Configuration ---
+    # Select config file based on bench mode flag
+    selected_config_path = PythonExpression([
+        "'", bench_config_path, "' if '", LaunchConfiguration('msp_bench_mode'), "' == 'true' else '", flight_config_path, "'"
+    ])
+    
+    load_config_process = ExecuteProcess(
+        cmd=['ros2', 'run', 'betaflight_msp_controller', 'load_bf_config', 
+             selected_config_path, '--port', LaunchConfiguration('msp_port')],
+        output='screen',
+        condition=launch.conditions.IfCondition(LaunchConfiguration('load_bf_config'))
     )
 
     # --- 3. VIDEO: H.264 Publisher (Jetson) or Republisher (GS) ---
@@ -140,8 +176,12 @@ def generate_launch_description():
         arg_video_height,
         arg_video_fps,
         arg_video_flip,
+        arg_msp_bench_mode,
+        arg_load_bf_config,
         blackbox_node,
         msp_bridge_node,
+        bench_mode_warning,
+        load_config_process,
         video_publisher_node,
         video_republisher_node,
         vicon_launch,

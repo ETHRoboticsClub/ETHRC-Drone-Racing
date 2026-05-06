@@ -86,6 +86,7 @@ nav:
     - Overview: controls/index.md
     - Drone Control: controls/drone_control.md
     - Betaflight MSP Control: controls/msp_control.md
+    - Manual Betaflight Config: controls/betaflight_manual_config.md
     - MAVSDK: controls/mavsdk.md
     - MPC: controls/mpc.md
     - RL: controls/rl.md
