@@ -9,7 +9,7 @@ The system follows a tiered architecture for pose estimation:
 ```mermaid
 graph TD
     subgraph Sensors
-        Cam["Camera (Mono/Stereo)"]
+        Cam["IMX219 CSI<br/>/cam0/image_raw mono8 @ 60 Hz"]
         IMU["IMU (Accel/Gyro)"]
         Vicon["Vicon (Optional)"]
     end
@@ -45,7 +45,9 @@ The following table summarizes the data flow between perception modules.
 
 | Source Module | Topic Name | Message Type | Frequency | Consumer |
 | :--- | :--- | :--- | :--- | :--- |
-| **Sensors** | `/cam0/image_raw` | `sensor_msgs/Image` | 30 Hz | VIO, Gate Detection |
+| **Camera** | `/cam0/image_raw` | `sensor_msgs/Image` (`mono8`) | 60 Hz | VIO, Gate Detection |
+| **Camera** | `/cam0/image_rgb` | `sensor_msgs/Image` (`rgb8`) | 60 Hz when H.264 is enabled | Isaac ROS H.264 encoder |
+| **Video Encoder** | `/cam0/image_h264` | `sensor_msgs/CompressedImage` | 60 Hz target | Recording / ground station decoder |
 | **Sensors** | `/imu0` | `sensor_msgs/Imu` | 200 Hz | VIO |
 | **OpenVINS** | `/ov_msckf/odomimu` | `nav_msgs/Odometry` | 100 Hz | EKF |
 | **Gate Detection** | `/gate_detection/drone_pose` | `PoseWithCovarianceStamped` | 10-30 Hz | EKF |
@@ -88,8 +90,30 @@ The system uses `robot_localization` with **Smooth Lagged Data** support.
 ## Modules
 
 For deeper technical details on individual components, see:
+- [Jetson Camera Pipeline](camera_pipeline.md)
 - [VIO (OpenVINS)](vio.md)
 - [Blackbox Driver (IMU/RPM)](blackbox.md)
 - [Gate Detection](gate_detection.md)
 - [Sensor Fusion (EKF)](EKF.md)
 - [Vicon Tracking](vicon.md)
+
+## Jetson Bringup
+
+On the drone, perception owns the CSI camera by default:
+
+```bash
+ros2 launch drone_control racing_bringup.launch.py \
+  msp_bench_mode:=true \
+  publish_raw:=true \
+  view_stream:=false
+```
+
+This starts the IMX219 camera at `1280x720 @ 60 Hz` and publishes
+`/cam0/image_raw` for OpenVINS and gate detection. Gate detection is currently
+disabled by default in racing bringup because the package is still WIP.
+
+H.264 streaming is no longer an exclusive camera mode. When
+`view_stream:=true h264_backend:=isaac_ros`, the camera node adds an RGB branch
+for `isaac_ros_h264_encoder` while the mono perception topic stays live. See
+[Jetson Camera Pipeline](camera_pipeline.md) and
+[H.264 Video Streaming](../groundstation/video-streaming.md).

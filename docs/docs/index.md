@@ -47,7 +47,7 @@ The project integrates high-fidelity simulation with advanced sensing and contro
 - [**Guidelines**](guidelines.md): Learn about our documentation standards and development workflow.
 - [**Perception**](perception/index.md): Documentation for the Perception team and modules.
 - [**Controls**](controls/index.md): Documentation for the Controls team and algorithms.
-- [**Hardware**](hardware/index.md): Documentation for the Hardware team and electronics.
+- [**Drone Setup**](drone-setup/index.md): Documentation for the hardware, electronics, and onboard setup.
 - [**Groundstation**](groundstation/index.md): Documentation for the Groundstation team and software.
 
 ## Project Layout
@@ -76,5 +76,5 @@ Find the following subsystems:
 
 - [**Perception**](perception/index.md): Documentation for the Perception team and modules.
 - [**Controls**](controls/index.md): Documentation for the Controls team and algorithms.
-- [**Hardware**](hardware/index.md): Documentation for the Hardware team and electronics.
+- [**Drone Setup**](drone-setup/index.md): Documentation for the hardware, electronics, and onboard setup.
 - [**Groundstation**](groundstation/index.md): Documentation for the Groundstation team and software.

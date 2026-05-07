@@ -36,12 +36,24 @@ The primary real-time node that runs the full inference pipeline.
     *   `camera_topic`: The image topic to subscribe to.
     *   `output_topic`: The pose topic to publish.
 
+The detector should consume `/cam0/image_raw`, the same low-latency `mono8`
+topic used by OpenVINS. The `/cam0/image_rgb` branch is reserved for H.264
+encoding and `/cam0/image_h264` is compressed video, not detector input. See
+[Jetson Camera Pipeline](camera_pipeline.md).
+
 ### Launching
 
 To launch the gate detection system within the perception stack:
 
 ```bash
 ros2 launch gate_detection gate_detection.launch.py
+```
+
+In the full racing bringup, gate detection is currently disabled by default
+until the package is production-ready:
+
+```bash
+ros2 launch drone_control racing_bringup.launch.py use_gate_detection:=true
 ```
 
 ## Development Tools

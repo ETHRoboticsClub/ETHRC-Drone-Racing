@@ -2,27 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>jetson_h264_publisher</name>
-  <version>0.1.0</version>
-  <description>
-    Hardware-accelerated H.264 publisher for NVIDIA Jetson (Orin NX)
-    using the NVENC video encoder via GStreamer, publishing
-    h264_msgs/Packet for use with h264_image_transport.
-  </description>
-  <maintainer email="aglaser@ethz.ch">Aaron</maintainer>
+  <version>1.0.0</version>
+  <description>Low-latency Jetson CSI camera to RTP/H.264 streamer</description>
+  <maintainer email="dichau@ethz.ch">Antigravity</maintainer>
   <license>MIT</license>
 
-  <depend>rclpy</depend>
-  <depend>std_msgs</depend>
-  <depend>h264_msgs</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>python3-gi</exec_depend>
-  <exec_depend>gir1.2-gstreamer-1.0</exec_depend>
-  <exec_depend>gstreamer1.0-tools</exec_depend>
-  <exec_depend>gstreamer1.0-plugins-base</exec_depend>
-  <exec_depend>gstreamer1.0-plugins-good</exec_depend>
-  <exec_depend>gstreamer1.0-plugins-bad</exec_depend>
+  <depend>rclcpp</depend>
 
   <export>
-    <build_type>ament_python</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

@@ -3,7 +3,7 @@
 <package format="3">
   <name>imx219_argus_camera</name>
   <version>0.2.0</version>
-  <description>IMX219 CSI camera driver using gscam2 + nvarguscamerasrc on Jetson</description>
+  <description>IMX219 CSI camera driver using nvarguscamerasrc on Jetson</description>
   <maintainer email="aeronautics@ethrc.ch">ETHRC Aeronautics</maintainer>
   <license>MIT</license>
 
@@ -12,7 +12,6 @@
   <depend>rclcpp</depend>
   <depend>sensor_msgs</depend>
 
-  <exec_depend>gscam2</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 

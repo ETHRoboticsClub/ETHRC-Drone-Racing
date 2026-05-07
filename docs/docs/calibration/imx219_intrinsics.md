@@ -95,6 +95,6 @@ scp "$ZEPH"/imx219_720p_60fps\* camera_calibration/
 
 ## Known follow-ups
 
-- **Image orientation.** The mounted camera is rotated 180°. Doesn't affect intrinsics. Easiest fix: add `flip-method=2` to the `nvvidconv` step in `gscam_imx219.yaml`.
+- **Image orientation.** The mounted camera is rotated 180°. This does not affect intrinsics. The live `argus_camera_node` pipeline applies `flip_method: 2` by default so downstream consumers receive upright frames.
 - **Edge coverage.** The current bag stayed mostly central — radtan and fisheye fit equivalently. A re-record with the board pushed harder into the four image corners (and rotated ±45° there) would tighten the fisheye-vs-radtan separation.
 - **No IMU coupling.** This calibration is intrinsics-only. The OpenVINS pipeline additionally needs `T_cam_imu` and time offsets, which require a Kalibr camera-IMU run.

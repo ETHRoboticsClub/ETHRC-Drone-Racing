@@ -224,8 +224,8 @@ gh workflow run aws_ecr.yml --ref <your-branch> -f force_all=true
 
 ## Adding a New Image Target
 
-1. Add a new stage to [docker/Dockerfile](../../docker/Dockerfile) or create a new Dockerfile
-2. Add a new entry to [.github/workflows/auto_build_targets.json](../../.github/workflows/auto_build_targets.json):
+1. Add a new stage to `docker/Dockerfile` or create a new Dockerfile.
+2. Add a new entry to `.github/workflows/auto_build_targets.json`:
 
 ```json
 {

@@ -39,8 +39,11 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-For the recording side on the drone, two apt packages are needed once:
+For the recording side on the drone, use the current Argus camera package rather
+than the deprecated `gscam2` path. Build and source the camera package before
+recording:
 
 ```bash
-sudo apt install -y ros-humble-gscam ros-humble-web-video-server
+colcon build --symlink-install --packages-select imx219_argus_camera
+source install/setup.bash
 ```

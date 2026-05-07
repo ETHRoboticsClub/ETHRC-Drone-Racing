@@ -8,6 +8,13 @@ def run(cmd, shell=True):
     print(f"Running: {cmd}")
     subprocess.check_call(cmd, shell=shell)
 
+def try_run(cmd, warning, shell=True):
+    try:
+        run(cmd, shell=shell)
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: {warning}")
+        print(f"Command failed with exit code {e.returncode}: {cmd}")
+
 def get_arch():
     return platform.machine()
 
@@ -42,9 +49,32 @@ def setup_native():
         sys_deps.append("gstreamer1.0-plugins-bad")
     
     # ROS 2 Humble specific dependencies
-    sys_deps.extend(["ros-humble-mavros", "ros-humble-mavros-msgs", "ros-humble-camera-calibration-parsers"])
+    sys_deps.extend([
+        "ros-humble-mavros",
+        "ros-humble-mavros-msgs",
+        "ros-humble-nav2-msgs",
+        "ros-humble-camera-calibration-parsers",
+        "ros-humble-cv-bridge",
+        "ros-humble-image-transport",
+    ])
 
     run(f"sudo apt-get update || echo 'Warning: apt-get update failed' && sudo apt-get install -y {' '.join(sys_deps)}")
+
+    # Isaac ROS Compression is the preferred H.264 path for racing bringup.
+    # h264_image_transport and jetson_h264_publisher remain in-tree as fallback/debug
+    # tools, but native installs should use the NITROS/NVENC-backed Isaac packages
+    # when the NVIDIA Isaac ROS apt repository is configured.
+    isaac_h264_deps = ["ros-humble-isaac-ros-h264-decoder"]
+    if arch == "aarch64":
+        isaac_h264_deps.insert(0, "ros-humble-isaac-ros-h264-encoder")
+
+    print("--- Installing Isaac ROS H.264 Dependencies ---")
+    try_run(
+        f"sudo apt-get install -y {' '.join(isaac_h264_deps)}",
+        "Isaac ROS H.264 packages were not installed. "
+        "Configure the NVIDIA Isaac ROS apt repository or build "
+        "isaac_ros_compression from source before using h264_backend:=isaac_ros.",
+    )
 
     # MAVROS GeographicLib datasets
     if os.path.exists("/opt/ros/humble/lib/mavros/install_geographiclib_datasets.sh"):
@@ -79,8 +109,18 @@ def setup_native():
 
     # 5. Tera Renderer
     tera_path = os.path.join(acados_path, "bin/t_renderer")
-    if not os.path.exists(tera_path):
-        print("--- Downloading Tera Renderer ---")
+    needs_download = not os.path.exists(tera_path)
+    
+    if not needs_download:
+        # Check if architecture matches
+        file_out = subprocess.check_output(f"file {tera_path}", shell=True).decode()
+        if arch == "aarch64" and "ARM aarch64" not in file_out:
+            needs_download = True
+        elif arch == "x86_64" and "x86-64" not in file_out:
+            needs_download = True
+
+    if needs_download:
+        print(f"--- Downloading Tera Renderer for {arch} ---")
         tera_url = "https://github.com/acados/tera_renderer/releases/download/v0.2.0/"
         if arch == "aarch64":
             tera_url += "t_renderer-v0.2.0-linux-arm64"
@@ -88,7 +128,7 @@ def setup_native():
             tera_url += "t_renderer-v0.2.0-linux-amd64"
         
         run(f"mkdir -p {os.path.dirname(tera_path)} && "
-            f"wget {tera_url} -O {tera_path} && "
+            f"wget -q {tera_url} -O {tera_path} && "
             f"chmod +x {tera_path}")
 
     # 6. Python Dependencies

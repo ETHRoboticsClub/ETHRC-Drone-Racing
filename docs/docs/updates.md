@@ -9,7 +9,7 @@ This month's focus shifted towards ultra-high-speed perception and long-term pro
 ### IMX219 90Hz High-Speed Tuning
 - **Enablement**: Documentation and driver patches for achieving **90Hz/92Hz capture** with a **Full 155° FOV** on the Jetson Orin NX.
 - **Optimization**: Modified registration tables and Device Tree timings to prevent CSI FIFO overflows at high frame rates.
-- **Guide**: Added [**IMX219 90Hz High-Speed Tuning**](hardware/imx219_90hz_tuning.md) as a comprehensive technical resource.
+- **Guide**: Added [**IMX219 90Hz High-Speed Tuning**](drone-setup/imx219_90hz_tuning.md) as a comprehensive technical resource.
 
 ### Vicon Motion Capture Ecosystem
 - **Setup**: Detailed instructions and Mermaid wiring diagrams for Vicon hardware deployment.

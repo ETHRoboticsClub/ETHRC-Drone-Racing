@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from cv_bridge import CvBridge
@@ -18,6 +19,7 @@ class GateDetectorNode(Node):
         self.declare_parameter('checkpoint', '')
         self.declare_parameter('camera_topic', '/cam0/image_raw')
         self.declare_parameter('output_topic', '/gate_detection/drone_pose')
+        self.declare_parameter('max_rate_hz', 30.0)
         
         checkpoint_path = self.get_parameter('checkpoint').get_parameter_value().string_value
         if not checkpoint_path:
@@ -30,17 +32,25 @@ class GateDetectorNode(Node):
         self.get_logger().info(f'Loading checkpoint: {checkpoint_path}')
         
         self.model = GateNet(f=4).to(DEVICE)
+        if DEVICE == 'cuda':
+            torch.backends.cudnn.benchmark = True
         checkpoint = torch.load(checkpoint_path, map_location=DEVICE, weights_only=True)
         self.model.load_state_dict(checkpoint['model'])
         self.model.eval()
         
         self.bridge = CvBridge()
+        self.last_process_time = None
+        self.min_period_ns = int(1e9 / self.get_parameter('max_rate_hz').value)
+        sensor_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.BEST_EFFORT)
         
         self.subscription = self.create_subscription(
             Image,
             self.get_parameter('camera_topic').get_parameter_value().string_value,
             self.camera_callback,
-            10)
+            sensor_qos)
         
         self.publisher = self.create_publisher(
             PoseWithCovarianceStamped,
@@ -73,9 +83,16 @@ class GateDetectorNode(Node):
         self.dist_coeffs = np.zeros(5, dtype=np.float32)
 
     def camera_callback(self, msg):
+        now = self.get_clock().now()
+        if self.last_process_time is not None:
+            elapsed_ns = (now - self.last_process_time).nanoseconds
+            if elapsed_ns < self.min_period_ns:
+                return
+        self.last_process_time = now
+
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='rgb8')
         img_input = cv2.resize(cv_image, (IMG_SIZE, IMG_SIZE))
-        img_t = torch.from_numpy(img_input).permute(2, 0, 1).float() / 255.0
+        img_t = torch.from_numpy(img_input).permute(2, 0, 1).contiguous().float() / 255.0
         
         with torch.no_grad():
             pred = self.model(img_t.unsqueeze(0).to(DEVICE))[-1]

@@ -39,3 +39,4 @@ docs/**/*.out
 docs/**/*.toc
 docs/**/*.synctex.gz
 /src/mpc/mpc/c_generated_code
+/src/mpc/mpc/drone_thrust_acados_ocp.json

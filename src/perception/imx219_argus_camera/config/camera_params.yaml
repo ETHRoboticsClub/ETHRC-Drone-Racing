@@ -3,9 +3,13 @@ argus_camera_node:
     sensor_id: 0
     width: 1280
     height: 720
-    framerate: 90.0
+    framerate: 60.0
     output_encoding: "mono8"
     frame_id: "cam0"
+    # The camera is mounted upside-down on Zephyrus. GStreamer nvvidconv
+    # flip-method=2 rotates frames by 180 degrees before ROS publication.
+    # Set to 0 for no rotation if the camera is mounted upright.
+    flip_method: 2
 
     # ISP tuning — short exposure to reduce motion blur at racing speeds
     exposure_time_range_ns: [1000000.0, 5000000.0]   # 1 ms – 5 ms
