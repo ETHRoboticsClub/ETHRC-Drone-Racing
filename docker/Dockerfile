@@ -38,7 +38,7 @@ USER drone_dev
 RUN ARCH=$(dpkg --print-architecture); \
     PKGS="ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt h264_image_transport"; \
     if [ "$ARCH" != "arm64" ]; then PKGS="$PKGS gazebo_ros_bridges"; else PKGS="$PKGS jetson_h264_publisher"; fi; \
-    source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to $PKGS
+    source /opt/ros/humble/setup.bash && colcon build --symlink-install --parallel-workers 2 --packages-up-to $PKGS
 
 # =========================================================
 # STAGE 5: shared-mpc-rl-deps
