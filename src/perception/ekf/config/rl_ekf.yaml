@@ -10,18 +10,17 @@ ekf_filter_node:
     odom_frame: odom
     world_frame: world
 
-    # VIO as Odometry
-    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
-    odom0: /ov_msckf/odomimu
-    odom0_config: [true, true, true,   true, true, true,   true, true, true,
-                   true, true, true,  false, false, false]
-    odom0_differential: false
+    # VIO as Odometry (Disabled for Vicon-only mode)
+    # odom0: /ov_msckf/odomimu
+    # odom0_config: [true, true, true,   true, true, true,   true, true, true,
+    #                true, true, true,  false, false, false]
+    # odom0_differential: false
 
-    # Vision absolute pose (Gate Detection)
-    pose0: /gate_detection/drone_pose
-    pose0_config: [true, true, true,   true, true, true,
-                   false, false, false, false, false, false, false, false, false]
-    pose0_differential: false
+    # Vision absolute pose (Gate Detection) (Disabled for Vicon-only mode)
+    # pose0: /gate_detection/drone_pose
+    # pose0_config: [true, true, true,   true, true, true,
+    #                false, false, false, false, false, false, false, false, false]
+    # pose0_differential: false
 
     # Vicon absolute pose
     pose1: /vicon/zephyrus/zephyrus

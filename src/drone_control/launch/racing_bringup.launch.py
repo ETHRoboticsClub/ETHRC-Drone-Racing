@@ -87,7 +87,7 @@ def generate_launch_description():
         'gate_camera_topic', default_value='/cam0/image_rgb',
         description='Gate detector image topic. /cam0/image_rgb has real color; /cam0/image_raw is mono.'
     )
-    arg_use_vio = DeclareLaunchArgument('use_vio', default_value='true')
+    arg_use_vio = DeclareLaunchArgument('use_vio', default_value='false')
     arg_use_ekf = DeclareLaunchArgument('use_ekf', default_value='true')
 
     # Bench Mode Arguments from Main
