@@ -12,8 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        # Include models directory
-        (os.path.join('share', package_name, 'models'), glob('rl/models/*')),
+        # Include model files (only .pt files, not directories)
+        (os.path.join('share', package_name, 'models'), glob('rl/models/*.pt')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
