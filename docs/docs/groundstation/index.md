@@ -16,3 +16,5 @@ topic for viewing.
 
 Start with [H.264 Video Streaming](video-streaming.md) when setting up live
 video or bagging camera logs.
+
+See [Web Server](web-server.md) for the browser-based telemetry dashboard.

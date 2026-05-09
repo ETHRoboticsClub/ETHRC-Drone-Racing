@@ -125,10 +125,11 @@ COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev src/betaflight_msp_controller ${WORKSPACE}/src/betaflight_msp_controller
+COPY --chown=drone_dev:drone_dev src/groundstation ${WORKSPACE}/src/groundstation
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 # Add docs
 COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
-RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0" fastapi uvicorn
 
 USER drone_dev
 WORKDIR ${WORKSPACE}
