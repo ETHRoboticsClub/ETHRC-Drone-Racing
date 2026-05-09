@@ -24,7 +24,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'test_rl_interface = rl.test_rl_interface:main'source
+            'test_rl_interface = rl.test_rl_interface:main'
         ],
     },
 )
