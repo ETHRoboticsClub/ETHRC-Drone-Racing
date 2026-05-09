@@ -23,11 +23,18 @@ ekf_filter_node:
                    false, false, false, false, false, false, false, false, false]
     pose0_differential: false
 
-    # If we have an IMU later:
-    # imu0: /imu/data
-    # imu0_config: [false,false,false,  true,true,true,
-    #               false,false,false,  true,true,true,  false,false,false]
-    # imu0_remove_gravitational_acceleration: true
+    # Vicon absolute pose
+    pose1: /vicon/zephyrus/zephyrus
+    pose1_config: [true, true, true,   true, true, true,
+                   false, false, false, false, false, false, false, false, false]
+    pose1_differential: false
+
+    # IMU from Blackbox
+    imu0: /imu0
+    imu0_config: [false, false, false,  true,  true,  true,
+                  false, false, false,  true,  true,  true,  true,  true,  true]
+    imu0_nodelay: true
+    imu0_remove_gravitational_acceleration: true
 
     # =======================
     # --- core filter behavior & observability ---
