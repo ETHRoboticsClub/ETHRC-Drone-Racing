@@ -12,8 +12,6 @@ class DroneRLController(ControllerInterface):
     def __init__(self):
         super().__init__()
         self.policy_model = None
-        self.obs_history = None
-        self.last_action = np.zeros(4, dtype=np.float32)
         self.velocity_limit = 15.0 # default from RacingQuadcopterEnvCfg
         self.rate_error_scale = 300.0 # Default value, can be overridden by node parameter
 
@@ -37,55 +35,35 @@ class DroneRLController(ControllerInterface):
         gravity_body = rot_drone.inv().apply(world_gravity)
         
         # --- Extract Gate Observations ---
-        # The RL env expects 3 lookahead gates. Since we only receive 1 goal_position (13-dim state),
-        # we will use it for all 3 gates to prevent index out of bounds or crash.
         gate_pos = goal_position[0:3]
         gate_quat = np.array([goal_position[7], goal_position[8], goal_position[9], goal_position[6]])
         rot_gate = R.from_quat(gate_quat)
         
-        # Gate relative position in body frame, scaled by 10.0
+        # Gate relative position in body frame
         offset_w = gate_pos - drone_pos
         offset_b = rot_drone.inv().apply(offset_w)
-        offset_b_scaled = offset_b / 10.0
         
         # Gate forward direction (+Y in gate local frame) mapped to body frame
         y_local = np.array([0.0, 1.0, 0.0])
         forward_w = rot_gate.apply(y_local)
         forward_b = rot_drone.inv().apply(forward_w)
         
-        # We need 3 gates, so we duplicate this 3 times
-        gate_obs_single = np.concatenate([offset_b_scaled, forward_b])
-        obs_gates = np.concatenate([gate_obs_single, gate_obs_single, gate_obs_single]) # 18 dims
-        
-        # --- Assemble 32-dim step observation ---
-        step_obs = np.concatenate([
+        # --- Assemble 15-dim observation ---
+        observation = np.concatenate([
             lin_vel,                    # 3
             ang_vel,                    # 3
             gravity_body,               # 3
-            self.last_action,           # 4
-            obs_gates,                  # 18
-            [self.velocity_limit]       # 1
+            offset_b,                   # 3 (relative pos in body frame)
+            forward_b                   # 3 (gate forward in body frame)
         ]).astype(np.float32)
         
-        # --- History Buffer ---
-        if self.obs_history is None:
-            # Initialize history with the first observation repeated 3 times
-            self.obs_history = np.tile(step_obs, (3, 1)) # shape: (3, 32)
-        else:
-            # Shift history: remove oldest (index 2), push newest to front (index 0)
-            self.obs_history = np.roll(self.obs_history, shift=1, axis=0)
-            self.obs_history[0] = step_obs
-            
-        # Flatten to 96-dim vector for the policy
-        flat_obs = self.obs_history.flatten()
-        
         # Convert to tensor and run inference
-        observation_tensor = torch.tensor(flat_obs, dtype=torch.float32).unsqueeze(0)
+        observation_tensor = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
         actions = self.policy_model.inference(observation_tensor)
         actions = actions.squeeze(0).cpu().numpy()
         
-        # Save last action for next step
-        self.last_action = actions.copy()
+        # Save last action for next step (Optional: not used in 15-dim state)
+        # self.last_action = actions.copy()
         
         # --- QUICK AND DIRTY FIX: Torques -> Attitude Rates ---
         # The RL policy outputs thrust (idx 0) and torques (idx 1,2,3) in [-1, 1].
