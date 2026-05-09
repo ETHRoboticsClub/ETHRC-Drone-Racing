@@ -117,6 +117,7 @@ class DroneController(Node):
                                                                             depth=1, 
                                                                             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
                                                                         ))
+        self.controller_rate = self.create_rate(self.control_rate)
         
         # Main Control Timer (for Idle/Hover mode)
         self.control_timer = self.create_timer(1.0/self.control_rate, self.main_control_callback, callback_group=self.timer_cb_group)
@@ -154,15 +155,25 @@ class DroneController(Node):
         if not self.initialized_target:
             return
 
-        with self.state_lock:
-            current_state = self.state.copy()
-        
-        # Command hover at the initialized target
-        attitude_cmd = self.controller.controller_update(current_state, self.current_goal_state)
-        
-        cmd_msg = Float64MultiArray()
-        cmd_msg.data = [attitude_cmd.roll_deg_s, attitude_cmd.pitch_deg_s, attitude_cmd.yaw_deg_s, attitude_cmd.thrust_value]
-        self.attitude_command_publisher.publish(cmd_msg)
+        try:
+            with self.state_lock:
+                current_state = self.state.copy()
+            
+            # Command hover at the initialized target
+            attitude_cmd = self.controller.controller_update(current_state, self.current_goal_state)
+            
+            # Support both MAVSDK AttitudeRate and generic objects
+            roll = getattr(attitude_cmd, 'roll_deg_s', 0.0)
+            pitch = getattr(attitude_cmd, 'pitch_deg_s', 0.0)
+            yaw = getattr(attitude_cmd, 'yaw_deg_s', 0.0)
+            thrust = getattr(attitude_cmd, 'thrust_value', 0.0)
+            
+            cmd_msg = Float64MultiArray()
+            cmd_msg.data = [float(roll), float(pitch), float(yaw), float(thrust)]
+            self.attitude_command_publisher.publish(cmd_msg)
+        except Exception as e:
+            # Prevent the node from dying on a single loop failure
+            self.get_logger().error(f'Control Loop Error: {e}', throttle_duration_sec=2.0)
 
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
