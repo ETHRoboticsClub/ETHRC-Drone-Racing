@@ -1,14 +1,14 @@
 ekf_filter_node:
   ros__parameters:
     frequency: 100.0
-    sensor_timeout: 0.1
+    sensor_timeout: 0.5
     publish_tf: true
     two_d_mode: false
 
-    map_frame: world
+    map_frame: map
     base_link_frame: base_link
     odom_frame: odom
-    world_frame: world
+    world_frame: map
 
     # VIO as Odometry (Disabled for Vicon-only mode)
     # odom0: /ov_msckf/odomimu

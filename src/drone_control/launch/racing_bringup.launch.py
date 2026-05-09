@@ -68,7 +68,7 @@ def generate_launch_description():
         description='Decode /cam0/image_h264 to /image_decoded for local visualization/debugging'
     )
     arg_ground_station_ip = DeclareLaunchArgument(
-        'ground_station_ip', default_value='10.200.117.1',
+        'ground_station_ip', default_value='192.168.0.78',
         description='Ground station IPv4 address for the Jetson RTP/H.264 UDP stream'
     )
     arg_publish_raw = DeclareLaunchArgument(
@@ -377,7 +377,7 @@ def generate_launch_description():
                 [FindPackageShare('vicon_receiver'), 'launch', 'client.launch.py']
             )
         ),
-        launch_arguments={'hostname': '10.200.117.1'}.items(),
+        launch_arguments={'hostname': '192.168.0.78'}.items(),
         condition=launch.conditions.IfCondition(LaunchConfiguration('use_vicon'))
     )
 
