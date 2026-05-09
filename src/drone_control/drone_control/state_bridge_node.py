@@ -35,8 +35,7 @@ class StateBridgeNode(Node):
         # twist.twist.linear (vx, vy, vz) - usually in child_frame (body)
         # twist.twist.angular (wx, wy, wz) - usually in child_frame (body)
         
-        state_msg = Float64MultiArray()
-        state_msg.data = [
+        data = [
             msg.pose.pose.position.x,
             msg.pose.pose.position.y,
             msg.pose.pose.position.z,
@@ -51,6 +50,14 @@ class StateBridgeNode(Node):
             msg.twist.twist.angular.y,
             msg.twist.twist.angular.z
         ]
+        
+        # Check for NaNs
+        if any(map(lambda x: x != x, data)):
+            self.get_logger().warn('Received Odometry with NaNs. Skipping publish.', throttle_duration_sec=1.0)
+            return
+
+        state_msg = Float64MultiArray()
+        state_msg.data = data
         self.publisher.publish(state_msg)
 
 def main(args=None):
