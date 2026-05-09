@@ -88,7 +88,7 @@ def generate_launch_description():
         description='Gate detector image topic. /cam0/image_rgb has real color; /cam0/image_raw is mono.'
     )
     arg_use_vio = DeclareLaunchArgument('use_vio', default_value='false')
-    arg_use_ekf = DeclareLaunchArgument('use_ekf', default_value='true')
+    arg_use_ekf = DeclareLaunchArgument('use_ekf', default_value='false')
 
     # Bench Mode Arguments from Main
     arg_msp_bench_mode = DeclareLaunchArgument('msp_bench_mode', default_value='false',
@@ -402,10 +402,11 @@ def generate_launch_description():
         executable='state_bridge_node',
         name='state_estimator_bridge',
         parameters=[{
-            'odom_topic': '/ekf/odometry',
-            'state_topic': 'drone_state_sim'
+            'vicon_topic': vicon_topic,
+            'imu_topic': '/imu0',
+            'state_topic': 'drone_state_sim',
+            'publish_rate': 100.0
         }],
-        condition=launch.conditions.IfCondition(LaunchConfiguration('use_ekf')),
         output='screen'
     )
 
