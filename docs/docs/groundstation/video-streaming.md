@@ -1,5 +1,7 @@
 # H.264 Video Streaming
 
+**Page Owner:** [Julian Hoffman](https://github.com/JulesHere)
+
 The default racing video path uses Isaac ROS Compression. This page focuses on
 viewing and recording the stream; the camera-side architecture is documented in
 [Jetson Camera Pipeline](../perception/camera_pipeline.md).

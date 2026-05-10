@@ -1,4 +1,6 @@
-# Betaflight Blackbox Driver
+# Betaflight Blackbox Serial Driver
+
+**Page Owner:** [Ilyas Seckin](https://github.com/ilysec)
 
 The `betaflight_blackbox_driver` is a high-performance ROS 2 node designed to stream high-rate IMU and RPM telemetry from a Betaflight flight controller to the NVIDIA Jetson Orin NX.
 

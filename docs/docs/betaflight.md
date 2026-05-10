@@ -1,5 +1,7 @@
 # Betaflight Setup for High-Rate IMU
 
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
+
 This document describes the configuration required to enable 2000Hz IMU streaming from Betaflight to NVIDIA Jetson Orin NX.
 
 ## Hardware Wiring

@@ -1,6 +1,6 @@
 # Reinforcement Learning (RL)
 
-**Page Owner:** [Ishaan Jain](), [Mahmoud El Minawi](), [Maté Tirpak]()
+**Page Owner:** [Maté Tirpák](https://github.com/matetirpak), [Giorgos Evangelou](https://github.com/evangeloug)
 
 ---
 

@@ -1,4 +1,8 @@
-# Zephyrus (6S Performance)
+# Zephyrus (6S) Setup
+
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
+
+---
 
 *6S drone with a Kakute H7 flight controller.*
 

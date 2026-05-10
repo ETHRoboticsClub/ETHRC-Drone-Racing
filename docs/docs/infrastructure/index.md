@@ -1,4 +1,6 @@
-# Infrastructure
+# Infrastructure Overview
+
+**Page Owner:** [Leads of the Aeronautics Division](https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/)
 
 **Page Owners:** [Mate Tirpak](https://github.com/matetirpak)
 

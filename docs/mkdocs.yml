@@ -63,8 +63,7 @@ plugins:
 
 nav:
   - Home: index.md
-  - Recent Updates: updates.md
-  - Future Improvements: future-improvements.md
+  - Updates & Roadmap: updates.md
   - Getting Started: getting-started.md
   - Guidelines: guidelines.md
   - Infrastructure:
@@ -73,6 +72,7 @@ nav:
     - AWS EC2 Instances: infrastructure/aws_ec2.md
     - AWS ECR: infrastructure/aws_ecr.md
     - AWS Batch RL Training: infrastructure/aws_batch_rl_training.md
+    - ROS Bags (S3): infrastructure/ros_bags.md
   - Perception:
     - Overview: perception/index.md
     - Jetson Camera Pipeline: perception/camera_pipeline.md
@@ -88,6 +88,7 @@ nav:
   - Controls:
     - Overview: controls/index.md
     - Drone Control: controls/drone_control.md
+    - Flying the Drone: controls/flying_the_drone.md
     - Betaflight MSP Control: controls/msp_control.md
     - Manual Betaflight Config: controls/betaflight_manual_config.md
     - MAVSDK: controls/mavsdk.md
@@ -107,4 +108,4 @@ nav:
     - Video Streaming: groundstation/video-streaming.md
   - Contributors: contributors.md
   - Deprecated:
-    - ArUco: perception/ArUco.md
+    - ArUco: deprecated/ArUco.md

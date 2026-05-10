@@ -1,6 +1,6 @@
 # Gate Detection & PnP Pose Estimation (WIP)
 
-**Page Owner:** [Xander Yap](https://github.com/xanderyap)
+**Page Owner:** [Mahbod Tajdini](https://github.com/Ace3Z)
 
 ---
 

@@ -1,4 +1,6 @@
-# IMX219 Wide-Angle Intrinsics
+# IMX219 Intrinsics Calibration
+
+**Page Owner:** [Mahbod Tajdini](https://github.com/mahbodtajdini)
 
 Calibration of the IMX219 wide-angle CSI camera mounted on the racing drone (`zephyrus`, Jetson Orin NX), at the standard racing capture mode of **1280×720 @ 60 fps**.
 

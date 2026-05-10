@@ -1,4 +1,6 @@
-# Groundstation
+# Groundstation Overview
+
+**Page Owner:** [Julian Hoffman](https://github.com/JulesHere)
 
 The ground station is responsible for operator visibility, telemetry
 inspection, and offline analysis. For the racing camera path, the drone publishes
@@ -15,6 +17,6 @@ topic for viewing.
 | `/cam0/image_rgb` | Encoder input branch on the drone | No |
 
 Start with [H.264 Video Streaming](video-streaming.md) when setting up live
-video or bagging camera logs.
+video or bagging camera logs. See the [**ROS Bags & Datasets**](../infrastructure/ros_bags.md) registry for a list of available flight data.
 
 See [Web Server](web-server.md) for the browser-based telemetry dashboard.

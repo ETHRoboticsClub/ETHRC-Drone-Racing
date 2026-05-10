@@ -1,4 +1,6 @@
-# Port Jeston to Flight Controller Connection
+# Port Jeston to Flight Controller Communication
+
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
 
 The port used from the Jetson to connect to the Flight Controller is the following:
 

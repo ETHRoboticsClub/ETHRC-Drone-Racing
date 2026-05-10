@@ -1,42 +1,53 @@
+# IDEs and System
 .vscode/
 .codex/
-*:Zone.Identifier
 .devcontainer/
-repo_artifact/
-.colcon/
+.DS_Store
+*:Zone.Identifier
+
+# Build and Install
 build/
 install/
 log/
-*.swp
-.DS_Store
-get-docker.sh
-rosbag
-tests/
-plots/
-src/mpc_dev/*
-src/mpc/__pycache__/*
-src/mpc/c_generated_code/*
-src/mpc/logs/*
-docs/docs/images/rl_wip.gif:Zone.Identifier
-src/my_mavsdk/my_mavsdk/__pycache__
-src/mpc/mpc/__pycache__
-*.pyc
-.codex
-
+.colcon/
 docs/site/
 
-# AWS CLI installation artifacts
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# ROS 2 / Robotics
+rosbag/
+*.bag
+*.mcap
+
+# Project Specific
+get-docker.sh
+repo_artifact/
 aws/
 awscliv2.zip
-
-# Local-only instructions / scratch
 CLAUDE.md
 
-# LaTeX build artefacts (under docs/)
+# MPC / Acados specific
+src/mpc/mpc/c_generated_code/
+src/mpc/mpc/drone_thrust_acados_ocp.json
+src/mpc/logs/
+
+# LaTeX build artefacts
 docs/**/*.aux
 docs/**/*.log
 docs/**/*.out
 docs/**/*.toc
 docs/**/*.synctex.gz
-/src/mpc/mpc/c_generated_code
-/src/mpc/mpc/drone_thrust_acados_ocp.json

@@ -1,5 +1,7 @@
 # IMX219 90Hz High-Speed Tuning
 
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
+
 This guide provides a procedure to enable **90Hz/92Hz** capture with a **Full 155° FOV** on the Jetson Orin NX. 
 
 > [!NOTE]

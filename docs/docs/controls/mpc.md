@@ -1,6 +1,6 @@
 # Model Predictive Control (MPC)
 
-**Page Owner:** [Mattia De Martino](), [Michalis Papadakis]()
+**Page Owner:** [Mattia De Martino](https://github.com/mattiademartino)
 
 ---
 This section documents the **Model Predictive Control (MPC)** implementation contained in the `mpc` folder.  

@@ -5,6 +5,7 @@
   <version>0.0.0</version>
   <description>Web-based groundstation for live drone telemetry visualization</description>
   <maintainer email="aglaser@ethz.ch">Aaron Glaser</maintainer>
+  <maintainer email="aeronautics@ethz.ch">Julian Hoffman</maintainer>
   <license>MIT</license>
 
   <depend>rclpy</depend>

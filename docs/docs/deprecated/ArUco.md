@@ -4,7 +4,7 @@
     **This module is officially deprecated and is no longer part of the active build system.**
     It has been replaced by the [Gate Detection](gate_detection.md) system. This documentation is maintained in the **Deprecated** section for historical reference only.
 
-**Page Owner:** [Xander Yap](https://github.com/xanderyap) & [Jules Schmutz](https://github.com/juliomathis)
+**Page Owner:** [Jules Schmutz](https://github.com/juliomathis)
 
 ## Overview
 

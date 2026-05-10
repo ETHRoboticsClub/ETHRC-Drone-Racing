@@ -1,4 +1,6 @@
-# Manual Betaflight Configuration Guide
+# Betaflight Manual Configuration
+
+**Page Owner:** [Mattia De Martino](https://github.com/mattiademartino)
 
 When switching between **Flight Mode** and **MSP Bench Mode**, it is necessary to update the Flight Controller's configuration. While we provide automated scripts for this, manual loading via the **Betaflight Configurator CLI** is the most reliable method.
 

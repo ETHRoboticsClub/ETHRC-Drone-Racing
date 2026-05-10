@@ -1,5 +1,9 @@
 # Perception Stack Overview
 
+**Page Owner:** [Ilyas Seckin](https://github.com/ilysec)
+
+---
+
 The perception stack is responsible for providing a reliable, drift-free state estimate of the drone in the world frame. It achieves this by fusing high-frequency relative odometry with sparse absolute pose corrections.
 
 ## High-Level Architecture
@@ -96,6 +100,20 @@ For deeper technical details on individual components, see:
 - [Gate Detection](gate_detection.md)
 - [Sensor Fusion (EKF)](EKF.md)
 - [Vicon Tracking](vicon.md)
+
+## Visualization and Monitoring
+
+Visualizing the internal state of the drone is crucial for debugging perception and control algorithms.
+
+### RViz Visualization
+We use RViz2 to visualize sensor data, gate detections, and EKF state. Most perception launch files include an `rviz:=true` argument to automatically open a pre-configured RViz window.
+
+### Full Perception Launch
+You can launch the integrated perception stack (VIO + Gate Detection + EKF) in simulation or on the hardware using:
+```bash
+source install/setup.bash
+ros2 launch launch/perception.launch.py
+```
 
 ## Jetson Bringup
 

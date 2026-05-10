@@ -4,7 +4,8 @@
   <name>mpc</name>
   <version>0.0.1</version>
   <description>Model Predictive Controller for drone racing</description>
-  <maintainer email="michael.d.papadakis@gmail.com">papaveneti</maintainer>
+  <maintainer email="mattiademartino@ethz.ch">Mattia De Martino</maintainer>
+  <maintainer email="aeronautics@ethz.ch">Max Hassdenteufel</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>

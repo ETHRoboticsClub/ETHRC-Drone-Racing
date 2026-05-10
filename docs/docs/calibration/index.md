@@ -1,4 +1,6 @@
-# Calibration Overview
+# Camera Calibration Overview
+
+**Page Owner:** [Mahbod Tajdini](https://github.com/mahbodtajdini)
 
 Sensor calibration is a prerequisite for every component downstream of the camera and IMU — visual-inertial odometry, gate detection, ArUco pose estimation, and the EKF fusion layer all assume that the camera intrinsics and (eventually) the camera↔IMU extrinsics are known and accurate.
 

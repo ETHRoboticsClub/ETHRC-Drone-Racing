@@ -1,5 +1,7 @@
 # Jetson Camera Pipeline
 
+**Page Owner:** [Ilyas Seckin](https://github.com/ilysec)
+
 This page is the source of truth for the live IMX219 camera path on Zephyrus.
 The design priority is low-latency perception. Video streaming and recording are
 secondary branches that must not take ownership of the camera away from VIO or

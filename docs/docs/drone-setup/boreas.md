@@ -1,4 +1,6 @@
-# Boreas (4S Agile)
+# Boreas (4S) Setup
+
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
 
 *4S drone with a JHEMCU generic FC (H743 chip).*
 

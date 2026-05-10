@@ -1,5 +1,7 @@
 # VIO & IMU Synchronization (Sub-Microsecond)
 
+**Page Owner:** [Dimetri Chau](https://github.com/deonixlive)
+
 To achieve stable state estimation (VIO) at the speeds required for autonomous drone racing (>20 m/s), high-precision synchronization between the IMU and the camera frame start is non-negotiable. This document details the "Hard-Sync" architecture using the Jetson Hardware Timestamping Engine (HTE).
 
 ## 🏗 The Hard-Sync Architecture

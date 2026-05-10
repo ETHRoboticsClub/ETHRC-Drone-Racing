@@ -1,5 +1,7 @@
 # Betaflight MSP Control Architecture
 
+**Page Owner:** [Mattia De Martino](https://github.com/mattiademartino)
+
 This section describes how the ETHRC Drone Racing framework bridges autonomous high-level control commands (such as those from an MPC or RL agent) directly into the Betaflight flight controller.
 
 ## Introduction to Hardware-in-the-Loop Control
