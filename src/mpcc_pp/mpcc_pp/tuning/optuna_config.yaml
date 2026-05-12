@@ -2,8 +2,7 @@
 #
 # Run with:
 #
-#   ros2 run mpcc_pp mpcc_pp_optuna_tune \
-#     --config src/mpcc_pp/mpcc_pp/tuning/optuna_config.yaml
+#   ros2 run mpcc_pp mpcc_pp_optuna_tune --config src/mpcc_pp/mpcc_pp/tuning/optuna_config.yaml
 #
 # CLI flags can still override values from this file. For example:
 #
@@ -21,20 +20,21 @@ base_parameters: src/mpcc_pp/mpcc_pp/parameters.yaml
 
 # Directory for study.db, trial directories, logs, generated trial YAML files,
 # best_parameters.yaml, and best_summary.json.
-output_dir: src/mpcc_pp/mpcc_pp_optuna_runs
+output_dir: src/mpcc_pp/mpcc_pp_optuna_circular_turbo_runs
 
 # Optuna study identity and storage.
 # If study.db already exists with this study name, Optuna resumes it.
-study_name: mpcc_pp_optuna
+study_name: mpcc_pp_optuna_circular_turbo
 storage: null
 
 # Number of Optuna parameter vectors to evaluate. With repeats_per_trial: 3,
 # n_trials: 30 means 90 fresh simulator episodes.
-n_trials: 30
+n_trials: 10
 
 # Optuna sampler: "tpe" is the robust default. "random" is a baseline.
 # "gp" requires an Optuna version that provides GPSampler.
-sampler: tpe
+# "turbo" uses OptunaHub TuRBOSampler and requires optunahub, torch, and scipy.
+sampler: turbo
 seed: null
 
 # Evaluation command.
@@ -128,7 +128,7 @@ cwd: null
 # repeats_per_trial is the number of fresh PX4/Gazebo episodes run for the same
 # Optuna candidate parameters.
 laps_per_episode: 3
-repeats_per_trial: 3
+repeats_per_trial: 5
 
 # Reward aggregation across repeats:
 #   mean   penalizes unstable parameters because failed repeats keep -1e6

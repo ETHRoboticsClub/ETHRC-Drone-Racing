@@ -7,8 +7,8 @@ controller:
   max_attitude_rate_deg_s: 200.0
 path:
   contouring:
-    qc_nom: 8.04235713578984
-    qc_gate: 318.17562144715026
+    qc_nom: 8.80316598845338
+    qc_gate: 283.8585443399525
     sigma_qc: 0.5
   tunnel:
     show_tunnel: true
@@ -19,12 +19,12 @@ path:
     disabled_W: 1000.0
     disabled_H: 1000.0
 cost:
-  ql: 0.2402287068709523
-  Qw: 8.073111842970231e-05
-  r_dvt: 0.08987911840588622
-  R_df: 0.0011621720782828086
-  mu: 1.6682705460206881
-  track_weight: 3.2437217958780518
+  ql: 0.1563992155313707
+  Qw: 8.190592885872924e-05
+  r_dvt: 0.056423078200411404
+  R_df: 0.0009348794290721947
+  mu: 0.2289566319087346
+  track_weight: 1.0955086831438914
   track_barrier_alpha: 150.0
 model:
   physical:

@@ -377,6 +377,20 @@ def aggregate_rewards(rewards: list[float], method: str) -> float:
 def _create_sampler(optuna_module, name: str, seed: int | None):
     if name == 'random':
         return optuna_module.samplers.RandomSampler(seed=seed)
+    if name == 'turbo':
+        try:
+            import optunahub
+        except ImportError as exc:
+            raise SystemExit(
+                'The Turbo sampler requires OptunaHub. Install it with: '
+                'pip install optunahub torch scipy') from exc
+        try:
+            turbo_module = optunahub.load_module(package='samplers/turbo')
+            return turbo_module.TuRBOSampler(seed=seed)
+        except ImportError as exc:
+            raise SystemExit(
+                'The Turbo sampler requires its optional dependencies. '
+                'Install them with: pip install optunahub torch scipy') from exc
     if name == 'gp':
         gp_sampler = getattr(optuna_module.samplers, 'GPSampler', None)
         if gp_sampler is not None:
@@ -554,9 +568,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help='Optuna storage URI. Defaults to SQLite in output-dir.')
     parser.add_argument('--n-trials', type=int, default=30,
                         help='Number of Optuna trials.')
-    parser.add_argument('--sampler', choices=('tpe', 'gp', 'random'),
+    parser.add_argument('--sampler', choices=('tpe', 'gp', 'random', 'turbo'),
                         default='tpe',
-                        help='Optuna sampler. TPE is the robust default.')
+                        help=('Optuna sampler. TPE is the robust default; '
+                              'turbo uses OptunaHub TuRBOSampler.'))
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for the sampler.')
     parser.add_argument('--command', default=None,

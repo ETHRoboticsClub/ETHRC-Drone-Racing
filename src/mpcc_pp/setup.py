@@ -26,6 +26,7 @@ setup(
         'casadi',
         'PyYAML',
         'optuna',
+        'optunahub',
     ],
     zip_safe=False,
     maintainer='todo',

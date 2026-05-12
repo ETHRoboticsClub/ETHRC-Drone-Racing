@@ -1,0 +1,32 @@
+{
+  "best_parameters_file": "src/mpcc_pp/mpcc_pp_optuna_circular_runs/best_parameters.yaml",
+  "best_params": {
+    "Qw": 8.073111842970231e-05,
+    "R_df": 0.0011621720782828086,
+    "mu": 1.6682705460206881,
+    "qc_gate": 318.17562144715026,
+    "qc_gate_ratio": 39.56248349519512,
+    "qc_nom": 8.04235713578984,
+    "ql": 0.2402287068709523,
+    "r_dvt": 0.08987911840588622,
+    "track_weight": 3.2437217958780518
+  },
+  "best_trial_number": 0,
+  "best_user_attrs": {
+    "mean_solver_fail_rate": 0.016325199999999998,
+    "metrics_file": "src/mpcc_pp/mpcc_pp_optuna_circular_runs/trial_00000/trial_metrics.json",
+    "parameter_file": "src/mpcc_pp/mpcc_pp_optuna_circular_runs/trial_00000/parameters.yaml",
+    "repeat_aggregation": "mean",
+    "repeat_count": 5,
+    "repeat_rewards": [
+      -1000000.0,
+      -20.3457,
+      -17.796666666666663,
+      -18.306733333333334,
+      -16.536833333333334
+    ],
+    "success": false,
+    "successful_repeats": 4
+  },
+  "best_value": -200014.59718666665
+}

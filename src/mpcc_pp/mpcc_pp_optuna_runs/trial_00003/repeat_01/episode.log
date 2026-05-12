@@ -1,5 +1,0 @@
-$ ros2 run mpcc_pp mpcc_pp_gazebo_trial --px4-target px4_sitl --px4-model gz_zephyros --startup-timeout-s 60.0 --startup-delay-s 1.0 --ros-command 'ros2 launch drone_control sim.launch.py controller_type:=mpcc_pp rviz:=true plotjuggler:=false'
-[mpcc_pp_gazebo_trial] clearing existing PX4/Gazebo processes
-[mpcc_pp_gazebo_trial] starting PX4/Gazebo
-[mpcc_pp_gazebo_trial] starting ROS controller launch
-[mpcc_pp_gazebo_trial] received signal 15; cleaning up
