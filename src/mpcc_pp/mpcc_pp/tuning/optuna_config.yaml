@@ -20,16 +20,15 @@ base_parameters: src/mpcc_pp/mpcc_pp/parameters.yaml
 
 # Directory for study.db, trial directories, logs, generated trial YAML files,
 # best_parameters.yaml, and best_summary.json.
-output_dir: src/mpcc_pp/mpcc_pp_optuna_circular_turbo_runs
+output_dir: src/mpcc_pp/optuna_test
 
-# Optuna study identity and storage.
+# Optuna study identity.
 # If study.db already exists with this study name, Optuna resumes it.
-study_name: mpcc_pp_optuna_circular_turbo
-storage: null
+study_name: test
 
 # Number of Optuna parameter vectors to evaluate. With repeats_per_trial: 3,
 # n_trials: 30 means 90 fresh simulator episodes.
-n_trials: 10
+n_trials: 1
 
 # Optuna sampler: "tpe" is the robust default. "random" is a baseline.
 # "gp" requires an Optuna version that provides GPSampler.
@@ -37,35 +36,14 @@ n_trials: 10
 sampler: turbo
 seed: null
 
-# Evaluation command.
-#
-# Leave command as null to build the evaluator command from the individual
-# fields below. Set command to a full shell-style string only if you want to
-# bypass the builder completely.
-#
-# The tuner provides these environment variables to the evaluator:
-#
-#   MPCC_PP_PARAMETERS_FILE  generated trial parameters.yaml
-#   MPCC_PP_TRIAL_DIR        current trial or repeat directory
-#   MPCC_PP_METRICS_FILE     optional JSON metrics output path
-#
-# The command can also use these placeholders:
-#
-#   {parameter_file}
-#   {trial_dir}
-#   {metrics_file}
-command: null
-
-# Managed trial runner command. This starts one fresh PX4/Gazebo/ROS episode.
-trial_runner: ros2 run mpcc_pp mpcc_pp_gazebo_trial
+# TuRBO sampler settings. These are used only when sampler: turbo.
+# null lets OptunaHub use its TuRBOSampler default.
+# n_startup_trials is the number of initial trials per trust region.
+n_startup_trials: null
+n_trust_region: null
 
 # PX4/Gazebo settings passed to mpcc_pp_gazebo_trial.
-# px4_dir: null lets the trial runner locate ~/ros_ws/px4/PX4-Autopilot.
-# px4_command overrides px4_target and px4_model when set.
-px4_dir: null
-px4_target: px4_sitl
 px4_model: gz_zephyros
-px4_command: null
 
 # Startup timing for each fresh episode.
 # startup_timeout_s is how long to wait for readiness log patterns.
@@ -74,61 +52,21 @@ startup_timeout_s: 60.0
 startup_delay_s: 1.0
 
 # Gazebo/PX4 process behavior.
-# headless: true keeps Gazebo GUI closed. Set false to add --gui.
 # sim_speed_factor sets PX4_SIM_SPEED_FACTOR when not null. null explicitly
 # removes PX4_SIM_SPEED_FACTOR from the PX4 child environment so the simulator
 # runs at normal speed even if the parent shell exported a value earlier.
-# kill_existing: true clears stale PX4/Gazebo processes before each repeat.
-headless: true
 sim_speed_factor: null
-kill_existing: true
 
-# Readiness and runner logging.
-# strict_px4_ready fails the episode if no readiness pattern is seen.
-# ready_pattern can add one or more regex strings.
-# trial_timeout_s is an optional hard timeout inside mpcc_pp_gazebo_trial.
-# log_dir normally stays null so each repeat gets its own log directory.
-# trial_stream_logs mirrors child PX4/ROS logs from mpcc_pp_gazebo_trial.
-# forward_metrics forwards [Lap] and [SolverStats] lines for reward parsing.
-strict_px4_ready: false
-ready_pattern: []
-trial_timeout_s: null
-log_dir: null
-trial_stream_logs: false
-forward_metrics: true
-extra_trial_runner_args: []
-
-# ROS launch command passed to mpcc_pp_gazebo_trial through --ros-command.
-# Leave ros_launch_command null to build:
-#
-#   ros2 launch <ros_package> <ros_launch_file>
-#
-# from the fields below. Set ros_launch_command to a full string only if you
-# want to bypass the ROS launch builder.
-ros_launch_command: null
-ros_package: drone_control
-ros_launch_file: sim.launch.py
+# ROS launch settings passed to mpcc_pp_gazebo_trial.
 controller_type: mpcc_pp
-waypoints_file: null
 rviz: false
-plotjuggler: false
-verbose_input: null
-extra_ros_args: []
-
-# Run the evaluation command through /bin/bash. Usually false is best because
-# the tuner safely splits the command with shell-style quoting.
-shell: false
-
-# Optional working directory for the evaluation command. null means inherit the
-# current working directory.
-cwd: null
 
 # Episode and repeat settings.
 # laps_per_episode is the number of laps each fresh episode must complete.
 # repeats_per_trial is the number of fresh PX4/Gazebo episodes run for the same
 # Optuna candidate parameters.
 laps_per_episode: 3
-repeats_per_trial: 5
+repeats_per_trial: 3
 
 # Reward aggregation across repeats:
 #   mean   penalizes unstable parameters because failed repeats keep -1e6
@@ -151,6 +89,12 @@ max_solver_fail_rate: 0.30
 # Mirror simulator output to the terminal. Leave false for normal tuning; use
 # true when debugging startup or controller behavior.
 stream_logs: false
+
+# Per-episode *.log retention policy:
+#   all     keeps episode.log, px4_gazebo.log, and ros_launch.log for every repeat
+#   failed  keeps those logs only when a repeat fails
+#   none    removes all repeat logs after metrics are parsed
+log_retention: failed
 
 # Write one center-point trial YAML and exit without launching the evaluator.
 dry_run: false

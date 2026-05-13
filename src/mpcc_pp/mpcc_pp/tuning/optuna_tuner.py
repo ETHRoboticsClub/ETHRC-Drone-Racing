@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""Optuna runner for MPCC++ parameter tuning."""
+"""Optuna runner for MPCC++ parameter tuning.
+
+The tuner owns the Optuna study, writes trial-specific parameter files, runs a
+fresh simulator episode for each repeat, and reduces the collected lap/solver
+metrics into one scalar reward.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +31,7 @@ from .search_space import SearchSpace, tuning_yaml_patch
 
 
 def _default_output_dir() -> Path:
+    """Prefer the source package output directory when run from a workspace."""
     cwd = Path.cwd().resolve()
     for base in (cwd, *cwd.parents):
         source_dir = base / 'src' / 'mpcc_pp'
@@ -36,6 +42,16 @@ def _default_output_dir() -> Path:
 
 DEFAULT_OUTPUT_DIR = _default_output_dir()
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parent / 'optuna_config.yaml'
+
+# Fixed evaluator plumbing. The YAML/CLI surface stays focused on tuning
+# choices; less common runner details live here so stale config keys fail fast.
+DEFAULT_TRIAL_RUNNER = 'ros2 run mpcc_pp mpcc_pp_gazebo_trial'
+DEFAULT_PX4_TARGET = 'px4_sitl'
+DEFAULT_ROS_PACKAGE = 'drone_control'
+DEFAULT_ROS_LAUNCH_FILE = 'sim.launch.py'
+DEFAULT_FORWARD_METRICS = True
+DEFAULT_USE_SHELL = False
+DEFAULT_CWD = None
 
 LAP_RE = re.compile(
     r"\[Lap\].*?completato in\s+([0-9]+(?:\.[0-9]+)?)\s*s")
@@ -76,6 +92,7 @@ def _deep_merge(base: Mapping[str, Any], patch: Mapping[str, Any]) -> dict:
 
 
 def _load_yaml(path: Path) -> dict:
+    """Load a YAML mapping, rejecting scalar/list files early."""
     with path.open('r') as f:
         data = yaml.safe_load(f) or {}
     if not isinstance(data, Mapping):
@@ -129,6 +146,7 @@ def initial_trial_from_parameters(parameters: Mapping[str, Any]) -> dict[str, fl
 
 def _format_command(command_template: str, parameter_file: Path,
                     trial_dir: Path, metrics_file: Path) -> str:
+    """Expand the small set of evaluator command placeholders."""
     return command_template.format(
         parameter_file=str(parameter_file),
         trial_dir=str(trial_dir),
@@ -267,6 +285,8 @@ def run_episode(command_template: str,
 
                 if (completed_at is not None
                         and time.monotonic() - completed_at > 2.0):
+                    # Give the controller a short window to flush final metrics
+                    # after the last required lap, then stop the simulator tree.
                     _terminate_process_group(proc)
                     break
 
@@ -338,7 +358,11 @@ def run_episode(command_template: str,
 def compute_reward(metrics: EpisodeMetrics, laps_required: int,
                    gamma: float, failed_reward: float,
                    max_solver_fail_rate: float) -> float:
-    """Compute the scalar reward maximized by Optuna."""
+    """Compute the scalar reward maximized by Optuna.
+
+    Higher is better: fast laps are less negative, solver failures are penalized,
+    and missing laps receive a large negative penalty.
+    """
     if metrics.reward is not None:
         return float(metrics.reward)
 
@@ -374,7 +398,10 @@ def aggregate_rewards(rewards: list[float], method: str) -> float:
     raise ValueError(f'Unsupported repeat aggregation method: {method}')
 
 
-def _create_sampler(optuna_module, name: str, seed: int | None):
+def _create_sampler(optuna_module, name: str, seed: int | None,
+                    n_startup_trials: int | None,
+                    n_trust_region: int | None):
+    """Create the requested Optuna sampler, loading optional samplers lazily."""
     if name == 'random':
         return optuna_module.samplers.RandomSampler(seed=seed)
     if name == 'turbo':
@@ -386,7 +413,12 @@ def _create_sampler(optuna_module, name: str, seed: int | None):
                 'pip install optunahub torch scipy') from exc
         try:
             turbo_module = optunahub.load_module(package='samplers/turbo')
-            return turbo_module.TuRBOSampler(seed=seed)
+            turbo_kwargs: dict[str, Any] = {'seed': seed}
+            if n_startup_trials is not None:
+                turbo_kwargs['n_startup_trials'] = n_startup_trials
+            if n_trust_region is not None:
+                turbo_kwargs['n_trust_region'] = n_trust_region
+            return turbo_module.TuRBOSampler(**turbo_kwargs)
         except ImportError as exc:
             raise SystemExit(
                 'The Turbo sampler requires its optional dependencies. '
@@ -405,6 +437,7 @@ def _create_sampler(optuna_module, name: str, seed: int | None):
 
 
 def _default_storage(output_dir: Path) -> str:
+    """Use one SQLite study database inside the run output directory."""
     return f"sqlite:///{(output_dir / 'study.db').resolve()}"
 
 
@@ -412,6 +445,38 @@ def _write_json(path: Path, data: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open('w') as f:
         json.dump(data, f, indent=2, sort_keys=True)
+
+
+def _cleanup_logs(
+    directory: Path,
+    metrics: EpisodeMetrics,
+    log_retention: str,
+) -> int:
+    """Remove bulky per-episode logs according to the retention policy."""
+    if log_retention == 'all':
+        return 0
+    if log_retention == 'failed' and not metrics.success:
+        return 0
+
+    removed_count = 0
+    removed_metrics_log = False
+    metrics_log_path = (
+        Path(metrics.log_path).resolve()
+        if metrics.log_path is not None
+        else None
+    )
+    for log_path in directory.rglob('*.log'):
+        try:
+            if (metrics_log_path is not None
+                    and log_path.resolve() == metrics_log_path):
+                removed_metrics_log = True
+            log_path.unlink()
+            removed_count += 1
+        except FileNotFoundError:
+            pass
+    if removed_metrics_log:
+        metrics.log_path = None
+    return removed_count
 
 
 def _normalise_config_keys(config: Mapping[str, Any]) -> dict[str, Any]:
@@ -456,16 +521,6 @@ def _coerce_config_defaults(config: Mapping[str, Any],
     return defaults
 
 
-def _as_arg_list(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, str):
-        return shlex.split(value)
-    if isinstance(value, (list, tuple)):
-        return [str(item) for item in value]
-    raise ValueError(f'Expected string or list of strings, got {type(value)}')
-
-
 def _bool_text(value: bool) -> str:
     return 'true' if bool(value) else 'false'
 
@@ -475,59 +530,30 @@ def _quote_command(parts: list[str]) -> str:
 
 
 def build_evaluation_command(args: argparse.Namespace) -> str:
-    """Build the default gazebo-trial command from split config fields."""
-    if args.command:
-        return str(args.command)
+    """Build the hard-coded gazebo-trial command with tunable essentials."""
+    # Keep this builder deliberately narrow: these fields are expected to vary
+    # between tuning runs, while the rest follows mpcc_pp_gazebo_trial defaults.
+    ros_parts = [
+        'ros2',
+        'launch',
+        DEFAULT_ROS_PACKAGE,
+        DEFAULT_ROS_LAUNCH_FILE,
+        f'controller_type:={args.controller_type}',
+        f'rviz:={_bool_text(args.rviz)}',
+        'plotjuggler:=false',
+    ]
+    ros_command = _quote_command(ros_parts)
 
-    if args.ros_launch_command:
-        ros_command = str(args.ros_launch_command)
-    else:
-        ros_parts = [
-            'ros2',
-            'launch',
-            args.ros_package,
-            args.ros_launch_file,
-            f'controller_type:={args.controller_type}',
-            f'rviz:={_bool_text(args.rviz)}',
-            f'plotjuggler:={_bool_text(args.plotjuggler)}',
-        ]
-        if args.verbose_input is not None:
-            ros_parts.append(f'verbose_input:={_bool_text(args.verbose_input)}')
-        if args.waypoints_file is not None:
-            ros_parts.append(f'waypoints_file:={args.waypoints_file}')
-        ros_parts.extend(_as_arg_list(args.extra_ros_args))
-        ros_command = _quote_command(ros_parts)
-
-    parts = _as_arg_list(args.trial_runner)
-    if args.px4_dir is not None:
-        parts.extend(['--px4-dir', str(args.px4_dir)])
-    if args.px4_target:
-        parts.extend(['--px4-target', str(args.px4_target)])
+    parts = shlex.split(DEFAULT_TRIAL_RUNNER)
+    parts.extend(['--px4-target', DEFAULT_PX4_TARGET])
     if args.px4_model:
         parts.extend(['--px4-model', str(args.px4_model)])
-    if args.px4_command:
-        parts.extend(['--px4-command', str(args.px4_command)])
     parts.extend(['--startup-timeout-s', str(args.startup_timeout_s)])
     parts.extend(['--startup-delay-s', str(args.startup_delay_s)])
-    if not args.headless:
-        parts.append('--gui')
     if args.sim_speed_factor is not None:
         parts.extend(['--sim-speed-factor', str(args.sim_speed_factor)])
-    if not args.kill_existing:
-        parts.append('--keep-existing')
-    if args.strict_px4_ready:
-        parts.append('--strict-px4-ready')
-    for pattern in _as_arg_list(args.ready_pattern):
-        parts.extend(['--ready-pattern', pattern])
-    if args.trial_timeout_s is not None:
-        parts.extend(['--trial-timeout-s', str(args.trial_timeout_s)])
-    if args.log_dir is not None:
-        parts.extend(['--log-dir', str(args.log_dir)])
-    if args.trial_stream_logs:
-        parts.append('--stream-logs')
-    if not args.forward_metrics:
+    if not DEFAULT_FORWARD_METRICS:
         parts.append('--no-forward-metrics')
-    parts.extend(_as_arg_list(args.extra_trial_runner_args))
     parts.extend(['--ros-command', ros_command])
     return _quote_command(parts)
 
@@ -535,6 +561,7 @@ def build_evaluation_command(args: argparse.Namespace) -> str:
 def _export_best(study, search_space: SearchSpace,
                  base_parameters: Mapping[str, Any],
                  output_dir: Path) -> None:
+    """Write the current best parameter YAML and a compact JSON summary."""
     if study.best_trial is None:
         return
     best_params = search_space.expand(study.best_trial.params)
@@ -564,8 +591,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help='Directory for studies, trial YAMLs, and logs.')
     parser.add_argument('--study-name', default='mpcc_pp_optuna',
                         help='Optuna study name.')
-    parser.add_argument('--storage', default=None,
-                        help='Optuna storage URI. Defaults to SQLite in output-dir.')
     parser.add_argument('--n-trials', type=int, default=30,
                         help='Number of Optuna trials.')
     parser.add_argument('--sampler', choices=('tpe', 'gp', 'random', 'turbo'),
@@ -574,76 +599,25 @@ def build_arg_parser() -> argparse.ArgumentParser:
                               'turbo uses OptunaHub TuRBOSampler.'))
     parser.add_argument('--seed', type=int, default=None,
                         help='Random seed for the sampler.')
-    parser.add_argument('--command', default=None,
-                        help=('Evaluation command. It receives '
-                              'MPCC_PP_PARAMETERS_FILE and can use '
-                              '{parameter_file}, {trial_dir}, {metrics_file}.'))
-    parser.add_argument('--trial-runner',
-                        default='ros2 run mpcc_pp mpcc_pp_gazebo_trial',
-                        help='Command used to start the managed trial runner.')
-    parser.add_argument('--px4-dir', type=Path, default=None,
-                        help='PX4-Autopilot directory for mpcc_pp_gazebo_trial.')
-    parser.add_argument('--px4-target', default='px4_sitl',
-                        help='PX4 make target for mpcc_pp_gazebo_trial.')
+    parser.add_argument('--n-startup-trials', type=int, default=None,
+                        help=('TuRBO only: initial trials per trust region. '
+                              'null/omitted uses the OptunaHub default.'))
+    parser.add_argument('--n-trust-region', type=int, default=None,
+                        help=('TuRBO only: number of trust regions. '
+                              'null/omitted uses the OptunaHub default.'))
     parser.add_argument('--px4-model', default='gz_zephyros',
                         help='PX4/Gazebo model for mpcc_pp_gazebo_trial.')
-    parser.add_argument('--px4-command', default=None,
-                        help='Override PX4 command passed to mpcc_pp_gazebo_trial.')
     parser.add_argument('--startup-timeout-s', type=float, default=60.0,
                         help='Seconds for mpcc_pp_gazebo_trial to wait for PX4 readiness.')
     parser.add_argument('--startup-delay-s', type=float, default=1.0,
                         help='Extra delay before starting ROS after PX4 readiness.')
-    parser.add_argument('--headless', action=argparse.BooleanOptionalAction,
-                        default=True,
-                        help='Run Gazebo headless through mpcc_pp_gazebo_trial.')
     parser.add_argument('--sim-speed-factor', type=float, default=None,
                         help='Optional PX4_SIM_SPEED_FACTOR for the trial runner.')
-    parser.add_argument('--kill-existing', action=argparse.BooleanOptionalAction,
-                        default=True,
-                        help='Clear stale PX4/Gazebo processes before each repeat.')
-    parser.add_argument('--strict-px4-ready', action=argparse.BooleanOptionalAction,
-                        default=False,
-                        help='Fail if PX4 readiness patterns are not observed.')
-    parser.add_argument('--ready-pattern', action='append', default=None,
-                        help='Extra PX4 readiness regex for the trial runner.')
-    parser.add_argument('--trial-timeout-s', type=float, default=None,
-                        help='Optional hard timeout for mpcc_pp_gazebo_trial.')
-    parser.add_argument('--log-dir', type=Path, default=None,
-                        help='Optional shared log directory for mpcc_pp_gazebo_trial.')
-    parser.add_argument('--trial-stream-logs', action=argparse.BooleanOptionalAction,
-                        default=False,
-                        help='Mirror PX4/ROS child logs from mpcc_pp_gazebo_trial.')
-    parser.add_argument('--forward-metrics', action=argparse.BooleanOptionalAction,
-                        default=True,
-                        help='Forward [Lap] and [SolverStats] lines from the trial runner.')
-    parser.add_argument('--extra-trial-runner-args', default=[],
-                        help='Extra arguments appended to mpcc_pp_gazebo_trial.')
-    parser.add_argument('--ros-launch-command', default=None,
-                        help='Raw ROS command passed to mpcc_pp_gazebo_trial --ros-command.')
-    parser.add_argument('--ros-package', default='drone_control',
-                        help='ROS package used when building the launch command.')
-    parser.add_argument('--ros-launch-file', default='sim.launch.py',
-                        help='ROS launch file used when building the launch command.')
     parser.add_argument('--controller-type', default='mpcc_pp',
                         help='controller_type launch argument.')
-    parser.add_argument('--waypoints-file', type=Path, default=None,
-                        help='Optional waypoints_file launch argument.')
     parser.add_argument('--rviz', action=argparse.BooleanOptionalAction,
                         default=False,
                         help='rviz launch argument.')
-    parser.add_argument('--plotjuggler', action=argparse.BooleanOptionalAction,
-                        default=False,
-                        help='plotjuggler launch argument.')
-    parser.add_argument('--verbose-input', action=argparse.BooleanOptionalAction,
-                        default=None,
-                        help='Optional verbose_input launch argument.')
-    parser.add_argument('--extra-ros-args', default=[],
-                        help='Extra launch arguments appended to the ROS command.')
-    parser.add_argument('--shell', action=argparse.BooleanOptionalAction,
-                        default=False,
-                        help='Run the command through /bin/bash.')
-    parser.add_argument('--cwd', type=Path, default=None,
-                        help='Working directory for the evaluation command.')
     parser.add_argument('--laps-per-episode', type=int, default=3,
                         help='Number of completed laps required per episode.')
     parser.add_argument('--repeats-per-trial', type=int, default=3,
@@ -668,6 +642,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument('--stream-logs', action=argparse.BooleanOptionalAction,
                         default=False,
                         help='Mirror simulator output to this terminal.')
+    parser.add_argument('--log-retention', choices=('all', 'failed', 'none'),
+                        default='all',
+                        help=('Which per-episode *.log files to keep. "failed" '
+                              'keeps logs only for failed repeats. "none" keeps '
+                              'only metrics/parameter files.'))
     parser.add_argument('--dry-run', action=argparse.BooleanOptionalAction,
                         default=False,
                         help='Write a center-point trial YAML and exit.')
@@ -681,6 +660,8 @@ def main(argv: list[str] | None = None) -> int:
     config_parser.add_argument('--config', type=Path, default=None)
     config_args, _ = config_parser.parse_known_args(raw_argv)
     if config_args.config is not None:
+        # Config values become argparse defaults, so explicit CLI flags still
+        # win. Unknown keys are rejected by _coerce_config_defaults.
         config = _load_optional_yaml(config_args.config.expanduser())
         parser.set_defaults(
             **_coerce_config_defaults(config, parser),
@@ -692,6 +673,10 @@ def main(argv: list[str] | None = None) -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.repeats_per_trial < 1:
         parser.error('--repeats-per-trial must be >= 1')
+    if args.n_startup_trials is not None and args.n_startup_trials < 1:
+        parser.error('--n-startup-trials must be >= 1')
+    if args.n_trust_region is not None and args.n_trust_region < 1:
+        parser.error('--n-trust-region must be >= 1')
 
     base_parameters = _load_yaml(args.base_parameters)
     search_space = SearchSpace()
@@ -706,7 +691,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wrote dry-run parameters to {parameter_file}")
         return 0
 
-    args.command = build_evaluation_command(args)
+    evaluation_command = build_evaluation_command(args)
 
     try:
         import optuna
@@ -715,8 +700,14 @@ def main(argv: list[str] | None = None) -> int:
             'Optuna is not installed. Install the mpcc_pp package with its '
             'Python dependencies, or run: pip install optuna') from exc
 
-    sampler = _create_sampler(optuna, args.sampler, args.seed)
-    storage = args.storage or _default_storage(args.output_dir)
+    sampler = _create_sampler(
+        optuna,
+        args.sampler,
+        args.seed,
+        args.n_startup_trials,
+        args.n_trust_region,
+    )
+    storage = _default_storage(args.output_dir)
     study = optuna.create_study(
         study_name=args.study_name,
         storage=storage,
@@ -725,6 +716,8 @@ def main(argv: list[str] | None = None) -> int:
         load_if_exists=True,
     )
     if not study.trials:
+        # Evaluate the checked-in/base parameters first for an interpretable
+        # baseline and to make trial_00000 easy to compare against later runs.
         initial_params = initial_trial_from_parameters(base_parameters)
         study.enqueue_trial(initial_params)
         print(
@@ -742,6 +735,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     def objective(trial) -> float:
+        """Evaluate one Optuna parameter vector across fresh episode repeats."""
         trial_dir = args.output_dir / f"trial_{trial.number:05d}"
         trial_dir.mkdir(parents=True, exist_ok=True)
         parameter_file = trial_dir / 'parameters.yaml'
@@ -762,15 +756,15 @@ def main(argv: list[str] | None = None) -> int:
             metrics_file = repeat_dir / 'metrics.json'
 
             metrics = run_episode(
-                command_template=args.command,
+                command_template=evaluation_command,
                 parameter_file=parameter_file,
                 trial_dir=repeat_dir,
                 metrics_file=metrics_file,
                 laps_required=args.laps_per_episode,
                 timeout_s=args.timeout_s,
                 stream_logs=args.stream_logs,
-                use_shell=args.shell,
-                cwd=args.cwd,
+                use_shell=DEFAULT_USE_SHELL,
+                cwd=DEFAULT_CWD,
             )
             reward = compute_reward(
                 metrics=metrics,
@@ -781,7 +775,14 @@ def main(argv: list[str] | None = None) -> int:
             )
             metrics.reward = reward
             repeat_metrics_path = repeat_dir / 'episode_metrics.json'
+            removed_logs = _cleanup_logs(
+                repeat_dir,
+                metrics,
+                args.log_retention,
+            )
             metrics_dict = asdict(metrics)
+            metrics_dict['removed_log_files'] = removed_logs
+            metrics_dict['log_retention'] = args.log_retention
             _write_json(repeat_metrics_path, metrics_dict)
             repeat_records.append({
                 'repeat': repeat_idx,
@@ -797,7 +798,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"solver_fail_rate={metrics.solver_fail_rate:.3f} "
                 f"return_code={metrics.return_code} "
                 f"reason={metrics.failure_reason or 'completed'} "
-                f"log={metrics.log_path}",
+                f"log={metrics.log_path or 'discarded'}",
                 flush=True,
             )
 
