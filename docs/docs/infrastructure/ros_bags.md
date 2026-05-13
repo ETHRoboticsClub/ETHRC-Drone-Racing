@@ -27,13 +27,13 @@ Use the `aws s3 cp` command with the `--recursive` flag to download a bag direct
 
 ```bash
 # Example download
-aws s3 cp s3://ethrc-drone-racing/bags/YOUR_BAG_NAME/ ./local_directory/ --recursive
+aws s3 cp s3://ethrc-aeronautics/droneracing/YOUR_BAG_NAME/ ./local_directory/ --recursive
 ```
 
 ### 3. Listing Available Bags
 To see what else is in the bucket:
 ```bash
-aws s3 ls s3://ethrc-drone-racing/bags/
+aws s3 ls s3://ethrc-aeronautics/droneracing/bags/
 ```
 
 ---
