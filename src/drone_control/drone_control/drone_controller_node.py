@@ -168,6 +168,7 @@ class DroneController(Node):
         self.declare_parameter('waypoints_file', '')
         self.declare_parameter('state_topic', 'drone_state_sim')
         self.declare_parameter('state_msg_type', 'PoseStamped')
+        self.declare_parameter('simulation_mode', False)
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
@@ -186,6 +187,8 @@ class DroneController(Node):
         self.controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         state_msg_type = self.get_parameter('state_msg_type').get_parameter_value().string_value
+        self._simulation_mode = (
+            self.get_parameter('simulation_mode').get_parameter_value().bool_value)
         self.state_type = _parse_state_type(state_msg_type)
         if self.state_type.value != state_msg_type:
             self.get_logger().warn(
@@ -222,6 +225,9 @@ class DroneController(Node):
         self._optuna_liftoff_time = None
         self._optuna_ground_contact_start = None
         self._optuna_crash_reported = False
+        self._optuna_last_gate_progress = 0.0
+        self._optuna_checked_gate_crossings: set[int] = set()
+        self._optuna_missed_gates = 0
         self._path_timer_start = None
         self._last_lap_count = 0
         self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
@@ -438,6 +444,9 @@ class DroneController(Node):
         self._optuna_liftoff_time = None
         self._optuna_ground_contact_start = None
         self._optuna_crash_reported = False
+        self._optuna_last_gate_progress = 0.0
+        self._optuna_checked_gate_crossings.clear()
+        self._optuna_missed_gates = 0
 
         # Phase 2: MPCC racing loop — runs until stop_hover is set externally
         while rclpy.ok() and not self.stop_hover.is_set():
@@ -446,10 +455,12 @@ class DroneController(Node):
             cmd = self.controller.controller_update(current_state, current_state)
             self._publish_command(cmd, current_state)
             self._report_mpcc_lap_if_completed()
-            if self._report_optuna_crash_if_detected(current_state):
-                self.stop_hover.set()
-                break
-            self._report_optuna_progress()
+            if self._simulation_mode:
+                self._report_optuna_missed_gates(current_state)
+                if self._report_optuna_crash_if_detected(current_state):
+                    self.stop_hover.set()
+                    break
+                self._report_optuna_progress()
             # Republish reference path once after lead-in is added (first step)
             if isinstance(self.controller, _MPCC_CLASSES) and self.controller.path_updated:
                 self._publish_mpcc_reference_path()
@@ -789,6 +800,8 @@ class DroneController(Node):
 
     def _report_optuna_progress(self) -> None:
         """Emit compact progress lines consumed by mpcc_pp_optuna_tune."""
+        if not self._simulation_mode:
+            return
         if not isinstance(self.controller, _MPCC_CLASSES):
             return
         now = time.monotonic()
@@ -802,6 +815,8 @@ class DroneController(Node):
 
     def _report_optuna_crash_if_detected(self, current_state: np.ndarray) -> bool:
         """Detect sustained ground contact after liftoff and emit one crash line."""
+        if not self._simulation_mode:
+            return False
         if self._optuna_crash_reported:
             return True
         now_s = self.get_clock().now().nanoseconds * 1e-9
@@ -831,6 +846,70 @@ class DroneController(Node):
             f'lap_fraction={lap_fraction:.6f}')
         self._optuna_crash_reported = True
         return True
+
+    def _report_optuna_missed_gates(self, current_state: np.ndarray) -> None:
+        """Emit a missed-gate line when progress crosses a gate too far away."""
+        if not self._simulation_mode:
+            return
+        if not isinstance(self.controller, _MPCC_CLASSES):
+            return
+
+        path_length = float(getattr(self.controller, 'path_length', 0.0))
+        gate_thetas = getattr(self.controller, 'gate_thetas', None)
+        gate_positions = getattr(self.controller, 'gate_positions', None)
+        gate_miss_distances = getattr(
+            self.controller, 'gate_miss_distances', None)
+        if (gate_thetas is None or gate_positions is None
+                or gate_miss_distances is None or path_length <= 1e-9):
+            return
+
+        gate_thetas = np.asarray(gate_thetas, dtype=np.float64)
+        gate_positions = np.asarray(gate_positions, dtype=np.float64)
+        gate_miss_distances = np.asarray(
+            gate_miss_distances, dtype=np.float64)
+        if (len(gate_thetas) == 0
+                or len(gate_thetas) != len(gate_positions)
+                or len(gate_thetas) != len(gate_miss_distances)):
+            return
+
+        current_progress, lap_fraction = self._mpcc_completed_laps()
+        previous_progress = self._optuna_last_gate_progress
+        if current_progress < previous_progress:
+            previous_progress = current_progress
+
+        gate_fractions = np.clip(gate_thetas / path_length, 0.0, 1.0)
+        first_lap = max(0, int(math.floor(previous_progress)) - 1)
+        last_lap = int(math.floor(current_progress)) + 1
+        drone_pos = current_state[0:3]
+        for lap_idx in range(first_lap, last_lap + 1):
+            for gate_idx, gate_fraction in enumerate(gate_fractions):
+                crossing_progress = lap_idx + float(gate_fraction)
+                if not previous_progress < crossing_progress <= current_progress:
+                    continue
+                crossing_id = lap_idx * len(gate_fractions) + gate_idx
+                if crossing_id in self._optuna_checked_gate_crossings:
+                    continue
+                self._optuna_checked_gate_crossings.add(crossing_id)
+
+                distance = float(np.linalg.norm(
+                    drone_pos - gate_positions[gate_idx]))
+                tolerance = float(gate_miss_distances[gate_idx])
+                if distance <= tolerance:
+                    continue
+                self._optuna_missed_gates += 1
+                self.get_logger().warn(
+                    f'[MissedGate] gate_index={gate_idx + 1} '
+                    f'lap_index={lap_idx + 1} '
+                    f'distance_m={distance:.3f} '
+                    f'tolerance_m={tolerance:.3f} '
+                    f'missed_gates={self._optuna_missed_gates} '
+                    f'completed_laps={current_progress:.6f} '
+                    f'lap_fraction={lap_fraction:.6f}')
+
+        self._optuna_last_gate_progress = max(
+            self._optuna_last_gate_progress,
+            current_progress,
+        )
 
     def _report_mpcc_lap_if_completed(self) -> None:
         if not isinstance(self.controller, _MPCC_CLASSES):

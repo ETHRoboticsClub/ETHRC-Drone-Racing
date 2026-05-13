@@ -81,6 +81,11 @@ CRASH_RE = re.compile(
     r"\b(?:crash|crashed|collision)\s*=\s*(?:1|true|yes)\b",
     re.IGNORECASE,
 )
+MISSED_GATE_RE = re.compile(r"\[MissedGate\]", re.IGNORECASE)
+MISSED_GATES_COUNT_RE = re.compile(
+    r"missed_gates\s*=\s*(?P<missed_gates>\d+)",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -99,6 +104,7 @@ class EpisodeMetrics:
     log_path: str | None = None
     progress: float = 0.0
     crash: bool = False
+    missed_gates: int = 0
 
 
 def _deep_merge(base: Mapping[str, Any], patch: Mapping[str, Any]) -> dict:
@@ -265,6 +271,16 @@ def _parse_progress_line(line: str, lap_times: list[float],
     return None
 
 
+def _parse_missed_gate_line(line: str) -> int | None:
+    """Return the missed-gate count encoded by one stdout line."""
+    if not MISSED_GATE_RE.search(line):
+        return None
+    count_match = MISSED_GATES_COUNT_RE.search(line)
+    if count_match:
+        return int(count_match.group('missed_gates'))
+    return 1
+
+
 def _load_metrics_file(path: Path, laps_required: int) -> EpisodeMetrics | None:
     """Load metrics written by an external evaluator, if present."""
     if not path.exists():
@@ -292,6 +308,7 @@ def _load_metrics_file(path: Path, laps_required: int) -> EpisodeMetrics | None:
         log_path=data.get('log_path'),
         progress=_metrics_progress(data, lap_times, laps_required),
         crash=crash,
+        missed_gates=int(data.get('missed_gates', 0)),
     )
 
 
@@ -326,6 +343,7 @@ def run_episode(command_template: str,
     latest_solver_stats: dict[str, float | int] = {}
     progress = 0.0
     crash = False
+    missed_gates = 0
     timed_out = False
     completed_at: float | None = None
 
@@ -380,6 +398,13 @@ def run_episode(command_template: str,
 
                     if CRASH_RE.search(line):
                         crash = True
+
+                    parsed_missed_gates = _parse_missed_gate_line(line)
+                    if parsed_missed_gates is not None:
+                        missed_gates = max(
+                            missed_gates,
+                            parsed_missed_gates,
+                        )
 
                     status_match = SOLVER_STATUS_RE.search(line)
                     if status_match:
@@ -440,12 +465,19 @@ def run_episode(command_template: str,
                 progress = max(progress, parsed_progress)
             if CRASH_RE.search(line):
                 crash = True
+            parsed_missed_gates = _parse_missed_gate_line(line)
+            if parsed_missed_gates is not None:
+                missed_gates = max(missed_gates, parsed_missed_gates)
 
     external_metrics = _load_metrics_file(metrics_file, laps_required)
     if external_metrics is not None:
         external_metrics.log_path = str(log_path)
         external_metrics.progress = max(external_metrics.progress, progress)
         external_metrics.crash = external_metrics.crash or crash
+        external_metrics.missed_gates = max(
+            external_metrics.missed_gates,
+            missed_gates,
+        )
         if external_metrics.crash:
             external_metrics.success = False
             external_metrics.failure_reason = (
@@ -486,17 +518,20 @@ def run_episode(command_template: str,
         log_path=str(log_path),
         progress=progress,
         crash=crash,
+        missed_gates=missed_gates,
     )
 
 
 def compute_reward(metrics: EpisodeMetrics, laps_required: int,
-                   timeout_s: float, gamma: float,
+                   timeout_s: float, timeout_penalty_multiplier: float,
+                   gamma: float, missed_gate_penalty_multiplier: float,
                    max_solver_fail_rate: float) -> float:
     """Compute the scalar reward maximized by Optuna.
 
     Higher is better. Completed non-crash episodes score from total lap time.
-    Incomplete/crashed episodes score from total-track progress, so Optuna can
-    distinguish an immediate crash from one that nearly finished the race.
+    Incomplete/crashed episodes score from total-track progress with a timeout
+    penalty, so Optuna can distinguish an immediate crash from one that nearly
+    finished the race.
     """
     if metrics.reward is not None:
         return float(metrics.reward)
@@ -518,12 +553,19 @@ def compute_reward(metrics: EpisodeMetrics, laps_required: int,
     if complete:
         base_reward = 1000.0 - sum(metrics.lap_times[:laps_required])
     else:
-        base_reward = 1000.0 * metrics.progress - timeout_s
+        base_reward = (
+            1000.0 * metrics.progress
+            - timeout_penalty_multiplier * timeout_s
+        )
         if metrics.crash:
             metrics.success = False
             metrics.failure_reason = metrics.failure_reason or 'crash'
 
-    return float(base_reward - gamma * metrics.solver_fail_rate)
+    return float(
+        base_reward
+        - gamma * metrics.solver_fail_rate
+        - missed_gate_penalty_multiplier * metrics.missed_gates
+    )
 
 
 def aggregate_rewards(rewards: list[float], method: str) -> float:
@@ -776,6 +818,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help='Maximum wall-clock seconds per episode repeat.')
     parser.add_argument('--gamma', type=float, default=100.0,
                         help='Solver-failure penalty in the reward.')
+    parser.add_argument('--timeout-penalty-multiplier', type=float, default=4.0,
+                        help=('Multiplier for timeout_s in incomplete/crash '
+                              'episode rewards.'))
+    parser.add_argument('--missed-gate-penalty-multiplier', type=float,
+                        default=100.0,
+                        help='Reward penalty per detected missed gate.')
     parser.add_argument('--max-solver-fail-rate', type=float, default=0.30,
                         help='Hard failure threshold for solver failures.')
     parser.add_argument('--stream-logs', action=argparse.BooleanOptionalAction,
@@ -909,7 +957,10 @@ def main(argv: list[str] | None = None) -> int:
                 metrics=metrics,
                 laps_required=args.laps_per_episode,
                 timeout_s=args.timeout_s,
+                timeout_penalty_multiplier=args.timeout_penalty_multiplier,
                 gamma=args.gamma,
+                missed_gate_penalty_multiplier=(
+                    args.missed_gate_penalty_multiplier),
                 max_solver_fail_rate=args.max_solver_fail_rate,
             )
             metrics.reward = reward
@@ -936,6 +987,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"laps={len(metrics.lap_times)}/{args.laps_per_episode} "
                 f"progress={metrics.progress:.3f} "
                 f"crash={metrics.crash} "
+                f"missed_gates={metrics.missed_gates} "
                 f"solver_fail_rate={metrics.solver_fail_rate:.3f} "
                 f"return_code={metrics.return_code} "
                 f"reason={metrics.failure_reason or 'completed'} "
@@ -955,6 +1007,11 @@ def main(argv: list[str] | None = None) -> int:
             for record in repeat_records
         ) / len(repeat_records)
         crash_count = sum(1 for record in repeat_records if record['crash'])
+        missed_gate_count = sum(
+            int(record['missed_gates'])
+            for record in repeat_records
+        )
+        mean_missed_gates = missed_gate_count / len(repeat_records)
         summary = {
             'reward': reward,
             'repeat_count': args.repeats_per_trial,
@@ -966,6 +1023,8 @@ def main(argv: list[str] | None = None) -> int:
             'success': success_count == len(repeat_records),
             'successful_repeats': success_count,
             'crashed_repeats': crash_count,
+            'missed_gates': missed_gate_count,
+            'mean_missed_gates': mean_missed_gates,
             'laps_per_episode': args.laps_per_episode,
             'mean_progress': mean_progress,
             'mean_solver_fail_rate': mean_solver_fail_rate,
@@ -977,6 +1036,7 @@ def main(argv: list[str] | None = None) -> int:
             f"aggregation={args.repeat_aggregation} "
             f"successful_repeats={success_count}/{len(repeat_records)} "
             f"crashed_repeats={crash_count}/{len(repeat_records)} "
+            f"missed_gates={missed_gate_count} "
             f"mean_progress={mean_progress:.3f} "
             f"mean_solver_fail_rate={mean_solver_fail_rate:.3f} "
             f"metrics={metrics_path}",
@@ -990,6 +1050,8 @@ def main(argv: list[str] | None = None) -> int:
         trial.set_user_attr('repeat_rewards', repeat_rewards)
         trial.set_user_attr('successful_repeats', success_count)
         trial.set_user_attr('crashed_repeats', crash_count)
+        trial.set_user_attr('missed_gates', missed_gate_count)
+        trial.set_user_attr('mean_missed_gates', mean_missed_gates)
         trial.set_user_attr('mean_progress', mean_progress)
         trial.set_user_attr('mean_solver_fail_rate', mean_solver_fail_rate)
         trial.set_user_attr('success', summary['success'])

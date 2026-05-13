@@ -1,0 +1,66 @@
+$ ros2 launch drone_control sim.launch.py controller_type:=mpcc_pp rviz:=false plotjuggler:=false
+[ROS] [INFO] [launch]: All log files can be found below /home/drone_dev/.ros/log/2026-05-13-15-21-48-104323-ip-172-31-41-43-112971
+[ROS] [INFO] [launch]: Default logging verbosity is set to INFO
+[ROS] [INFO] [drone_controller_node-1]: process started with pid [112973]
+[ROS] [INFO] [waypoint_visualizer-2]: process started with pid [112989]
+[ROS] [drone_controller_node-1] /usr/local/lib/python3.10/dist-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+[ROS] [drone_controller_node-1]   warnings.warn("Unable to import Axes3D. This may be due to multiple versions of "
+[ROS] [INFO] [mavsdk_client-3]: process started with pid [113008]
+[ROS] [mavsdk_client-3] [INFO] [1778685713.179444585] [mavsdk_client]: [MAV SDK]: Waiting connection...
+[ROS] [mavsdk_client-3] [INFO] [1778685713.181054353] [mavsdk_client]: Connected to vehicle
+[ROS] [mavsdk_client-3] [INFO] [1778685713.181551779] [mavsdk_client]: [MAV SDK]: Waiting for vehicle to be armable...
+[ROS] [mavsdk_client-3] [INFO] [1778685713.484969658] [mavsdk_client]: Health: global=True, local=True, is_armable=True
+[ROS] [mavsdk_client-3] [INFO] [1778685713.493172561] [mavsdk_client]: Initialized — waiting for arm signal from controller node
+[ROS] [drone_controller_node-1] [INFO] [1778685714.425433990] [drone_controller_node]: Using controller: DroneMpccPpController
+[ROS] [drone_controller_node-1] rm -f libacados_ocp_solver_drone_thrust.so
+[ROS] [drone_controller_node-1] rm -f drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.o acados_solver_drone_thrust.o
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o acados_solver_drone_thrust.o acados_solver_drone_thrust.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_model/drone_thrust_expl_ode_fun.o drone_thrust_model/drone_thrust_expl_ode_fun.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_model/drone_thrust_expl_vde_forw.o drone_thrust_model/drone_thrust_expl_vde_forw.c
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o drone_thrust_model/drone_thrust_expl_vde_adj.o drone_thrust_model/drone_thrust_expl_vde_adj.c
+[ROS] [drone_controller_node-1] cc -shared drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_0_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_fun_jac.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac_hess.o drone_thrust_cost/drone_thrust_cost_ext_cost_e_fun_jac.o acados_solver_drone_thrust.o drone_thrust_model/drone_thrust_expl_ode_fun.o drone_thrust_model/drone_thrust_expl_vde_forw.o drone_thrust_model/drone_thrust_expl_vde_adj.o -o libacados_ocp_solver_drone_thrust.so -L/opt/acados/lib -lacados -lhpipm -lblasfeo -lm \
+[ROS] [drone_controller_node-1] -L -l
+[ROS] [drone_controller_node-1] /opt/acados/interfaces/acados_template/acados_template/acados_sim_solver.py:185: UserWarning: An AcadosSimSolver is created from an AcadosOcp description. This only works if you created an AcadosOcpSolver before with the same description. Otherwise it leads to undefined behavior. Using an AcadosSim description is recommended.
+[ROS] [drone_controller_node-1]   warnings.warn("An AcadosSimSolver is created from an AcadosOcp description. This only works if you created an AcadosOcpSolver before with the same description. Otherwise it leads to undefined behavior. Using an AcadosSim description is recommended.")
+[ROS] [drone_controller_node-1] cc -fPIC -std=c99   -O2 -I/opt/acados/include -I/opt/acados/include/acados -I/opt/acados/include/blasfeo/include -I/opt/acados/include/hpipm/include  -c -o acados_sim_solver_drone_thrust.o acados_sim_solver_drone_thrust.c
+[ROS] [drone_controller_node-1] cc -shared acados_sim_solver_drone_thrust.o drone_thrust_model/drone_thrust_expl_ode_fun.o drone_thrust_model/drone_thrust_expl_vde_forw.o drone_thrust_model/drone_thrust_expl_vde_adj.o -o libacados_sim_solver_drone_thrust.so -L/opt/acados/lib -lacados -lhpipm -lblasfeo -lm
+[ROS] [drone_controller_node-1] [INFO] [1778685719.747331182] [drone_controller_node]: Controller node initialized
+[ROS] [drone_controller_node-1] [INFO] [1778685719.834470585] [drone_controller_node]: Auto-hover will start once drone state is available
+[ROS] [mavsdk_client-3] [INFO] [1778685719.836734678] [mavsdk_client]: [MAV SDK]: Arming...
+[ROS] [mavsdk_client-3] [INFO] [1778685719.866325554] [mavsdk_client]: [MAV SDK]: Starting offboard...
+[ROS] [mavsdk_client-3] [INFO] [1778685719.877152733] [mavsdk_client]: Drone armed
+[ROS] [drone_controller_node-1] [INFO] [1778685719.884695002] [drone_controller_node]: [DroneController] Drone armed and offboard started
+[ROS] [mavsdk_client-3] Received ack for not-existing command: 176! Ignoring... (mavlink_command_sender.cpp:304)
+[ROS] [drone_controller_node-1] [INFO] [1778685719.935476610] [drone_controller_node]: MPCC/MPCC++ mode: hovering 3 s to stabilise, then starting racing loop
+[ROS] [drone_controller_node-1] [INFO] [1778685722.947311125] [drone_controller_node]: MPCC: stabilisation done, starting racing loop
+[ROS] [drone_controller_node-1] [INFO] [1778685722.967995612] [drone_controller_node]: [Progress] completed_laps=0.000025 lap_fraction=0.000025
+[ROS] [drone_controller_node-1] [INFO] [1778685723.469394886] [drone_controller_node]: [Progress] completed_laps=0.003616 lap_fraction=0.003616
+[ROS] [drone_controller_node-1] [INFO] [1778685723.978668565] [drone_controller_node]: [Progress] completed_laps=0.011425 lap_fraction=0.011425
+[ROS] [drone_controller_node-1] [INFO] [1778685724.485667909] [drone_controller_node]: [Progress] completed_laps=0.043183 lap_fraction=0.043183
+[ROS] [drone_controller_node-1] [INFO] [1778685724.948518164] [drone_controller_node]: [Speed] intervallo 5.0s: media=2.8 km/h, max=21.6 km/h
+[ROS] [drone_controller_node-1] [INFO] [1778685724.989164184] [drone_controller_node]: [Progress] completed_laps=0.075135 lap_fraction=0.075135
+[ROS] [drone_controller_node-1] [INFO] [1778685725.494382990] [drone_controller_node]: [Progress] completed_laps=0.104261 lap_fraction=0.104261
+[ROS] [drone_controller_node-1] [INFO] [1778685726.013859943] [drone_controller_node]: [Progress] completed_laps=0.139040 lap_fraction=0.139040
+[ROS] [drone_controller_node-1] [INFO] [1778685726.524365574] [drone_controller_node]: [Progress] completed_laps=0.175650 lap_fraction=0.175650
+[ROS] [drone_controller_node-1] [INFO] [1778685727.028515651] [drone_controller_node]: [Progress] completed_laps=0.218276 lap_fraction=0.218276
+[ROS] [drone_controller_node-1] [INFO] [1778685727.534290687] [drone_controller_node]: [Progress] completed_laps=0.257299 lap_fraction=0.257299
+[ROS] [drone_controller_node-1] [INFO] [1778685728.047816292] [drone_controller_node]: [Progress] completed_laps=0.295073 lap_fraction=0.295073
+[ROS] [drone_controller_node-1] [INFO] [1778685728.559048160] [drone_controller_node]: [Progress] completed_laps=0.338172 lap_fraction=0.338172
+[ROS] [drone_controller_node-1] [INFO] [1778685729.063942905] [drone_controller_node]: [Progress] completed_laps=0.375072 lap_fraction=0.375072
+[ROS] [drone_controller_node-1] [INFO] [1778685729.565152929] [drone_controller_node]: [Progress] completed_laps=0.409045 lap_fraction=0.409045
+[ROS] [drone_controller_node-1] [INFO] [1778685729.962840389] [drone_controller_node]: [Speed] intervallo 5.0s: media=26.2 km/h, max=44.2 km/h
+[ROS] [drone_controller_node-1] [INFO] [1778685730.089396168] [drone_controller_node]: [Progress] completed_laps=0.455864 lap_fraction=0.455864
+[ROS] [drone_controller_node-1] [WARN] [1778685730.484500213] [drone_controller_node]: [MissedGate] gate_index=4 lap_index=1 distance_m=6.875 tolerance_m=1.000 missed_gates=1 completed_laps=0.463767 lap_fraction=0.463767
+[ROS] [drone_controller_node-1] [INFO] [1778685730.610032880] [drone_controller_node]: [Progress] completed_laps=0.464764 lap_fraction=0.464764
+[ROS] [drone_controller_node-1] [INFO] [1778685731.128834060] [drone_controller_node]: [Progress] completed_laps=0.467285 lap_fraction=0.467285
+[ROS] [drone_controller_node-1] [INFO] [1778685731.628884467] [drone_controller_node]: [Progress] completed_laps=0.467209 lap_fraction=0.467209
+[ROS] [drone_controller_node-1] [ERROR] [1778685732.030729554] [drone_controller_node]: [Crash] collision=true down_m=0.549 ground_contact_s=1.017 completed_laps=0.467909 lap_fraction=0.467909

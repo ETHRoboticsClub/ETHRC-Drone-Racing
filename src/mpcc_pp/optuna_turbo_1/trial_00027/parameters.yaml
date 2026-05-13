@@ -1,0 +1,109 @@
+controller:
+  t_horizon: 1.2
+  n_nodes: 21
+  min_prediction_speed: 1.0
+  lap_wrap_threshold: 0.3
+  debug_log_interval: 50
+  max_attitude_rate_deg_s: 200.0
+path:
+  contouring:
+    qc_nom: 1.464851147301555
+    qc_gate: 8.766311879305816
+    sigma_qc: 0.5
+  tunnel:
+    show_tunnel: true
+    W_nominal: 4.0
+    H_nominal: 3.5
+    sigma_gate: 3.0
+    tau: 0.95
+    disabled_W: 1000.0
+    disabled_H: 1000.0
+cost:
+  ql: 0.048388696408291985
+  Qw: 0.0021405152790461945
+  r_dvt: 0.002814710302371593
+  R_df: 0.01341877092891025
+  mu: 0.0555477625993041
+  track_weight: 23.42754567428236
+  track_barrier_alpha: 150.0
+model:
+  physical:
+    mass_kg: 0.969
+    gravity_mps2: 9.81
+    inertia_kg_m2:
+    - 0.002207
+    - 0.003338
+    - 0.002977
+    rotor_thrust_min_n: 0.0
+    rotor_thrust_max_n: 7.7
+    rotor_x_m:
+    - 0.0884
+    - -0.0822
+    - 0.0886
+    - -0.0818
+    rotor_y_m:
+    - 0.072
+    - -0.068
+    - -0.068
+    - 0.0718
+    rotor_km:
+    - 0.016
+    - 0.016
+    - -0.016
+    - -0.016
+    drag_coefficients:
+    - 0.0
+    - 0.0
+    - 0.0
+  constraints:
+    body_rate_max_rad_s: 3.141592653589793
+    rotor_thrust_rate_max_nps: 20.0
+    progress_velocity_min_mps: 0.0
+    progress_velocity_max_mps: 8.0
+    progress_acceleration_min_mps2: -10.0
+    progress_acceleration_max_mps2: 10.0
+solver:
+  qp_solver: PARTIAL_CONDENSING_HPIPM
+  hessian_approx: GAUSS_NEWTON
+  integrator_type: ERK
+  sim_method_num_stages: 4
+  sim_method_num_steps: 2
+  nlp_solver_type: SQP_RTI
+  print_level: 0
+  nlp_solver_tol_eq: 0.001
+  nlp_solver_tol_ineq: 0.001
+  nlp_solver_tol_stat: 0.01
+  nlp_solver_tol_comp: 0.001
+  regularize_method: CONVEXIFY
+  levenberg_marquardt: 0.01
+  qp_solver_warm_start: true
+visualization:
+  reference_path_samples: 300
+  tunnel_samples: 180
+  predicted_horizon_publish_every: 10
+  progress_point_publish_every: 10
+  progress_point_scale: 0.2
+  progress_point_color_rgba:
+  - 1.0
+  - 1.0
+  - 0.0
+  - 1.0
+  progress_line_width: 0.03
+  progress_line_color_rgba:
+  - 1.0
+  - 0.5
+  - 0.0
+  - 0.9
+track_profiles:
+  vertical:
+    path:
+      tunnel:
+        H_nominal: 5.0
+        sigma_gate: 3.5
+  SplitS:
+    path:
+      tunnel:
+        H_nominal: 6.0
+        sigma_gate: 3.5
+compatibility:
+  allow_legacy_track_overrides: false

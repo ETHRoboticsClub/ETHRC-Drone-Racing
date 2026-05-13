@@ -1,0 +1,82 @@
+{
+  "crashed_repeats": 3,
+  "laps_per_episode": 3,
+  "mean_missed_gates": 2.6666666666666665,
+  "mean_progress": 0.2688918888888889,
+  "mean_repeat_reward": -398.1326444444444,
+  "mean_solver_fail_rate": 0.003578666666666667,
+  "median_repeat_reward": -447.32533333333333,
+  "min_repeat_reward": -484.5563333333333,
+  "missed_gates": 8,
+  "repeat_aggregation": "mean",
+  "repeat_count": 3,
+  "repeat_rewards": [
+    -447.32533333333333,
+    -262.5162666666667,
+    -484.5563333333333
+  ],
+  "repeats": [
+    {
+      "crash": true,
+      "failure_reason": "crash",
+      "lap_times": [],
+      "log_path": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_00/episode.log",
+      "log_retention": "failed",
+      "metrics_file": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_00/episode_metrics.json",
+      "missed_gates": 3,
+      "progress": 0.24267466666666668,
+      "removed_log_files": 0,
+      "repeat": 0,
+      "return_code": -15,
+      "reward": -447.32533333333333,
+      "solve_count": 0,
+      "solver_fail_count": 0,
+      "solver_fail_rate": 0.0,
+      "success": false,
+      "timeout": false
+    },
+    {
+      "crash": true,
+      "failure_reason": "crash",
+      "lap_times": [
+        13.41
+      ],
+      "log_path": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_01/episode.log",
+      "log_retention": "failed",
+      "metrics_file": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_01/episode_metrics.json",
+      "missed_gates": 4,
+      "progress": 0.4985573333333333,
+      "removed_log_files": 0,
+      "repeat": 1,
+      "return_code": -15,
+      "reward": -262.5162666666667,
+      "solve_count": 652,
+      "solver_fail_count": 7,
+      "solver_fail_rate": 0.010736,
+      "success": false,
+      "timeout": false
+    },
+    {
+      "crash": true,
+      "failure_reason": "crash",
+      "lap_times": [],
+      "log_path": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_02/episode.log",
+      "log_retention": "failed",
+      "metrics_file": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_02/episode_metrics.json",
+      "missed_gates": 1,
+      "progress": 0.06544366666666666,
+      "removed_log_files": 0,
+      "repeat": 2,
+      "return_code": -15,
+      "reward": -484.5563333333333,
+      "solve_count": 0,
+      "solver_fail_count": 0,
+      "solver_fail_rate": 0.0,
+      "success": false,
+      "timeout": false
+    }
+  ],
+  "reward": -398.1326444444444,
+  "success": false,
+  "successful_repeats": 0
+}

@@ -1,0 +1,60 @@
+$ ['make', 'px4_sitl', 'gz_zephyros']
+[PX4] [0/1] cd /home/drone_dev/ros_ws/px4/PX4-Autopilot/build/px4_sitl_default/src/modules/simulation/gz_bridge && /usr/bin/cmake -E env PX4_SIM_MODEL=gz_zephyros GZ_IP=127.0.0.1 /home/drone_dev/ros_ws/px4/PX4-Autopilot/build/px4_sitl_default/bin/px4
+[PX4] 
+[PX4] ______  __   __    ___ 
+[PX4] | ___ \ \ \ / /   /   |
+[PX4] | |_/ /  \ V /   / /| |
+[PX4] |  __/   /   \  / /_| |
+[PX4] | |     / /^\ \ \___  |
+[PX4] \_|     \/   \/     |_/
+[PX4] 
+[PX4] px4 starting.
+[PX4] 
+[PX4] INFO  [px4] startup script: /bin/sh etc/init.d-posix/rcS 0
+[PX4] INFO  [init] found model autostart file as SYS_AUTOSTART=4023
+[PX4] INFO  [param] selected parameter default file parameters.bson
+[PX4] INFO  [param] importing from 'parameters.bson'
+[PX4] INFO  [parameters] BSON document size 669 bytes, decoded 669 bytes (INT32:19, FLOAT:13)
+[PX4] INFO  [param] selected parameter backup file parameters_backup.bson
+[PX4] INFO  [dataman] data manager file './dataman' size is 1208528 bytes
+[PX4] INFO  [init] Gazebo simulator 8.11.0
+[PX4] INFO  [init] Starting gazebo with world: /home/drone_dev/ros_ws/px4/PX4-Autopilot/Tools/simulation/gz/worlds/default.sdf
+[PX4] INFO  [init] Waiting for Gazebo world...
+[PX4] INFO  [init] Gazebo world is ready
+[PX4] INFO  [init] Spawning Gazebo model
+[PX4] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="zephyros"]/link[@name="base_link"]/sensor[@name="air_pressure_sensor"]/gz_frame_id:/home/drone_dev/ros_ws/px4/PX4-Autopilot/Tools/simulation/gz/models/zephyros/model.sdf:L69]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[PX4] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="zephyros"]/link[@name="base_link"]/sensor[@name="magnetometer_sensor"]/gz_frame_id:/home/drone_dev/ros_ws/px4/PX4-Autopilot/Tools/simulation/gz/models/zephyros/model.sdf:L83]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[PX4] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="zephyros"]/link[@name="base_link"]/sensor[@name="imu_sensor"]/gz_frame_id:/home/drone_dev/ros_ws/px4/PX4-Autopilot/Tools/simulation/gz/models/zephyros/model.sdf:L94]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[PX4] [1;33mWarning [Utils.cc:132][0m [/sdf/model[@name="zephyros"]/link[@name="base_link"]/sensor[@name="navsat_sensor"]/gz_frame_id:/home/drone_dev/ros_ws/px4/PX4-Autopilot/Tools/simulation/gz/models/zephyros/model.sdf:L112]: XML Element[gz_frame_id], child of element[sensor], not defined in SDF. Copying[gz_frame_id] as children of [sensor].
+[PX4] INFO  [lockstep_scheduler] setting initial absolute time to 4192000 us
+[PX4] INFO  [gz_bridge] world: default, model: zephyros_0
+[PX4] INFO  [commander] LED: open /dev/led0 failed (22)
+[PX4] WARN  [health_and_arming_checks] Preflight Fail: ekf2 missing data
+[PX4] WARN  [health_and_arming_checks] Preflight Fail: system power unavailable
+[PX4] WARN  [health_and_arming_checks] Preflight Fail: No connection to the GCS
+[PX4] INFO  [tone_alarm] home set
+[PX4] INFO  [uxrce_dds_client] init UDP agent IP:127.0.0.1, port:8888
+[PX4] INFO  [mavlink] mode: Normal, data rate: 4000000 B/s on udp port 18570 remote port 14550
+[PX4] INFO  [mavlink] mode: Onboard, data rate: 4000000 B/s on udp port 14580 remote port 14540
+[PX4] INFO  [mavlink] mode: Onboard, data rate: 4000 B/s on udp port 14280 remote port 14030
+[PX4] INFO  [mavlink] mode: Gimbal, data rate: 400000 B/s on udp port 13030 remote port 13280
+[PX4] INFO  [logger] logger started (mode=all)
+[PX4] INFO  [logger] Start file log (type: full)
+[PX4] INFO  [logger] [logger] ./log/2026-05-13/14_58_41.ulg	
+[PX4] INFO  [logger] Opened full log file: ./log/2026-05-13/14_58_41.ulg
+[PX4] INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)
+[PX4] INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)
+[PX4] INFO  [px4] Startup script returned successfully
+[PX4] pxh> WARN  [health_and_arming_checks] Preflight Fail: No connection to the GCS
+[PX4] WARN  [health_and_arming_checks] Preflight Fail: No connection to the GCS
+[PX4] INFO  [mavlink] partner IP: 127.0.0.1
+[PX4] INFO  [commander] [32mReady for takeoff![0m
+[PX4] INFO  [commander] Armed by external command	
+[PX4] INFO  [tone_alarm] arming warning
+[PX4] INFO  [commander] Takeoff detected	
+[PX4] 
+[PX4] PX4 Exiting...
+[PX4] [2K
+[PX4] pxh> ninja: build stopped: interrupted by user.
+[PX4] Exiting NOW.
+[PX4] make: *** [Makefile:227: px4_sitl] Terminated

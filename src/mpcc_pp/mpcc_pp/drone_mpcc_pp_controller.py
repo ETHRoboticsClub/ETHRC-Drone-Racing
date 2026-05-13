@@ -401,6 +401,34 @@ class DroneMpccPpController(ControllerInterface):
         """Number of completed laps."""
         return self._lap
 
+    @property
+    def gate_thetas(self) -> np.ndarray | None:
+        """Arc-length positions of gates on the current path, if available."""
+        if isinstance(self._path, GatedRacingPath):
+            return np.asarray(self._path.gate_thetas, dtype=np.float64)
+        return None
+
+    @property
+    def gate_positions(self) -> np.ndarray | None:
+        """Gate centre positions in NED, if gate geometry is available."""
+        if self._gates_config is None:
+            return None
+        return np.asarray(
+            [[g['x'], g['y'], g['z']] for g in self._gates_config],
+            dtype=np.float64,
+        )
+
+    @property
+    def gate_miss_distances(self) -> np.ndarray | None:
+        """Conservative per-gate tolerance from the aperture dimensions."""
+        if self._gates_config is None:
+            return None
+        return np.asarray([
+            min(float(g.get('width', 2.0)),
+                float(g.get('height', 2.0))) / 2.0
+            for g in self._gates_config
+        ], dtype=np.float64)
+
     def set_tuning_parameters(self, params: dict) -> None:
         """
         Update BO-tuned parameters without rebuilding ACADOS.

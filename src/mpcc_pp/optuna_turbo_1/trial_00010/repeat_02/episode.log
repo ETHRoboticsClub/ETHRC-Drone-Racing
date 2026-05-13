@@ -1,0 +1,19 @@
+$ ros2 run mpcc_pp mpcc_pp_gazebo_trial --px4-target px4_sitl --px4-model gz_zephyros --startup-timeout-s 60.0 --startup-delay-s 1.0 --ros-command 'ros2 launch drone_control sim.launch.py controller_type:=mpcc_pp rviz:=false plotjuggler:=false'
+[mpcc_pp_gazebo_trial] clearing existing PX4/Gazebo processes
+[mpcc_pp_gazebo_trial] starting PX4/Gazebo
+[mpcc_pp_gazebo_trial] starting ROS controller launch
+[ROS] [drone_controller_node-1] [INFO] [1778679830.160712014] [drone_controller_node]: [Progress] completed_laps=0.000036 lap_fraction=0.000036
+[ROS] [drone_controller_node-1] [INFO] [1778679830.680540681] [drone_controller_node]: [Progress] completed_laps=0.005259 lap_fraction=0.005259
+[ROS] [drone_controller_node-1] [INFO] [1778679831.193307268] [drone_controller_node]: [Progress] completed_laps=0.024370 lap_fraction=0.024370
+[ROS] [drone_controller_node-1] [INFO] [1778679831.712525850] [drone_controller_node]: [Progress] completed_laps=0.066398 lap_fraction=0.066398
+[ROS] [drone_controller_node-1] [INFO] [1778679832.222799286] [drone_controller_node]: [Progress] completed_laps=0.077575 lap_fraction=0.077575
+[ROS] [drone_controller_node-1] [INFO] [1778679832.739212243] [drone_controller_node]: [Progress] completed_laps=0.064629 lap_fraction=0.064629
+[ROS] [drone_controller_node-1] [INFO] [1778679833.239901636] [drone_controller_node]: [Progress] completed_laps=0.055398 lap_fraction=0.055398
+[ROS] [drone_controller_node-1] [INFO] [1778679833.749458393] [drone_controller_node]: [Progress] completed_laps=0.059872 lap_fraction=0.059872
+[ROS] [drone_controller_node-1] [INFO] [1778679834.250398854] [drone_controller_node]: [Progress] completed_laps=0.062037 lap_fraction=0.062037
+[ROS] [drone_controller_node-1] [INFO] [1778679834.763205724] [drone_controller_node]: [Progress] completed_laps=0.066944 lap_fraction=0.066944
+[ROS] [drone_controller_node-1] [INFO] [1778679835.282960803] [drone_controller_node]: [Progress] completed_laps=0.069741 lap_fraction=0.069741
+[ROS] [drone_controller_node-1] [INFO] [1778679835.793681851] [drone_controller_node]: [Progress] completed_laps=0.062589 lap_fraction=0.062589
+[ROS] [drone_controller_node-1] [INFO] [1778679836.317872328] [drone_controller_node]: [Progress] completed_laps=0.063333 lap_fraction=0.063333
+[ROS] [drone_controller_node-1] [ERROR] [1778679836.703096160] [drone_controller_node]: [Crash] collision=true down_m=0.064 ground_contact_s=1.006 completed_laps=0.063530 lap_fraction=0.063530
+[mpcc_pp_gazebo_trial] received signal 15; cleaning up

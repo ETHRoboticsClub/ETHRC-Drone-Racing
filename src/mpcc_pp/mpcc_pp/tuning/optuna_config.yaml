@@ -20,15 +20,15 @@ base_parameters: src/mpcc_pp/mpcc_pp/parameters.yaml
 
 # Directory for study.db, trial directories, logs, generated trial YAML files,
 # best_parameters.yaml, and best_summary.json.
-output_dir: src/mpcc_pp/optuna_test
+output_dir: src/mpcc_pp/optuna_turbo_1
 
 # Optuna study identity.
 # If study.db already exists with this study name, Optuna resumes it.
-study_name: test
+study_name: optuna_turbo_1
 
 # Number of Optuna parameter vectors to evaluate. With repeats_per_trial: 3,
 # n_trials: 30 means 90 fresh simulator episodes.
-n_trials: 1
+n_trials: 10
 
 # Optuna sampler: "tpe" is the robust default. "random" is a baseline.
 # "gp" requires an Optuna version that provides GPSampler.
@@ -39,8 +39,8 @@ seed: null
 # TuRBO sampler settings. These are used only when sampler: turbo.
 # null lets OptunaHub use its TuRBOSampler default.
 # n_startup_trials is the number of initial trials per trust region.
-n_startup_trials: null
-n_trust_region: null
+n_startup_trials: 16
+n_trust_region: 8
 
 # PX4/Gazebo settings passed to mpcc_pp_gazebo_trial.
 px4_model: gz_zephyros
@@ -78,11 +78,18 @@ repeat_aggregation: mean
 timeout_s: 120.0
 
 # Reward parameters:
-#   complete:   reward = 1000 - sum(lap_times) - gamma * solver_fail_rate
-#   incomplete: reward = 1000 * progress - timeout_s - gamma * solver_fail_rate
+#   complete:   reward = 1000 - sum(lap_times)
+#                        - gamma * solver_fail_rate
+#                        - missed_gate_penalty_multiplier * missed_gates
+#   incomplete: reward = 1000 * progress
+#                        - timeout_penalty_multiplier * timeout_s
+#                        - gamma * solver_fail_rate
+#                        - missed_gate_penalty_multiplier * missed_gates
 # max_solver_fail_rate turns high solver failure rates into a hard episode
 # failure.
 gamma: 100.0
+timeout_penalty_multiplier: 4.0
+missed_gate_penalty_multiplier: 70.0
 max_solver_fail_rate: 0.30
 
 # Mirror simulator output to the terminal. Leave false for normal tuning; use

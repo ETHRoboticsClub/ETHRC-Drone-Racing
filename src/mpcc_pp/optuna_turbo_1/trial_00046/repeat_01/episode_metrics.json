@@ -1,0 +1,19 @@
+{
+  "crash": true,
+  "failure_reason": "crash",
+  "lap_times": [
+    13.41
+  ],
+  "log_path": "src/mpcc_pp/optuna_turbo_1/trial_00046/repeat_01/episode.log",
+  "log_retention": "failed",
+  "missed_gates": 4,
+  "progress": 0.4985573333333333,
+  "removed_log_files": 0,
+  "return_code": -15,
+  "reward": -262.5162666666667,
+  "solve_count": 652,
+  "solver_fail_count": 7,
+  "solver_fail_rate": 0.010736,
+  "success": false,
+  "timeout": false
+}

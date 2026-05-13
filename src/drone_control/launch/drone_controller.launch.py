@@ -24,6 +24,7 @@ def generate_launch_description():
     controller_type = LaunchConfiguration('controller_type')
     waypoints_file = LaunchConfiguration('waypoints_file')
     verbose_input = LaunchConfiguration('verbose_input')
+    simulation_mode = LaunchConfiguration('simulation_mode')
 
     controller_node = Node(
         package="drone_control",
@@ -33,6 +34,7 @@ def generate_launch_description():
             'controller_type': controller_type,
             'waypoints_file': waypoints_file,
             'verbose_input': verbose_input,
+            'simulation_mode': simulation_mode,
         }],
         output="screen",
     )
@@ -54,6 +56,8 @@ def generate_launch_description():
             description='Path to YAML file with waypoints for the controller'),
         DeclareLaunchArgument('verbose_input', default_value='false',
             description='Print thrust and body-rate debug info'),
+        DeclareLaunchArgument('simulation_mode', default_value='false',
+            description='Enable simulation-only Optuna progress/crash/missed-gate metrics'),
 
         # Start controller first, then mavsdk_client after 3s delay
         controller_node,

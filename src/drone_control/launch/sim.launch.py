@@ -38,6 +38,7 @@ def generate_launch_description():
                 'waypoints_file':  LaunchConfiguration('waypoints_file'),
                 'plotjuggler':     LaunchConfiguration('plotjuggler'),
                 'verbose_input':   LaunchConfiguration('verbose_input'),
+                'simulation_mode': 'true',
             }.items(),
         ),
 

@@ -26,6 +26,7 @@ DEFAULT_METRIC_PATTERNS = (
     r'\[Progress\]',
     r'\[Crash\]',
     r'\[Collision\]',
+    r'\[MissedGate\]',
     r'\[SolverStats\]',
 )
 

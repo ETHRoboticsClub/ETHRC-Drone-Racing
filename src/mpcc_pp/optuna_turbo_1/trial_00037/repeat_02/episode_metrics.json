@@ -1,0 +1,21 @@
+{
+  "crash": false,
+  "failure_reason": null,
+  "lap_times": [
+    13.47,
+    12.33,
+    14.97
+  ],
+  "log_path": null,
+  "log_retention": "failed",
+  "missed_gates": 8,
+  "progress": 1.0,
+  "removed_log_files": 3,
+  "return_code": -15,
+  "reward": 396.2305,
+  "solve_count": 1967,
+  "solver_fail_count": 59,
+  "solver_fail_rate": 0.029995,
+  "success": true,
+  "timeout": false
+}
