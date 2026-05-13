@@ -62,6 +62,25 @@ SOLVER_STATS_RE = re.compile(
     r"solver_fail_count=(?P<solver_fail_count>\d+).*?"
     r"solver_fail_rate=(?P<solver_fail_rate>[-+0-9.eE]+)"
 )
+PROGRESS_RE = re.compile(
+    r"(?:total_)?(?:track_)?progress(?:_fraction|_percent|_pct)?\s*=\s*"
+    r"(?P<progress>[-+0-9.eE]+)\s*(?P<percent>%?)",
+    re.IGNORECASE,
+)
+LAP_FRACTION_RE = re.compile(
+    r"(?:lap_fraction|lap_progress)\s*=\s*"
+    r"(?P<lap_fraction>[-+0-9.eE]+)\s*(?P<percent>%?)",
+    re.IGNORECASE,
+)
+COMPLETED_LAPS_RE = re.compile(
+    r"completed_laps\s*=\s*(?P<completed_laps>[-+0-9.eE]+)",
+    re.IGNORECASE,
+)
+CRASH_RE = re.compile(
+    r"\[(?:Crash|Collision)\]|\b(?:drone\s+)?crashed\b|"
+    r"\b(?:crash|crashed|collision)\s*=\s*(?:1|true|yes)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -78,6 +97,8 @@ class EpisodeMetrics:
     failure_reason: str | None = None
     reward: float | None = None
     log_path: str | None = None
+    progress: float = 0.0
+    crash: bool = False
 
 
 def _deep_merge(base: Mapping[str, Any], patch: Mapping[str, Any]) -> dict:
@@ -174,15 +195,91 @@ def _terminate_process_group(proc: subprocess.Popen, grace_s: float = 8.0) -> No
     proc.wait(timeout=grace_s)
 
 
-def _load_metrics_file(path: Path) -> EpisodeMetrics | None:
+def _clamp01(value: float) -> float:
+    return float(min(1.0, max(0.0, value)))
+
+
+def _normalise_progress(value: Any, *, is_percent: bool = False) -> float:
+    progress = float(value)
+    if is_percent or progress > 1.0:
+        progress /= 100.0
+    return _clamp01(progress)
+
+
+def _lap_progress(lap_times: list[float], laps_required: int,
+                  lap_fraction: float = 0.0) -> float:
+    completed = min(len(lap_times), laps_required)
+    if completed >= laps_required:
+        return 1.0
+    return _clamp01((completed + _clamp01(lap_fraction)) / laps_required)
+
+
+def _bool_from_metrics(value: Any) -> bool:
+    if isinstance(value, str):
+        return value.strip().lower() in ('1', 'true', 'yes', 'y')
+    return bool(value)
+
+
+def _metrics_progress(data: Mapping[str, Any], lap_times: list[float],
+                      laps_required: int) -> float:
+    """Read total-track progress from metrics JSON, falling back to laps."""
+    for key in ('progress', 'track_progress', 'progress_fraction'):
+        if data.get(key) is not None:
+            return _normalise_progress(data[key])
+    for key in ('progress_percent', 'progress_pct'):
+        if data.get(key) is not None:
+            return _normalise_progress(data[key], is_percent=True)
+    for key in ('lap_fraction', 'lap_progress'):
+        if data.get(key) is not None:
+            return _lap_progress(lap_times, laps_required,
+                                 _normalise_progress(data[key]))
+    if data.get('completed_laps') is not None:
+        completed_laps = min(float(data['completed_laps']), laps_required)
+        return _clamp01(completed_laps / laps_required)
+    return _lap_progress(lap_times, laps_required)
+
+
+def _parse_progress_line(line: str, lap_times: list[float],
+                         laps_required: int) -> float | None:
+    """Parse either total progress or current-lap progress from stdout."""
+    progress_match = PROGRESS_RE.search(line)
+    if progress_match:
+        return _normalise_progress(
+            progress_match.group('progress'),
+            is_percent=bool(progress_match.group('percent')),
+        )
+    lap_match = LAP_FRACTION_RE.search(line)
+    if lap_match:
+        lap_fraction = _normalise_progress(
+            lap_match.group('lap_fraction'),
+            is_percent=bool(lap_match.group('percent')),
+        )
+        return _lap_progress(lap_times, laps_required, lap_fraction)
+    completed_match = COMPLETED_LAPS_RE.search(line)
+    if completed_match:
+        completed_laps = min(
+            float(completed_match.group('completed_laps')),
+            laps_required,
+        )
+        return _clamp01(completed_laps / laps_required)
+    return None
+
+
+def _load_metrics_file(path: Path, laps_required: int) -> EpisodeMetrics | None:
     """Load metrics written by an external evaluator, if present."""
     if not path.exists():
         return None
     with path.open('r') as f:
         data = json.load(f)
     lap_times = [float(v) for v in data.get('lap_times', [])]
+    crash = any(
+        _bool_from_metrics(data.get(key))
+        for key in ('crash', 'crashed', 'collision')
+        if data.get(key) is not None
+    )
     return EpisodeMetrics(
-        success=bool(data.get('success', bool(lap_times))),
+        success=bool(data.get('success', len(lap_times) >= laps_required))
+        and not crash,
         lap_times=lap_times,
         solver_fail_rate=float(data.get('solver_fail_rate', 0.0)),
         solve_count=int(data.get('solve_count', 0)),
@@ -193,6 +290,8 @@ def _load_metrics_file(path: Path) -> EpisodeMetrics | None:
         reward=(None if data.get('reward') is None
                 else float(data.get('reward'))),
         log_path=data.get('log_path'),
+        progress=_metrics_progress(data, lap_times, laps_required),
+        crash=crash,
     )
 
 
@@ -225,6 +324,8 @@ def run_episode(command_template: str,
     lap_times: list[float] = []
     solver_status_fail_count = 0
     latest_solver_stats: dict[str, float | int] = {}
+    progress = 0.0
+    crash = False
     timed_out = False
     completed_at: float | None = None
 
@@ -264,9 +365,21 @@ def run_episode(command_template: str,
                     lap_match = LAP_RE.search(line)
                     if lap_match:
                         lap_times.append(float(lap_match.group(1)))
+                        progress = max(
+                            progress,
+                            _lap_progress(lap_times, laps_required),
+                        )
                         if (len(lap_times) >= laps_required
                                 and completed_at is None):
                             completed_at = time.monotonic()
+
+                    parsed_progress = _parse_progress_line(
+                        line, lap_times, laps_required)
+                    if parsed_progress is not None:
+                        progress = max(progress, parsed_progress)
+
+                    if CRASH_RE.search(line):
+                        crash = True
 
                     status_match = SOLVER_STATUS_RE.search(line)
                     if status_match:
@@ -282,6 +395,10 @@ def run_episode(command_template: str,
                             'solver_fail_rate': float(
                                 stats_match.group('solver_fail_rate')),
                         }
+
+                if crash:
+                    _terminate_process_group(proc)
+                    break
 
                 if (completed_at is not None
                         and time.monotonic() - completed_at > 2.0):
@@ -317,10 +434,22 @@ def run_episode(command_template: str,
             log_file.write(line)
             if stream_logs:
                 print(line, end='')
+            parsed_progress = _parse_progress_line(
+                line, lap_times, laps_required)
+            if parsed_progress is not None:
+                progress = max(progress, parsed_progress)
+            if CRASH_RE.search(line):
+                crash = True
 
-    external_metrics = _load_metrics_file(metrics_file)
+    external_metrics = _load_metrics_file(metrics_file, laps_required)
     if external_metrics is not None:
         external_metrics.log_path = str(log_path)
+        external_metrics.progress = max(external_metrics.progress, progress)
+        external_metrics.crash = external_metrics.crash or crash
+        if external_metrics.crash:
+            external_metrics.success = False
+            external_metrics.failure_reason = (
+                external_metrics.failure_reason or 'crash')
         return external_metrics
 
     solve_count = int(latest_solver_stats.get('solve_count', 0))
@@ -333,9 +462,12 @@ def run_episode(command_template: str,
     else:
         solver_fail_rate = 0.0
 
-    success = len(lap_times) >= laps_required and not timed_out
+    progress = max(progress, _lap_progress(lap_times, laps_required))
+    success = len(lap_times) >= laps_required and not timed_out and not crash
     failure_reason = None
-    if timed_out:
+    if crash:
+        failure_reason = 'crash'
+    elif timed_out:
         failure_reason = 'timeout'
     elif return_code not in (0, None) and len(lap_times) < laps_required:
         failure_reason = f'command_failed:{return_code}'
@@ -352,16 +484,19 @@ def run_episode(command_template: str,
         return_code=return_code,
         failure_reason=failure_reason,
         log_path=str(log_path),
+        progress=progress,
+        crash=crash,
     )
 
 
 def compute_reward(metrics: EpisodeMetrics, laps_required: int,
-                   gamma: float, failed_reward: float,
+                   timeout_s: float, gamma: float,
                    max_solver_fail_rate: float) -> float:
     """Compute the scalar reward maximized by Optuna.
 
-    Higher is better: fast laps are less negative, solver failures are penalized,
-    and missing laps receive a large negative penalty.
+    Higher is better. Completed non-crash episodes score from total lap time.
+    Incomplete/crashed episodes score from total-track progress, so Optuna can
+    distinguish an immediate crash from one that nearly finished the race.
     """
     if metrics.reward is not None:
         return float(metrics.reward)
@@ -371,18 +506,24 @@ def compute_reward(metrics: EpisodeMetrics, laps_required: int,
         metrics.failure_reason = (
             f"solver_fail_rate>{max_solver_fail_rate:.3f}")
 
-    if not metrics.lap_times:
-        return float(failed_reward)
-
-    lap_times = metrics.lap_times[:laps_required]
-    mean_lap_time = sum(lap_times) / len(lap_times)
-    missing_laps = max(0, laps_required - len(lap_times))
-    missing_lap_penalty = abs(float(failed_reward)) / max(1, laps_required)
-    return float(
-        -mean_lap_time
-        - gamma * metrics.solver_fail_rate
-        - missing_laps * missing_lap_penalty
+    metrics.progress = max(
+        metrics.progress,
+        _lap_progress(metrics.lap_times, laps_required),
     )
+    complete = (
+        metrics.success
+        and not metrics.crash
+        and len(metrics.lap_times) >= laps_required
+    )
+    if complete:
+        base_reward = 1000.0 - sum(metrics.lap_times[:laps_required])
+    else:
+        base_reward = 1000.0 * metrics.progress - timeout_s
+        if metrics.crash:
+            metrics.success = False
+            metrics.failure_reason = metrics.failure_reason or 'crash'
+
+    return float(base_reward - gamma * metrics.solver_fail_rate)
 
 
 def aggregate_rewards(rewards: list[float], method: str) -> float:
@@ -635,8 +776,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help='Maximum wall-clock seconds per episode repeat.')
     parser.add_argument('--gamma', type=float, default=100.0,
                         help='Solver-failure penalty in the reward.')
-    parser.add_argument('--failed-reward', type=float, default=-1e6,
-                        help='Reward assigned to failed episodes.')
     parser.add_argument('--max-solver-fail-rate', type=float, default=0.30,
                         help='Hard failure threshold for solver failures.')
     parser.add_argument('--stream-logs', action=argparse.BooleanOptionalAction,
@@ -769,8 +908,8 @@ def main(argv: list[str] | None = None) -> int:
             reward = compute_reward(
                 metrics=metrics,
                 laps_required=args.laps_per_episode,
+                timeout_s=args.timeout_s,
                 gamma=args.gamma,
-                failed_reward=args.failed_reward,
                 max_solver_fail_rate=args.max_solver_fail_rate,
             )
             metrics.reward = reward
@@ -795,6 +934,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"{repeat_idx + 1}/{args.repeats_per_trial}] "
                 f"reward={reward:.6f} success={metrics.success} "
                 f"laps={len(metrics.lap_times)}/{args.laps_per_episode} "
+                f"progress={metrics.progress:.3f} "
+                f"crash={metrics.crash} "
                 f"solver_fail_rate={metrics.solver_fail_rate:.3f} "
                 f"return_code={metrics.return_code} "
                 f"reason={metrics.failure_reason or 'completed'} "
@@ -809,6 +950,11 @@ def main(argv: list[str] | None = None) -> int:
             float(record['solver_fail_rate'])
             for record in repeat_records
         ) / len(repeat_records)
+        mean_progress = sum(
+            float(record['progress'])
+            for record in repeat_records
+        ) / len(repeat_records)
+        crash_count = sum(1 for record in repeat_records if record['crash'])
         summary = {
             'reward': reward,
             'repeat_count': args.repeats_per_trial,
@@ -819,7 +965,9 @@ def main(argv: list[str] | None = None) -> int:
             'min_repeat_reward': aggregate_rewards(repeat_rewards, 'min'),
             'success': success_count == len(repeat_records),
             'successful_repeats': success_count,
+            'crashed_repeats': crash_count,
             'laps_per_episode': args.laps_per_episode,
+            'mean_progress': mean_progress,
             'mean_solver_fail_rate': mean_solver_fail_rate,
             'repeats': repeat_records,
         }
@@ -828,6 +976,8 @@ def main(argv: list[str] | None = None) -> int:
             f"[trial {trial.number:05d}] reward={reward:.6f} "
             f"aggregation={args.repeat_aggregation} "
             f"successful_repeats={success_count}/{len(repeat_records)} "
+            f"crashed_repeats={crash_count}/{len(repeat_records)} "
+            f"mean_progress={mean_progress:.3f} "
             f"mean_solver_fail_rate={mean_solver_fail_rate:.3f} "
             f"metrics={metrics_path}",
             flush=True,
@@ -839,6 +989,8 @@ def main(argv: list[str] | None = None) -> int:
         trial.set_user_attr('repeat_aggregation', args.repeat_aggregation)
         trial.set_user_attr('repeat_rewards', repeat_rewards)
         trial.set_user_attr('successful_repeats', success_count)
+        trial.set_user_attr('crashed_repeats', crash_count)
+        trial.set_user_attr('mean_progress', mean_progress)
         trial.set_user_attr('mean_solver_fail_rate', mean_solver_fail_rate)
         trial.set_user_attr('success', summary['success'])
         return reward

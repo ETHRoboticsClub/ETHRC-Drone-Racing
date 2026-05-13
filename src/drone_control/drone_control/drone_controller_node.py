@@ -173,6 +173,11 @@ class DroneController(Node):
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('verbose_input', False)
         self.declare_parameter('speed_report_interval_sec', 5.0)
+        self.declare_parameter('optuna_progress_interval_sec', 0.5)
+        self.declare_parameter('optuna_crash_down_threshold_m', -0.02)
+        self.declare_parameter('optuna_airborne_down_threshold_m', -0.05)
+        self.declare_parameter('optuna_crash_detection_delay_sec', 5.0)
+        self.declare_parameter('optuna_ground_contact_duration_sec', 1.0)
         self.declare_parameter('threshold.positon', 0.1)  # typo kept for backwards compatibility
         self.declare_parameter('threshold.velocity', 0.02)
         self.declare_parameter('threshold.angular_velocity', 0.02)
@@ -197,6 +202,26 @@ class DroneController(Node):
         self._speed_sum_kmh = 0.0
         self._speed_max_kmh = 0.0
         self._speed_samples = 0
+        self._optuna_progress_interval_s = max(
+            0.1,
+            self.get_parameter(
+                'optuna_progress_interval_sec').get_parameter_value().double_value)
+        self._optuna_crash_down_threshold_m = self.get_parameter(
+            'optuna_crash_down_threshold_m').get_parameter_value().double_value
+        self._optuna_airborne_down_threshold_m = self.get_parameter(
+            'optuna_airborne_down_threshold_m').get_parameter_value().double_value
+        self._optuna_crash_detection_delay_s = max(
+            0.0,
+            self.get_parameter(
+                'optuna_crash_detection_delay_sec').get_parameter_value().double_value)
+        self._optuna_ground_contact_duration_s = max(
+            0.0,
+            self.get_parameter(
+                'optuna_ground_contact_duration_sec').get_parameter_value().double_value)
+        self._optuna_progress_last_report = 0.0
+        self._optuna_liftoff_time = None
+        self._optuna_ground_contact_start = None
+        self._optuna_crash_reported = False
         self._path_timer_start = None
         self._last_lap_count = 0
         self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
@@ -409,6 +434,10 @@ class DroneController(Node):
 
         self.get_logger().info("MPCC: stabilisation done, starting racing loop")
         self._reset_path_timer()
+        self._optuna_progress_last_report = 0.0
+        self._optuna_liftoff_time = None
+        self._optuna_ground_contact_start = None
+        self._optuna_crash_reported = False
 
         # Phase 2: MPCC racing loop — runs until stop_hover is set externally
         while rclpy.ok() and not self.stop_hover.is_set():
@@ -417,6 +446,10 @@ class DroneController(Node):
             cmd = self.controller.controller_update(current_state, current_state)
             self._publish_command(cmd, current_state)
             self._report_mpcc_lap_if_completed()
+            if self._report_optuna_crash_if_detected(current_state):
+                self.stop_hover.set()
+                break
+            self._report_optuna_progress()
             # Republish reference path once after lead-in is added (first step)
             if isinstance(self.controller, _MPCC_CLASSES) and self.controller.path_updated:
                 self._publish_mpcc_reference_path()
@@ -743,6 +776,61 @@ class DroneController(Node):
     def _reset_path_timer(self) -> None:
         self._path_timer_start = time.monotonic()
         self._last_lap_count = int(getattr(self.controller, 'lap_count', 0))
+
+    def _mpcc_completed_laps(self) -> tuple[float, float]:
+        """Return lap-equivalent progress and current-lap fraction."""
+        lap_count = float(getattr(self.controller, 'lap_count', 0))
+        path_length = float(getattr(self.controller, 'path_length', 0.0))
+        theta = float(getattr(self.controller, 'current_theta', 0.0))
+        lap_fraction = 0.0
+        if path_length > 1e-9:
+            lap_fraction = float(np.clip(theta / path_length, 0.0, 1.0))
+        return lap_count + lap_fraction, lap_fraction
+
+    def _report_optuna_progress(self) -> None:
+        """Emit compact progress lines consumed by mpcc_pp_optuna_tune."""
+        if not isinstance(self.controller, _MPCC_CLASSES):
+            return
+        now = time.monotonic()
+        if now - self._optuna_progress_last_report < self._optuna_progress_interval_s:
+            return
+        completed_laps, lap_fraction = self._mpcc_completed_laps()
+        self.get_logger().info(
+            f'[Progress] completed_laps={completed_laps:.6f} '
+            f'lap_fraction={lap_fraction:.6f}')
+        self._optuna_progress_last_report = now
+
+    def _report_optuna_crash_if_detected(self, current_state: np.ndarray) -> bool:
+        """Detect sustained ground contact after liftoff and emit one crash line."""
+        if self._optuna_crash_reported:
+            return True
+        now_s = self.get_clock().now().nanoseconds * 1e-9
+        down_m = float(current_state[2])
+        if down_m <= self._optuna_airborne_down_threshold_m:
+            if self._optuna_liftoff_time is None:
+                self._optuna_liftoff_time = now_s
+            self._optuna_ground_contact_start = None
+            return False
+        if self._optuna_liftoff_time is None:
+            return False
+        if now_s - self._optuna_liftoff_time < self._optuna_crash_detection_delay_s:
+            return False
+        if down_m < self._optuna_crash_down_threshold_m:
+            self._optuna_ground_contact_start = None
+            return False
+        if self._optuna_ground_contact_start is None:
+            self._optuna_ground_contact_start = now_s
+            return False
+        if now_s - self._optuna_ground_contact_start < self._optuna_ground_contact_duration_s:
+            return False
+        completed_laps, lap_fraction = self._mpcc_completed_laps()
+        self.get_logger().error(
+            f'[Crash] collision=true down_m={down_m:.3f} '
+            f'ground_contact_s={now_s - self._optuna_ground_contact_start:.3f} '
+            f'completed_laps={completed_laps:.6f} '
+            f'lap_fraction={lap_fraction:.6f}')
+        self._optuna_crash_reported = True
+        return True
 
     def _report_mpcc_lap_if_completed(self) -> None:
         if not isinstance(self.controller, _MPCC_CLASSES):

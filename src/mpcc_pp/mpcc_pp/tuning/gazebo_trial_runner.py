@@ -23,6 +23,9 @@ DEFAULT_READY_PATTERNS = (
 
 DEFAULT_METRIC_PATTERNS = (
     r'\[Lap\]',
+    r'\[Progress\]',
+    r'\[Crash\]',
+    r'\[Collision\]',
     r'\[SolverStats\]',
 )
 

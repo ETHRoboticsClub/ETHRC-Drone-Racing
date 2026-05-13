@@ -78,12 +78,11 @@ repeat_aggregation: mean
 timeout_s: 120.0
 
 # Reward parameters:
-#   reward = -mean_lap_time - gamma * solver_fail_rate
-# failed_reward is used when an episode fails, times out, or does not complete
-# enough laps. max_solver_fail_rate turns high solver failure rates into a hard
-# episode failure.
+#   complete:   reward = 1000 - sum(lap_times) - gamma * solver_fail_rate
+#   incomplete: reward = 1000 * progress - timeout_s - gamma * solver_fail_rate
+# max_solver_fail_rate turns high solver failure rates into a hard episode
+# failure.
 gamma: 100.0
-failed_reward: -1000000.0
 max_solver_fail_rate: 0.30
 
 # Mirror simulator output to the terminal. Leave false for normal tuning; use
