@@ -30,7 +30,7 @@ def generate_launch_description():
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
-    arg_view_stream = DeclareLaunchArgument('view_stream', default_value='false',
+    arg_view_stream = DeclareLaunchArgument('view_stream', default_value='true',
                                                description='Start the secondary RTP/H.264 video path')
     
     # Video defaults: 720p @ 60fps is optimized for racing

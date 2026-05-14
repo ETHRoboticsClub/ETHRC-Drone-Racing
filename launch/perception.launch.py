@@ -128,7 +128,7 @@ def generate_launch_description():
             DeclareLaunchArgument("use_gate_detection", default_value="true"),
             DeclareLaunchArgument("use_vio", default_value="true"),
             DeclareLaunchArgument("use_ekf", default_value="true"),
-            DeclareLaunchArgument("use_video_stream", default_value="false"),
+            DeclareLaunchArgument("use_video_stream", default_value="true"),
             DeclareLaunchArgument("camera_width", default_value="1280"),
             DeclareLaunchArgument("camera_height", default_value="720"),
             DeclareLaunchArgument("camera_fps", default_value="60"),
