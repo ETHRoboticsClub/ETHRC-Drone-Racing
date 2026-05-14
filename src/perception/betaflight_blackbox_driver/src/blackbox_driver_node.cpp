@@ -3,6 +3,8 @@
 #include <string>
 #include <chrono>
 #include <cmath>
+#include <algorithm>
+#include <mutex>
 #include <thread>
 #include <sstream>
 #include <iomanip>
@@ -11,6 +13,7 @@ extern "C" {
 #include <libserialport.h>
 }
 #include <rclcpp/rclcpp.hpp>
+#include <builtin_interfaces/msg/time.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
 #include <fcntl.h>
@@ -28,7 +31,7 @@ public:
         this->declare_parameter("port", "/dev/ttyTHS1");
         this->declare_parameter("baud", 1500000);
         this->declare_parameter("imu_topic", "/imu0");
-        this->declare_parameter("target_hz", 400);
+        this->declare_parameter("target_hz", 150);
         this->declare_parameter("intra_skip_fields", 13);
         this->declare_parameter("debug_raw", false);
         this->declare_parameter("enable_msp_control", false);
@@ -37,11 +40,18 @@ public:
         this->declare_parameter("rpm_topic", "/motor_rpm");
         this->declare_parameter("battery_topic", "/battery");
         this->declare_parameter("vbat_scale", 0.01); // Betaflight vbat is usually 10mV/unit
+        this->declare_parameter("use_blackbox_time_for_stamp", false);
 
         std::string port_name = this->get_parameter("port").as_string();
         int baud = this->get_parameter("baud").as_int();
-        std::string imu_topic = this->get_parameter("imu_topic").as_string();
-        target_hz_ = this->get_parameter("target_hz").as_int();
+        imu_topic_ = this->get_parameter("imu_topic").as_string();
+        int requested_target_hz = this->get_parameter("target_hz").as_int();
+        target_hz_ = std::max(kMinImuPublishHz, std::min(requested_target_hz, kMaxImuPublishHz));
+        publish_period_us_ = 1000000ULL / static_cast<uint64_t>(target_hz_);
+        if (target_hz_ != requested_target_hz) {
+            RCLCPP_WARN(this->get_logger(), "Clamped target_hz from %d to %d Hz (valid range: %d-%d Hz)",
+                        requested_target_hz, target_hz_, kMinImuPublishHz, kMaxImuPublishHz);
+        }
         intra_skip_fields_ = this->get_parameter("intra_skip_fields").as_int();
         debug_raw_ = this->get_parameter("debug_raw").as_bool();
         bool enable_msp_control = this->get_parameter("enable_msp_control").as_bool();
@@ -50,10 +60,13 @@ public:
         std::string rpm_topic = this->get_parameter("rpm_topic").as_string();
         std::string battery_topic = this->get_parameter("battery_topic").as_string();
         vbat_scale_ = this->get_parameter("vbat_scale").as_double();
+        use_blackbox_time_for_stamp_ = this->get_parameter("use_blackbox_time_for_stamp").as_bool();
 
-        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic, 10);
-        rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, 10);
-        battery_pub_ = this->create_publisher<sensor_msgs::msg::BatteryState>(battery_topic, 10);
+        auto qos_profile = rclcpp::SensorDataQoS();
+        qos_profile.keep_last(1);
+        imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic_, qos_profile);
+        rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, qos_profile);
+        battery_pub_ = this->create_publisher<sensor_msgs::msg::BatteryState>(battery_topic, qos_profile);
         
         if (enable_msp_control) {
             // Subscription for Shared UART Control
@@ -113,14 +126,20 @@ public:
         }
 
         sp_flush(port_, SP_BUF_BOTH);
-        RCLCPP_INFO(this->get_logger(), "Connected to Betaflight Blackbox on %s at %d baud (Debug: %s)", 
-                    port_name.c_str(), baud, debug_raw_ ? "ON" : "OFF");
+        RCLCPP_INFO(this->get_logger(),
+                    "Connected to Betaflight Blackbox on %s at %d baud (IMU: %d Hz, best-effort QoS, timer-paced latest sample, stamp source: %s, Debug: %s)",
+                    port_name.c_str(), baud, target_hz_,
+                    use_blackbox_time_for_stamp_ ? "blackbox time" : "ROS publish timer",
+                    debug_raw_ ? "ON" : "OFF");
         
         if (debug_raw_) {
             raw_dump_file_ = fopen("/tmp/capture.bbl", "wb");
             RCLCPP_INFO(this->get_logger(), "Raw binary dumping enabled -> /tmp/capture.bbl");
         }
         buffer_.resize(CIRCULAR_SIZE);
+        imu_publish_timer_ = this->create_wall_timer(
+            std::chrono::microseconds(publish_period_us_),
+            std::bind(&BlackboxDriverNode::publishLatestIMU, this));
         thread_ = std::thread(&BlackboxDriverNode::readLoop, this);
         
         // RPM Health Check Timer (every 10 seconds)
@@ -177,9 +196,12 @@ private:
     bool headers_locked_ = false;
     std::string header_line_buffer_;
 
-    int target_hz_ = 400;
+    static constexpr int kMinImuPublishHz = 100;
+    static constexpr int kMaxImuPublishHz = 200;
+    static constexpr uint64_t kBlackboxTimeWrapUs = 1ULL << 32;
+    int target_hz_ = 150;
+    uint64_t publish_period_us_ = 1000000ULL / 150ULL;
     int intra_skip_fields_ = 13;
-    int downsample_factor_ = -1;
     bool debug_raw_ = false;
     std::chrono::steady_clock::time_point last_warning_time_;
     std::chrono::steady_clock::time_point first_data_time_;
@@ -190,7 +212,12 @@ private:
     bool has_gyro_mapped_ = false;
     bool has_accel_mapped_ = false;
     bool time_synced_ = false;
-    int64_t time_offset_us_ = 0;
+    int64_t time_offset_ns_ = 0;
+    bool has_last_blackbox_time_ = false;
+    uint32_t last_blackbox_time_us_ = 0;
+    uint64_t blackbox_time_epoch_us_ = 0;
+    bool has_last_imu_stamp_ = false;
+    int64_t last_imu_stamp_ns_ = 0;
 
     struct sp_port* port_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
@@ -198,15 +225,23 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr battery_pub_;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr att_sub_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
+    rclcpp::TimerBase::SharedPtr imu_publish_timer_;
     rclcpp::TimerBase::SharedPtr health_check_timer_;
     
     int motor_poles_ = 14;
+    std::string imu_topic_;
     bool motor_poles_from_header_ = false;
     bool has_erpm_mapped_ = false;
     bool has_motor_mapped_ = false;
     bool has_vbat_mapped_ = false;
     bool erpm_valid_ = false;
     double vbat_scale_ = 0.01;
+    bool use_blackbox_time_for_stamp_ = false;
+    std::mutex timestamp_mutex_;
+    std::mutex imu_mutex_;
+    FrameData latest_imu_frame_ = {0};
+    uint64_t latest_imu_sample_time_us_ = 0;
+    bool has_pending_imu_sample_ = false;
     std::chrono::steady_clock::time_point last_nonzero_motor_time_;
     std::chrono::steady_clock::time_point last_erpm_check_time_;
     
@@ -648,61 +683,137 @@ private:
         }
     }
 
+    bool updateBlackboxSampleTime(uint64_t& sample_time_us) {
+        std::lock_guard<std::mutex> lock(timestamp_mutex_);
+        const uint32_t raw_time_us = last_frame_.time;
+
+        if (has_last_blackbox_time_) {
+            if (raw_time_us == last_blackbox_time_us_) {
+                RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                    "Dropping IMU sample with repeated Betaflight timestamp (%u us)", raw_time_us);
+                return false;
+            }
+
+            if (raw_time_us < last_blackbox_time_us_) {
+                const uint32_t backwards_us = last_blackbox_time_us_ - raw_time_us;
+                if (backwards_us > (1U << 31)) {
+                    blackbox_time_epoch_us_ += kBlackboxTimeWrapUs;
+                } else {
+                    RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+                        "Betaflight timestamp jumped backwards by %u us; resynchronizing IMU time",
+                        backwards_us);
+                    blackbox_time_epoch_us_ = 0;
+                    time_synced_ = false;
+                }
+            }
+        }
+
+        sample_time_us = blackbox_time_epoch_us_ + static_cast<uint64_t>(raw_time_us);
+        last_blackbox_time_us_ = raw_time_us;
+        has_last_blackbox_time_ = true;
+        return true;
+    }
+
+    builtin_interfaces::msg::Time stampFromNanoseconds(int64_t stamp_ns) const {
+        if (stamp_ns < 0) {
+            stamp_ns = 0;
+        }
+
+        builtin_interfaces::msg::Time stamp;
+        stamp.sec = static_cast<int32_t>(stamp_ns / 1000000000LL);
+        stamp.nanosec = static_cast<uint32_t>(stamp_ns % 1000000000LL);
+        return stamp;
+    }
+
+    builtin_interfaces::msg::Time makeImuStamp(uint64_t sample_time_us) {
+        std::lock_guard<std::mutex> lock(timestamp_mutex_);
+        const int64_t sample_time_ns = static_cast<int64_t>(sample_time_us) * 1000LL;
+        const int64_t now_ns = this->now().nanoseconds();
+        const int64_t candidate_offset_ns = now_ns - sample_time_ns;
+
+        if (!time_synced_) {
+            time_offset_ns_ = candidate_offset_ns;
+            time_synced_ = true;
+        } else if (candidate_offset_ns < time_offset_ns_) {
+            // If we are draining buffered data faster than real time, keep stamps out of the future.
+            time_offset_ns_ = candidate_offset_ns;
+        }
+
+        int64_t stamp_ns = sample_time_ns + time_offset_ns_;
+        if (has_last_imu_stamp_ && stamp_ns <= last_imu_stamp_ns_) {
+            stamp_ns = last_imu_stamp_ns_ + 1;
+        }
+
+        last_imu_stamp_ns_ = stamp_ns;
+        has_last_imu_stamp_ = true;
+        return stampFromNanoseconds(stamp_ns);
+    }
+
+    builtin_interfaces::msg::Time makePublishTimerStamp() {
+        std::lock_guard<std::mutex> lock(timestamp_mutex_);
+        int64_t stamp_ns = this->now().nanoseconds();
+        if (has_last_imu_stamp_ && stamp_ns <= last_imu_stamp_ns_) {
+            stamp_ns = last_imu_stamp_ns_ + 1;
+        }
+
+        last_imu_stamp_ns_ = stamp_ns;
+        has_last_imu_stamp_ = true;
+        return stampFromNanoseconds(stamp_ns);
+    }
+
     void publishIMU() {
         static int total_frames = 0;
         if (++total_frames % 5000 == 0) {
             RCLCPP_INFO(this->get_logger(), "Parsed 5000 frames. Last Accel Z: %d", last_frame_.accel[2]);
         }
 
-        if (downsample_factor_ <= 0) {
-            static auto start_detect = std::chrono::steady_clock::now();
-            static int raw_detect_count = 0;
-            if (raw_detect_count == 0) start_detect = std::chrono::steady_clock::now();
-            raw_detect_count++;
-            auto now = std::chrono::steady_clock::now();
-            double elapsed = std::chrono::duration<double>(now - start_detect).count();
-            if (elapsed >= 1.0) {
-                int est_hz = raw_detect_count / elapsed;
-                downsample_factor_ = std::max(1, est_hz / target_hz_);
-                RCLCPP_INFO(this->get_logger(), "Detected IMU at %d Hz. Downsampling by %d to reach %d Hz", 
-                            est_hz, downsample_factor_, target_hz_);
-            }
+        uint64_t sample_time_us = 0;
+        if (!updateBlackboxSampleTime(sample_time_us)) {
             return;
         }
 
-        static int samples_count = 0;
-        if (++samples_count >= downsample_factor_) {
-            auto msg = sensor_msgs::msg::Imu();
-            
-            // Hardware Timestamping Logic
-            int64_t current_ros_us = this->now().nanoseconds() / 1000;
-            int64_t current_fc_us = last_frame_.time;
-
-            if (!time_synced_) {
-                time_offset_us_ = current_ros_us - current_fc_us;
-                time_synced_ = true;
-                RCLCPP_INFO(this->get_logger(), "Time synced! Offset: %ld us", time_offset_us_);
-            }
-
-            int64_t true_capture_time_us = current_fc_us + time_offset_us_;
-            msg.header.stamp = rclcpp::Time(true_capture_time_us * 1000); // Back to nanoseconds
-            msg.header.frame_id = "imu_link";
-            
-            const float G_TO_MS2 = 9.80665f;
-            const float ACCEL_SCALE = 1.0f / 2048.0f;  // acc_1G=2048 confirmed from header
-            const float GYRO_SCALE = M_PI / 180.0f;    // gyroADC is already deg/s, only need deg→rad
-
-            msg.linear_acceleration.x = last_frame_.accel[0] * ACCEL_SCALE * G_TO_MS2;
-            msg.linear_acceleration.y = last_frame_.accel[1] * ACCEL_SCALE * G_TO_MS2;
-            msg.linear_acceleration.z = last_frame_.accel[2] * ACCEL_SCALE * G_TO_MS2;
-            
-            msg.angular_velocity.x = last_frame_.gyro[0] * GYRO_SCALE;
-            msg.angular_velocity.y = last_frame_.gyro[1] * GYRO_SCALE;
-            msg.angular_velocity.z = last_frame_.gyro[2] * GYRO_SCALE;
-            
-            imu_pub_->publish(msg);
-            samples_count = 0;
+        {
+            std::lock_guard<std::mutex> lock(imu_mutex_);
+            latest_imu_frame_ = last_frame_;
+            latest_imu_sample_time_us_ = sample_time_us;
+            has_pending_imu_sample_ = true;
         }
+    }
+
+    void publishLatestIMU() {
+        FrameData frame = {};
+        uint64_t sample_time_us = 0;
+
+        {
+            std::lock_guard<std::mutex> lock(imu_mutex_);
+            if (!has_pending_imu_sample_) {
+                return;
+            }
+            frame = latest_imu_frame_;
+            sample_time_us = latest_imu_sample_time_us_;
+            has_pending_imu_sample_ = false;
+        }
+
+        auto msg = sensor_msgs::msg::Imu();
+
+        msg.header.stamp = use_blackbox_time_for_stamp_
+            ? makeImuStamp(sample_time_us)
+            : makePublishTimerStamp();
+        msg.header.frame_id = "imu_link";
+
+        const float G_TO_MS2 = 9.80665f;
+        const float ACCEL_SCALE = 1.0f / 2048.0f;  // acc_1G=2048 confirmed from header
+        const float GYRO_SCALE = M_PI / 180.0f;    // gyroADC is already deg/s, only need deg→rad
+
+        msg.linear_acceleration.x = frame.accel[0] * ACCEL_SCALE * G_TO_MS2;
+        msg.linear_acceleration.y = frame.accel[1] * ACCEL_SCALE * G_TO_MS2;
+        msg.linear_acceleration.z = frame.accel[2] * ACCEL_SCALE * G_TO_MS2;
+
+        msg.angular_velocity.x = frame.gyro[0] * GYRO_SCALE;
+        msg.angular_velocity.y = frame.gyro[1] * GYRO_SCALE;
+        msg.angular_velocity.z = frame.gyro[2] * GYRO_SCALE;
+
+        imu_pub_->publish(msg);
     }
 
     void publishRPM() {
@@ -723,15 +834,14 @@ private:
     }
 
     void publishBattery() {
-        if (!has_vbat_mapped_ || !time_synced_) return;
+        if (!has_vbat_mapped_) return;
         
         static int battery_subsample = 0;
         if (++battery_subsample < 40) return; // Publish at ~10Hz if IMU is 400Hz
         battery_subsample = 0;
 
         auto msg = sensor_msgs::msg::BatteryState();
-        int64_t true_capture_time_us = last_frame_.time + time_offset_us_;
-        msg.header.stamp = rclcpp::Time(true_capture_time_us * 1000);
+        msg.header.stamp = this->now();
         msg.header.frame_id = "imu_link";
         msg.voltage = last_frame_.vbat * (float)vbat_scale_;
         msg.current = std::numeric_limits<float>::quiet_NaN();
@@ -748,6 +858,13 @@ private:
     }
 
     void rpmHealthCheck() {
+        const size_t imu_publishers = this->count_publishers(imu_topic_);
+        if (imu_publishers > 1) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 10000,
+                "Detected %zu publishers on %s. Foxglove may show interleaved header stamps if another IMU node is active.",
+                imu_publishers, imu_topic_.c_str());
+        }
+
         if (has_erpm_mapped_ && erpm_valid_) {
             bool all_zero = true;
             bool motor_spinning = false;

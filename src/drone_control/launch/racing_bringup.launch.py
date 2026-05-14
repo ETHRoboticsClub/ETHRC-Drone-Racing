@@ -27,6 +27,8 @@ def generate_launch_description():
     arg_msp_port = DeclareLaunchArgument('msp_port', default_value=default_msp_port,
                                             description='Dedicated UART/USB-VCP for MSP Control commands')
     arg_attitude_topic = DeclareLaunchArgument('attitude_cmd_topic', default_value='/drone_attitude_cmd')
+    arg_target_hz = DeclareLaunchArgument('target_hz', default_value='150',
+                                          description='Target frequency for the published IMU messages')
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
@@ -103,6 +105,7 @@ def generate_launch_description():
             'port': LaunchConfiguration('imu_port'),
             'baud': 1500000,
             'imu_topic': '/imu0',
+            'target_hz': LaunchConfiguration('target_hz'),
             'enable_msp_control': False, # Explicitly disabled in separate port mode
             'motor_poles': 14,
             'rpm_topic': '/motor_rpm',
@@ -370,6 +373,7 @@ def generate_launch_description():
         arg_imu_port,
         arg_msp_port,
         arg_attitude_topic,
+        arg_target_hz,
         arg_use_vicon,
         arg_use_rc_sim,
         arg_view_stream,

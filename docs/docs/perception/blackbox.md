@@ -9,7 +9,7 @@ The `betaflight_blackbox_driver` is a high-performance ROS 2 node designed to st
 Unlike standard MSP-based telemetry, this driver utilizes the **Betaflight Blackbox** serial protocol. This allows for significantly higher data rates (up to 2kHz+), which is critical for low-latency control and high-speed visual-inertial odometry (VIO).
 
 ### Key Features
-- **High-Rate IMU**: Streams Accelerometer and Gyroscope data at the PID loop rate (downsampled as needed).
+- **High-Rate IMU**: Streams Accelerometer and Gyroscope data downsampled to the requested 100-200 Hz range.
 - **RPM Feedback**: Parses real-time motor RPM values from the Blackbox stream (requires Bidirectional DShot).
 - **Hardware Timestamping**: Integrates with the Jetson Hardware Timestamping Engine (HTE) for microsecond-accurate alignment of IMU data.
 - **Low Latency**: Uses Linux serial low-latency mode and real-time thread priority.
@@ -27,14 +27,15 @@ Unlike standard MSP-based telemetry, this driver utilizes the **Betaflight Black
 | `imu_topic` | `string` | `/imu0` | Topic to publish `sensor_msgs/Imu` data. |
 | `rpm_topic` | `string` | `/rpm` | Topic to publish `std_msgs/Float64MultiArray` RPM data. |
 | `battery_topic` | `string` | `/battery` | Topic to publish `sensor_msgs/BatteryState` data. |
-| `target_hz` | `int` | `400` | Target frequency for the published IMU messages. |
+| `target_hz` | `int` | `150` | Target frequency for the published IMU messages. Values outside 100-200 Hz are clamped. |
 | `motor_poles` | `int` | `14` | Number of magnetic poles in the motors (used for RPM calculation). |
 | `vbat_scale` | `double` | `0.01` | Scaling factor for battery voltage (Betaflight defaults to 0.01V/unit). |
+| `use_blackbox_time_for_stamp` | `bool` | `false` | If true, derive IMU header stamps from Betaflight blackbox sample time. By default the paced ROS publish timer is used for strictly monotonic wall-clock stamps. |
 | `debug_raw` | `bool` | `false` | If true, dumps raw binary data to `/tmp/capture.bbl`. |
 | `enable_msp_control` | `bool` | `false` | Enables shared UART control for MSP commands (experimental). |
 
 ### Published Topics
-- **`/imu0`** (`sensor_msgs/msg/Imu`): High-rate fused accelerometer and gyroscope data.
+- **`/imu0`** (`sensor_msgs/msg/Imu`): High-rate fused accelerometer and gyroscope data. Published from the latest decoded sample on a paced ROS timer with best-effort sensor-data QoS and queue depth 1.
 - **`/rpm`** (`std_msgs/msg/Float64MultiArray`): Array of 4 values representing the mechanical RPM of each motor.
 - **`/battery`** (`sensor_msgs/msg/BatteryState`): Real-time battery voltage telemetry.
 

@@ -32,6 +32,7 @@ pip-delete-this-directory.txt
 rosbag/
 *.bag
 *.mcap
+bags/
 
 # Project Specific
 get-docker.sh

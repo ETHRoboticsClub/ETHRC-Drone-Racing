@@ -45,3 +45,19 @@ When uploading new bags, please follow these conventions:
 2.  **Organization**: Upload to the `bags/` prefix.
 3.  **Documentation**: Update this page with a new entry in the registry table.
 4.  **Filtering**: If possible, remove high-bandwidth topics that aren't needed for the specific analysis to save storage costs.
+
+### Interactive Recording Helper
+
+Use the TUI helper on the drone after sourcing ROS and the workspace:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+./scripts/tools/record_rosbag_tui.py
+```
+
+The helper lets you select live ROS topics, choose common presets such as
+IMU-camera calibration, name the bag using the `YYYY-MM-DD-DRONE_NAME-DESCRIPTION`
+scheme, optionally create a `.zip`, and optionally upload that zip to
+`s3://ethrc-aeronautics/droneracing/bags/`. When it finishes, it prints a draft
+registry row that can be pasted into the table above.
