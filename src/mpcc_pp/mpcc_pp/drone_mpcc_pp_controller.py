@@ -367,11 +367,45 @@ class DroneMpccPpController(ControllerInterface):
         widths = np.zeros(n, dtype=np.float64)
         heights = np.zeros(n, dtype=np.float64)
 
+        def ring_corners(p, n_axis, b_axis, W, H):
+            return np.array([
+                p - W * n_axis - H * b_axis,
+                p + W * n_axis - H * b_axis,
+                p + W * n_axis + H * b_axis,
+                p - W * n_axis + H * b_axis,
+            ], dtype=np.float64)
+
+        prev_ring = None
         for i, th in enumerate(thetas):
-            positions[i] = self._path.position(th)
-            normals[i], binormals[i] = self._path.normal_binormal(th)
-            widths[i] = self._path.tunnel_width(th)
-            heights[i] = self._path.tunnel_height(th)
+            p = self._path.position(th)
+            n_axis, b_axis = self._path.normal_binormal(th)
+            W = self._path.tunnel_width(th)
+            H = self._path.tunnel_height(th)
+
+            # The tunnel constraints are sign-symmetric in n/b, but the RViz
+            # surface connects ring corners by index.  Pick the equivalent
+            # frame orientation whose corners move least from the previous ring
+            # so vertically stacked gates do not loft top-to-top awkwardly.
+            if prev_ring is not None:
+                candidates = []
+                for n_sign in (1.0, -1.0):
+                    for b_sign in (1.0, -1.0):
+                        ring = ring_corners(
+                            p, n_sign * n_axis, b_sign * b_axis, W, H)
+                        score = float(np.sum((ring - prev_ring) ** 2))
+                        candidates.append((score, n_sign, b_sign, ring))
+                _, n_sign, b_sign, ring = min(candidates, key=lambda item: item[0])
+                n_axis = n_sign * n_axis
+                b_axis = b_sign * b_axis
+            else:
+                ring = ring_corners(p, n_axis, b_axis, W, H)
+
+            positions[i] = p
+            normals[i] = n_axis
+            binormals[i] = b_axis
+            widths[i] = W
+            heights[i] = H
+            prev_ring = ring
 
         return {
             'positions': positions,

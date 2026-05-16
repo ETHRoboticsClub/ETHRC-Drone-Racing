@@ -17,7 +17,7 @@
 controller:
   # Prediction horizon duration [s]. Larger values see farther ahead but make
   # the OCP heavier. Smaller values react faster but can become myopic.
-  t_horizon: 1.2
+  t_horizon: 1.5
 
   # Number of shooting intervals in the horizon. dt = t_horizon / n_nodes.
   # Larger values improve discretization at higher CPU cost.

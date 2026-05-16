@@ -463,34 +463,34 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     {
         // set time_steps
     
-        double time_step = 0.05714285714285714;
+        double time_step = 0.07142857142857142;
         for (int i = 0; i < N; i++)
         {
             ocp_nlp_in_set(nlp_config, nlp_dims, nlp_in, i, "Ts", &time_step);
         }
         // set cost scaling
         double* cost_scaling = malloc((N+1)*sizeof(double));
-        cost_scaling[0] = 0.05714285714285714;
-        cost_scaling[1] = 0.05714285714285714;
-        cost_scaling[2] = 0.05714285714285714;
-        cost_scaling[3] = 0.05714285714285714;
-        cost_scaling[4] = 0.05714285714285714;
-        cost_scaling[5] = 0.05714285714285714;
-        cost_scaling[6] = 0.05714285714285714;
-        cost_scaling[7] = 0.05714285714285714;
-        cost_scaling[8] = 0.05714285714285714;
-        cost_scaling[9] = 0.05714285714285714;
-        cost_scaling[10] = 0.05714285714285714;
-        cost_scaling[11] = 0.05714285714285714;
-        cost_scaling[12] = 0.05714285714285714;
-        cost_scaling[13] = 0.05714285714285714;
-        cost_scaling[14] = 0.05714285714285714;
-        cost_scaling[15] = 0.05714285714285714;
-        cost_scaling[16] = 0.05714285714285714;
-        cost_scaling[17] = 0.05714285714285714;
-        cost_scaling[18] = 0.05714285714285714;
-        cost_scaling[19] = 0.05714285714285714;
-        cost_scaling[20] = 0.05714285714285714;
+        cost_scaling[0] = 0.07142857142857142;
+        cost_scaling[1] = 0.07142857142857142;
+        cost_scaling[2] = 0.07142857142857142;
+        cost_scaling[3] = 0.07142857142857142;
+        cost_scaling[4] = 0.07142857142857142;
+        cost_scaling[5] = 0.07142857142857142;
+        cost_scaling[6] = 0.07142857142857142;
+        cost_scaling[7] = 0.07142857142857142;
+        cost_scaling[8] = 0.07142857142857142;
+        cost_scaling[9] = 0.07142857142857142;
+        cost_scaling[10] = 0.07142857142857142;
+        cost_scaling[11] = 0.07142857142857142;
+        cost_scaling[12] = 0.07142857142857142;
+        cost_scaling[13] = 0.07142857142857142;
+        cost_scaling[14] = 0.07142857142857142;
+        cost_scaling[15] = 0.07142857142857142;
+        cost_scaling[16] = 0.07142857142857142;
+        cost_scaling[17] = 0.07142857142857142;
+        cost_scaling[18] = 0.07142857142857142;
+        cost_scaling[19] = 0.07142857142857142;
+        cost_scaling[20] = 0.07142857142857142;
         cost_scaling[21] = 1;
         for (int i = 0; i <= N; i++)
         {

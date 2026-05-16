@@ -34,12 +34,12 @@ W(θ) and H(θ) shrink near each gate (enforcing safe passage) and
 widen between gates (freedom for time-optimal flight).
 
 Local frame (NED, for vertical racing gates):
-  n(θ) = normalize([-t_y, t_x, 0])   — horizontal right direction
-  b(θ) = [0, 0, -1]                  — NED "up" (vertical)
+  n(θ) = gate-width axis, derived from tangent or gate yaw near vertical
+  b(θ) = normalize(t(θ) × n(θ)) — local gate-height axis
 """
 
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicHermiteSpline, CubicSpline
 
 
 # Tunnel scale factor:
@@ -299,8 +299,9 @@ class GatedRacingPath(RacingPath):
 
     Local frame (NED, vertical racing gates):
     ------------------------------------------
-        n(θ) = normalize([−t_y, t_x, 0])  — horizontal right (gate width axis)
-        b(θ) = [0, 0, −1]                 — NED up         (gate height axis)
+        n(θ) is the gate-width axis, derived from the local path tangent where
+        possible and from gate yaw near vertical maneuvers.
+        b(θ) = normalize(t(θ) × n(θ)) is the local height axis.
 
     Args:
         gates:       List of gate dicts: {x, y, z, yaw_deg, width, height, name}.
@@ -324,6 +325,12 @@ class GatedRacingPath(RacingPath):
         # Gate centre positions (NED)
         positions = np.array(
             [[g['x'], g['y'], g['z']] for g in gates], dtype=np.float64)
+        gate_tangents = np.array(
+            [self._yaw_to_tangent(g.get('yaw_deg', 0.0)) for g in gates],
+            dtype=np.float64)
+        self._gate_normals = np.array(
+            [self._yaw_to_width_axis(g.get('yaw_deg', 0.0)) for g in gates],
+            dtype=np.float64)
 
         # Inner half-extents (half of the aperture dimension)
         self._gate_half_widths  = np.array(
@@ -343,8 +350,16 @@ class GatedRacingPath(RacingPath):
         if start_position is not None:
             sp = np.asarray(start_position, dtype=np.float64).reshape(1, 3)
             positions_with_start = np.vstack([sp, positions])
+            start_tangent = self._direction_or_fallback(
+                positions[0] - sp[0], gate_tangents[0])
+            tangents_closed = np.vstack([
+                start_tangent,
+                gate_tangents,
+                gate_tangents[0],
+            ])
         else:
             positions_with_start = positions
+            tangents_closed = np.vstack([gate_tangents, gate_tangents[0]])
 
         # Closed-loop path: append first gate to close the circuit
         positions_closed = np.vstack([positions_with_start, positions[0]])
@@ -364,10 +379,51 @@ class GatedRacingPath(RacingPath):
 
         # Initialise parent with closed positions; gate centres used for qc.
         super().__init__(positions_closed, gate_positions=positions, sigma=sigma_qc)
+        self._fit_yaw_constrained_splines(arc, positions_closed, tangents_closed)
 
     # ------------------------------------------------------------------
     # Tunnel geometry
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _yaw_to_tangent(yaw_deg: float) -> np.ndarray:
+        """Gate flight direction in NED from yaw_deg: 0=N, 90=E."""
+        yaw = np.deg2rad(float(yaw_deg))
+        return np.array([np.cos(yaw), np.sin(yaw), 0.0], dtype=np.float64)
+
+    @staticmethod
+    def _yaw_to_width_axis(yaw_deg: float) -> np.ndarray:
+        """Gate width axis: horizontal right direction for the given yaw."""
+        yaw = np.deg2rad(float(yaw_deg))
+        return np.array([-np.sin(yaw), np.cos(yaw), 0.0], dtype=np.float64)
+
+    @staticmethod
+    def _direction_or_fallback(vector: np.ndarray,
+                               fallback: np.ndarray) -> np.ndarray:
+        norm = np.linalg.norm(vector)
+        if norm < 1e-8:
+            return np.asarray(fallback, dtype=np.float64)
+        return np.asarray(vector, dtype=np.float64) / norm
+
+    def _fit_yaw_constrained_splines(self, arc: np.ndarray,
+                                     positions: np.ndarray,
+                                     tangents: np.ndarray) -> None:
+        """
+        Replace the center-only cubic spline with a Hermite spline.
+
+        Each gate remains an interpolation knot, and yaw_deg constrains
+        dp/dtheta at that gate so the reference passes through the aperture
+        along the configured gate normal instead of letting neighboring centers
+        pick the crossing direction.
+        """
+        self.total_length = float(arc[-1])
+        self._cs_x = CubicHermiteSpline(arc, positions[:, 0], tangents[:, 0])
+        self._cs_y = CubicHermiteSpline(arc, positions[:, 1], tangents[:, 1])
+        self._cs_z = CubicHermiteSpline(arc, positions[:, 2], tangents[:, 2])
+
+        self._cs_dx = self._cs_x.derivative()
+        self._cs_dy = self._cs_y.derivative()
+        self._cs_dz = self._cs_z.derivative()
 
     def tunnel_width(self, theta: float) -> float:
         """
@@ -406,23 +462,35 @@ class GatedRacingPath(RacingPath):
             n  (3,) — horizontal right direction (gate width axis)
             b  (3,) — NED up direction           (gate height axis)
 
-        Derivation (NED frame, x=North, y=East, z=Down):
-          For tangent t = [tx, ty, tz]:
-            n = normalize([−ty, tx, 0])  →  right when facing t
-            b = [0, 0, −1]              →  NED up
-          Verification:
-            t=[1,0,0] (North) → n=[0,1,0] (East = right of North) ✓
-            t=[0,1,0] (East)  → n=[−1,0,0] (South = right of East in NED) ✓
+        For mostly horizontal path sections, the width axis is the horizontal
+        right direction of the tangent.  For near-vertical sections, that
+        direction is ill-defined, so we use the nearest gate's yaw-defined
+        width axis.  The final basis is orthogonalized against the tangent.
         """
         t = self.tangent(theta)
         horiz = np.array([-t[1], t[0], 0.0])
         norm = np.linalg.norm(horiz)
         if norm < 1e-8:
-            # Degenerate: nearly vertical path — use world-x as fallback
-            n = np.array([1.0, 0.0, 0.0])
+            idx = int(np.argmin(np.abs(self._gate_thetas - self._clip(theta))))
+            n_raw = self._gate_normals[idx]
         else:
-            n = horiz / norm
-        b = np.array([0.0, 0.0, -1.0])
+            n_raw = horiz / norm
+
+        n = n_raw - np.dot(n_raw, t) * t
+        n_norm = np.linalg.norm(n)
+        if n_norm < 1e-8:
+            candidates = np.eye(3)
+            n = candidates[int(np.argmin(np.abs(candidates @ t)))]
+            n = n - np.dot(n, t) * t
+            n_norm = np.linalg.norm(n)
+        n = n / n_norm
+
+        b = np.cross(t, n)
+        b_norm = np.linalg.norm(b)
+        if b_norm < 1e-8:
+            b = np.array([0.0, 0.0, -1.0])
+        else:
+            b = b / b_norm
         return n, b
 
     # ------------------------------------------------------------------
