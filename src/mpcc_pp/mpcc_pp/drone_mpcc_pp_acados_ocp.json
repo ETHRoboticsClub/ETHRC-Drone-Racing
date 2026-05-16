@@ -367,7 +367,7 @@
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.c",
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.c"
     ],
-    "hash": "508fd2bf67626896e340c92a9623590e",
+    "hash": "bc0f6060aa8c0e67c6627d65f7c6a31a",
     "model": {
         "con_h_expr": [],
         "con_h_expr_0": [],
@@ -487,12 +487,12 @@
         0.0,
         0.0,
         0.0,
-        1.3155957235419722,
-        1.1260561407038635e-05,
-        1.8955552233656228e-05,
-        0.00012055705103971255,
-        16.60673480894114,
-        19.049079923064646
+        9.0,
+        0.0001,
+        0.0002,
+        0.0003,
+        10.0,
+        10.0
     ],
     "problem_class": "OCP",
     "ros_opts": null,

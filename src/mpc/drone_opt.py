@@ -7,6 +7,7 @@ Output of compute_control_once: [thrust_N, wx, wy, wz] (attitude_rate compatible
 The optimizer internally works with per-rotor inputs and full Euler dynamics,
 then converts the optimal solution via the mixing matrix before returning.
 """
+# Malik and Emilio
 import os
 import sys
 import shutil

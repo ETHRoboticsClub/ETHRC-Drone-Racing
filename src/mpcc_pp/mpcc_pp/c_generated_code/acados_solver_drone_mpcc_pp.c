@@ -415,12 +415,12 @@ void drone_mpcc_pp_acados_create_set_default_parameters(drone_mpcc_pp_solver_cap
     const int N = capsule->nlp_solver_plan->N;
     // initialize parameters to nominal value
     double* p = calloc(NP, sizeof(double));
-    p[15] = 1.3155957235419722;
-    p[16] = 0.000011260561407038635;
-    p[17] = 0.000018955552233656228;
-    p[18] = 0.00012055705103971255;
-    p[19] = 16.60673480894114;
-    p[20] = 19.04907992306465;
+    p[15] = 9;
+    p[16] = 0.0001;
+    p[17] = 0.0002;
+    p[18] = 0.0003;
+    p[19] = 10;
+    p[20] = 10;
 
     for (int i = 0; i <= N; i++) {
         drone_mpcc_pp_acados_update_params(capsule, i, p, NP);
