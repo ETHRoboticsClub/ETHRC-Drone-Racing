@@ -229,7 +229,7 @@ class DroneOptimizerMpccPp:
                       + cost_track)
 
         # ── Terminal cost (state-only: no control increments) ────────────
-        terminal_cost = (ql_p * el**2
+        terminal_cost = 10 * (ql_p * el**2
                          + qc * ca.dot(ec, ec)
                          + Qw_p * ca.dot(w_k, w_k)
                          - mu_p * vt_k
@@ -418,9 +418,35 @@ class DroneOptimizerMpccPp:
         # Initialise trajectory (warm or cold start)
         self._init_trajectory(x0, stage_params)
 
+        # import time
+
+        # tic = time.time()
         status = self.solver.solve()
+        # tac = time.time()
+        # print(f"Solver call took {tac - tic:.5f} s")
+
+        # print("Residuals:", self.solver.get_residuals())
+
+        # iterates = self.solver.get_iterates()
+
+        # self.solver.print_statistics()
+
+        # import time
+
+        # tic = time.time()
+        # print(self.solver.qp_diagnostics(hessian_type='FULL_HESSIAN'))
+        # print(self.solver.qp_diagnostics(hessian_type='PROJECTED_HESSIAN'))
+        # toc = time.time()
+        # print(f"QP diagnostics printed in {toc - tic:.5f} s")
+        
+        # print(f"[mpcc_pp OCP] solver status {status}")
+        # print(f"[mpcc_pp OCP] solver return code: {self.solver.status}")
+        # if status != self.solver.status:
+        #     raise RuntimeError(f"Solver status mismatch: returned {status}, "
+        #                        f"solver.status={self.solver.status}")
+
         if status not in (0, 2) and self._enable_logging:
-            print(f"[mpcc_pp OCP] solver status {status}")
+            raise RuntimeError(f"mpcc_pp OCP solver failed with status {status}")
 
         # Extract solution
         x_pred = np.array([self.solver.get(k, 'x') for k in range(self.N + 1)])
@@ -449,6 +475,8 @@ class DroneOptimizerMpccPp:
         self._x_pred = x_pred.copy()
         self._u_pred = u_pred.copy()
         self._warm   = info['success']
+
+        # print("\n======= NEW SOLVE =======\n")
 
         return u_pred[0].copy(), x_pred, info
 
