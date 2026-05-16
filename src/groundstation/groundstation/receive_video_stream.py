@@ -2,14 +2,13 @@
 """
 Subscribe to the drone's camera ROS 2 topic and display the video feed.
 
-The argus_camera_node publishes sensor_msgs/Image on /cam0/image_raw (mono8)
-and optionally /cam0/image_rgb (rgb8).  This script subscribes, converts
-each frame, and shows it in an OpenCV window.
+The argus_camera_node publishes sensor_msgs/Image on /cam0/image_rgb (rgb8).
+This script subscribes, converts each frame, and shows it in an OpenCV window.
 
 Usage:
     ros2 run groundstation receive_video_stream            # default topic
     python3 receive_video_stream.py                        # standalone
-    python3 receive_video_stream.py --topic /cam0/image_rgb
+    python3 receive_video_stream.py --topic /cam0/image_raw
     python3 receive_video_stream.py --save recording.mp4
 """
 
@@ -22,6 +21,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Image
+
+
+WINDOW = "Drone Camera Stream"
 
 
 class VideoReceiver(Node):
@@ -45,7 +47,6 @@ class VideoReceiver(Node):
 
     # ── callback ──────────────────────────────────────────────────────
     def _image_cb(self, msg: Image):
-        # Convert ROS Image to numpy array
         if msg.encoding in ("mono8",):
             frame = np.frombuffer(msg.data, dtype=np.uint8).reshape(
                 msg.height, msg.width
@@ -67,7 +68,6 @@ class VideoReceiver(Node):
             )
             return
 
-        # Lazily init video writer once we know the frame size
         if self._save_path and self._writer is None:
             h, w = display.shape[:2]
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -78,20 +78,12 @@ class VideoReceiver(Node):
             self._writer.write(display)
 
         self._frame_count += 1
-        cv2.imshow("Drone Camera Stream", display)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key in (ord("q"), 27):
-            self.get_logger().info(
-                f"Quit requested after {self._frame_count} frames."
-            )
-            raise SystemExit
+        cv2.imshow(WINDOW, display)
 
     # ── cleanup ───────────────────────────────────────────────────────
     def destroy_node(self):
         if self._writer is not None:
             self._writer.release()
-        cv2.destroyAllWindows()
         super().destroy_node()
 
 
@@ -100,8 +92,8 @@ def main():
         description="Display the drone camera feed from a ROS 2 image topic."
     )
     parser.add_argument(
-        "--topic", type=str, default="/cam0/image_raw",
-        help="ROS 2 image topic to subscribe to (default: /cam0/image_raw)",
+        "--topic", type=str, default="/cam0/image_rgb",
+        help="ROS 2 image topic to subscribe to (default: /cam0/image_rgb)",
     )
     parser.add_argument(
         "--save", type=str, default=None, metavar="FILE",
@@ -111,11 +103,20 @@ def main():
 
     rclpy.init(args=ros_args)
     node = VideoReceiver(args.topic, args.save)
+
+    cv2.namedWindow(WINDOW, cv2.WINDOW_NORMAL)
+
     try:
-        rclpy.spin(node)
-    except (KeyboardInterrupt, SystemExit):
+        while rclpy.ok():
+            rclpy.spin_once(node, timeout_sec=0.033)
+            key = cv2.waitKey(1) & 0xFF
+            if key in (ord("q"), 27):
+                node.get_logger().info(f"Quit after {node._frame_count} frames.")
+                break
+    except KeyboardInterrupt:
         pass
     finally:
+        cv2.destroyAllWindows()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

@@ -3,17 +3,18 @@ import json
 import threading
 from pathlib import Path
 
+import av as pyav
 import cv2
 import numpy as np
 import rclpy
 from ament_index_python.packages import get_package_share_directory
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
-from sensor_msgs.msg import BatteryState, CameraInfo, Image, Imu
+from sensor_msgs.msg import BatteryState, CameraInfo, CompressedImage, Image, Imu
 from std_msgs.msg import Float64, Float64MultiArray
 import uvicorn
 
@@ -21,6 +22,13 @@ import uvicorn
 CAMERA_QOS = QoSProfile(
     depth=1,
     reliability=ReliabilityPolicy.BEST_EFFORT,
+    history=HistoryPolicy.KEEP_LAST,
+)
+
+# image_rgb and image_h264 are published with RELIABLE QoS by the camera node
+IMAGE_QOS = QoSProfile(
+    depth=1,
+    reliability=ReliabilityPolicy.RELIABLE,
     history=HistoryPolicy.KEEP_LAST,
 )
 
@@ -54,11 +62,14 @@ class GroundstationNode(Node):
     def __init__(self, state: TelemetryState):
         super().__init__('groundstation_web_server')
         self.state = state
+        self._h264_codec = pyav.CodecContext.create('h264', 'r')
+        self._h264_active = False  # set True once first H264 frame decodes; suppresses raw RGB
 
         self.create_subscription(Imu, '/imu0', self._imu_cb, 10)
         self.create_subscription(BatteryState, '/battery', self._battery_cb, 10)
         self.create_subscription(CameraInfo, '/cam0/camera_info', self._camera_info_cb, CAMERA_QOS)
-        self.create_subscription(Image, '/cam0/image_raw', self._image_cb, CAMERA_QOS)
+        self.create_subscription(Image, '/cam0/image_rgb', self._image_cb, IMAGE_QOS)
+        self.create_subscription(CompressedImage, '/cam0/image_h264', self._image_h264_cb, IMAGE_QOS)
         self.create_subscription(Float64, '/drone/throttle', self._throttle_cb, 10)
         self.create_subscription(Float64MultiArray, '/drone_attitude_cmd', self._attitude_cmd_cb, 10)
         self.create_subscription(PoseStamped, '/drone_current_target', self._current_target_cb, 10)
@@ -90,24 +101,60 @@ class GroundstationNode(Node):
         })
 
     def _image_cb(self, msg: Image):
+        if self._h264_active:
+            return
         self.state.update('image', {
             'width': msg.width,
             'height': msg.height,
             'encoding': msg.encoding,
             'stamp': msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
         })
-        if msg.encoding == 'mono8':
-            arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width)
-            bgr = cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
-        elif msg.encoding == 'rgb8':
-            arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
-            bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
-        elif msg.encoding == 'bgr8':
-            bgr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
-        else:
-            return
-        _, jpeg = cv2.imencode('.jpg', bgr, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        self.state.update_frame(jpeg.tobytes())
+        try:
+            if msg.encoding == 'mono8':
+                arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width)
+                bgr = cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+            elif msg.encoding == 'rgb8':
+                arr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
+                bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+            elif msg.encoding == 'bgr8':
+                bgr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
+            else:
+                self.get_logger().warn(
+                    f"Unsupported image encoding '{msg.encoding}'",
+                    throttle_duration_sec=10.0,
+                )
+                return
+            _, jpeg = cv2.imencode('.jpg', bgr, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            self.state.update_frame(jpeg.tobytes())
+        except Exception as exc:
+            self.get_logger().warn(f'image_rgb decode error: {exc}', throttle_duration_sec=5.0)
+
+    def _image_h264_cb(self, msg: CompressedImage):
+        self.state.update('image', {
+            'width': 0,
+            'height': 0,
+            'encoding': 'h264',
+            'stamp': msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
+        })
+        try:
+            data = bytes(msg.data)
+            packets = self._h264_codec.parse(data)
+            for packet in packets:
+                frames = self._h264_codec.decode(packet)
+                for frame in frames:
+                    bgr = frame.to_ndarray(format='bgr24')
+                    self.state.update('image', {
+                        'width': frame.width,
+                        'height': frame.height,
+                        'encoding': 'h264',
+                        'stamp': msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9,
+                    })
+                    self._h264_active = True
+                    _, jpeg = cv2.imencode('.jpg', bgr, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                    self.state.update_frame(jpeg.tobytes())
+                    return
+        except Exception as exc:
+            self.get_logger().warn(f'H264 decode error: {exc}', throttle_duration_sec=5.0)
 
     def _throttle_cb(self, msg: Float64):
         self.state.update('throttle', msg.data)
@@ -155,26 +202,12 @@ def build_app(state: TelemetryState, static_dir: Path) -> FastAPI:
         except WebSocketDisconnect:
             pass
 
-    @app.get('/video')
-    async def video_stream():
-        async def mjpeg():
-            try:
-                while True:
-                    frame = state.latest_frame()
-                    if frame is not None:
-                        yield (
-                            b'--frame\r\n'
-                            b'Content-Type: image/jpeg\r\n\r\n'
-                            + frame
-                            + b'\r\n'
-                        )
-                    await asyncio.sleep(1.0 / 30.0)
-            except asyncio.CancelledError:
-                pass
-        return StreamingResponse(
-            mjpeg(),
-            media_type='multipart/x-mixed-replace; boundary=frame',
-        )
+    @app.get('/snapshot')
+    async def snapshot():
+        frame = state.latest_frame()
+        if frame is None:
+            return Response(status_code=204)
+        return Response(content=frame, media_type='image/jpeg')
 
     return app
 

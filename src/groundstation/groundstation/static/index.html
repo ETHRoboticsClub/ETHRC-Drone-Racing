@@ -8,35 +8,36 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:          #000000;
-      --surface:     #080808;
-      --border:      #1c1c1c;
-      --border-hi:   #000000;
-      --text:        #ffffff;
-      --muted:       #ffffff;
-      --warn:        #ff3b3b;
+      --bg:      #000000;
+      --border:  #1c1c1c;
+      --gap:     #111111;
+      --text:    #ffffff;
+      --muted:   #666666;
+      --warn:    #ff3b3b;
     }
-    
+
     body {
       background: var(--bg);
       color: var(--text);
       font-family: 'Courier New', Courier, monospace;
       font-size: 12px;
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
     /* ── Header ── */
     .header {
       position: relative;
       overflow: hidden;
-      border-bottom: 1px solid var(--border-hi);
-      padding: 20px 28px;
+      border-bottom: 1px solid var(--gap);
+      padding: 16px 28px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      min-height: 90px;
+      min-height: 72px;
+      flex-shrink: 0;
     }
 
     .header-bg {
@@ -56,18 +57,9 @@
       gap: 20px;
     }
 
-    /* ETHRC wordmark — inline SVG, paths from ETHRC_primary_w_blackbg.svg */
-    .ethrc-logo {
-      height: 32px;
-      width: auto;
-      flex-shrink: 0;
-    }
+    .ethrc-logo { height: 28px; width: auto; flex-shrink: 0; }
 
-    .header-divider {
-      width: 1px;
-      height: 28px;
-      background: var(--border-hi);
-    }
+    .header-divider { width: 1px; height: 24px; background: #222; }
 
     .header-subtitle {
       font-size: 9px;
@@ -87,41 +79,139 @@
     #status {
       font-size: 9px;
       letter-spacing: 2px;
-      padding: 5px 14px;
-      border: 1px solid var(--border-hi);
-      color: var(--muted);
+      padding: 4px 12px;
+      border: 1px solid #222;
+      color: #333;
       text-transform: uppercase;
       transition: border-color 0.3s, color 0.3s;
     }
     #status.connected    { border-color: var(--text); color: var(--text); }
-    #status.disconnected { border-color: #2a2a2a; color: #333; }
+    #status.disconnected { border-color: #222; color: #333; }
 
-    /* ── Main grid ── */
-    .main {
+    /* ── Workspace ── */
+    .workspace {
       flex: 1;
-      padding: 1px;
-      background: var(--border-hi);
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      background: var(--gap);
     }
 
-    .grid {
+    /* ── Top section: left-panel | video | right-panel ── */
+    .top-section {
+      flex: 1;
+      min-height: 0;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      grid-template-columns: 220px 1fr 220px;
       gap: 1px;
     }
 
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #1a1a1a transparent;
+    }
+
+    /* ── Video panel ── */
+    .video-panel {
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .video-header {
+      font-size: 8px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--gap);
+      flex-shrink: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #222;
+      transition: background 0.3s;
+    }
+    .live-dot.active {
+      background: var(--warn);
+      animation: blink 1.2s ease-in-out infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    .video-container {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #video-feed {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .no-signal {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #000;
+      pointer-events: none;
+    }
+    .no-signal .ns-title {
+      font-size: 10px;
+      letter-spacing: 5px;
+      color: #222;
+      text-transform: uppercase;
+    }
+    .no-signal .ns-topic {
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: #181818;
+    }
+
+    /* ── Bottom section ── */
+    .bottom-section {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+    }
+
+    /* ── Cards ── */
     .card {
       background: var(--bg);
-      padding: 18px 20px;
+      padding: 14px 16px;
     }
 
     .card h2 {
       font-size: 8px;
       font-weight: normal;
       text-transform: uppercase;
-      letter-spacing: 2.5px;
+      letter-spacing: 2px;
       color: var(--muted);
-      margin-bottom: 14px;
-      padding-bottom: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -136,12 +226,11 @@
     .value { color: var(--text); text-align: right; font-weight: bold; letter-spacing: 0.5px; }
     .value.warn { color: var(--warn); }
     .value.ok   { color: var(--text); }
-    .stale { opacity: 0.2; }
 
     /* ── Footer ── */
     .footer {
-      border-top: 1px solid var(--border-hi);
-      padding: 10px 28px;
+      border-top: 1px solid var(--gap);
+      padding: 8px 28px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -149,6 +238,7 @@
       letter-spacing: 2px;
       color: var(--muted);
       text-transform: uppercase;
+      flex-shrink: 0;
     }
   </style>
 </head>
@@ -159,7 +249,6 @@
     <div class="header-bg"></div>
 
     <div class="header-left">
-      <!-- ETHRC wordmark (white paths, no background) -->
       <svg class="ethrc-logo" viewBox="350 200 1655 330" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- E -->
         <path d="M366 214H635V267H366V214Z" fill="white"/>
@@ -191,42 +280,78 @@
     </div>
   </div>
 
-  <!-- Telemetry grid -->
-  <div class="main">
-    <div class="grid" id="grid">
+  <!-- Workspace -->
+  <div class="workspace">
 
-      <div class="card" id="card-battery">
-        <h2>Battery</h2>
-        <div class="row"><span class="label">Voltage</span><span class="value" id="bat-v">—</span></div>
-        <div class="row"><span class="label">Charge</span><span class="value" id="bat-pct">—</span></div>
+    <!-- Top section: left panel | video | right panel -->
+    <div class="top-section">
+
+      <!-- Left panel: Battery, Throttle, Motor RPM -->
+      <div class="side-panel">
+
+        <div class="card" id="card-battery">
+          <h2>Battery</h2>
+          <div class="row"><span class="label">Voltage</span><span class="value" id="bat-v">—</span></div>
+          <div class="row"><span class="label">Charge</span><span class="value" id="bat-pct">—</span></div>
+        </div>
+
+        <div class="card" id="card-throttle">
+          <h2>Throttle</h2>
+          <div class="row"><span class="label">Throttle</span><span class="value" id="thr">—</span></div>
+        </div>
+
+        <div class="card" id="card-rpm">
+          <h2>Motor RPM</h2>
+          <div id="rpm-values"><span class="value">—</span></div>
+        </div>
+
       </div>
 
-      <div class="card" id="card-throttle">
-        <h2>Throttle</h2>
-        <div class="row"><span class="label">Throttle</span><span class="value" id="thr">—</span></div>
+      <!-- Centre: live video feed -->
+      <div class="video-panel">
+        <div class="video-header">
+          <span>Live Feed — /cam0/image_rgb</span>
+          <div class="live-dot" id="live-dot"></div>
+        </div>
+        <div class="video-container">
+          <img id="video-feed" alt="">
+          <div class="no-signal" id="no-signal">
+            <div class="ns-title">No Signal</div>
+            <div class="ns-topic">/cam0/image_rgb</div>
+          </div>
+        </div>
       </div>
 
-      <div class="card" id="card-imu">
-        <h2>IMU — Orientation</h2>
-        <div class="row"><span class="label">x</span><span class="value" id="imu-ox">—</span></div>
-        <div class="row"><span class="label">y</span><span class="value" id="imu-oy">—</span></div>
-        <div class="row"><span class="label">z</span><span class="value" id="imu-oz">—</span></div>
-        <div class="row"><span class="label">w</span><span class="value" id="imu-ow">—</span></div>
-      </div>
+      <!-- Right panel: IMU -->
+      <div class="side-panel">
 
-      <div class="card" id="card-angvel">
-        <h2>IMU — Angular Velocity (rad/s)</h2>
-        <div class="row"><span class="label">x</span><span class="value" id="imu-wx">—</span></div>
-        <div class="row"><span class="label">y</span><span class="value" id="imu-wy">—</span></div>
-        <div class="row"><span class="label">z</span><span class="value" id="imu-wz">—</span></div>
-      </div>
+        <div class="card" id="card-imu">
+          <h2>IMU — Orientation</h2>
+          <div class="row"><span class="label">x</span><span class="value" id="imu-ox">—</span></div>
+          <div class="row"><span class="label">y</span><span class="value" id="imu-oy">—</span></div>
+          <div class="row"><span class="label">z</span><span class="value" id="imu-oz">—</span></div>
+          <div class="row"><span class="label">w</span><span class="value" id="imu-ow">—</span></div>
+        </div>
 
-      <div class="card" id="card-linacc">
-        <h2>IMU — Linear Acceleration (m/s²)</h2>
-        <div class="row"><span class="label">x</span><span class="value" id="imu-ax">—</span></div>
-        <div class="row"><span class="label">y</span><span class="value" id="imu-ay">—</span></div>
-        <div class="row"><span class="label">z</span><span class="value" id="imu-az">—</span></div>
+        <div class="card" id="card-angvel">
+          <h2>IMU — Angular Velocity (rad/s)</h2>
+          <div class="row"><span class="label">x</span><span class="value" id="imu-wx">—</span></div>
+          <div class="row"><span class="label">y</span><span class="value" id="imu-wy">—</span></div>
+          <div class="row"><span class="label">z</span><span class="value" id="imu-wz">—</span></div>
+        </div>
+
+        <div class="card" id="card-linacc">
+          <h2>IMU — Linear Acceleration (m/s²)</h2>
+          <div class="row"><span class="label">x</span><span class="value" id="imu-ax">—</span></div>
+          <div class="row"><span class="label">y</span><span class="value" id="imu-ay">—</span></div>
+          <div class="row"><span class="label">z</span><span class="value" id="imu-az">—</span></div>
+        </div>
+
       </div>
+    </div>
+
+    <!-- Bottom section: Attitude, Target, Position, Camera info -->
+    <div class="bottom-section">
 
       <div class="card" id="card-attitude">
         <h2>Attitude Command</h2>
@@ -248,13 +373,8 @@
         <div class="value" id="pos-cmd" style="word-break:break-all;">—</div>
       </div>
 
-      <div class="card" id="card-rpm">
-        <h2>Motor RPM</h2>
-        <div id="rpm-values" class="value">—</div>
-      </div>
-
       <div class="card" id="card-camera">
-        <h2>Camera</h2>
+        <h2>Camera Info</h2>
         <div class="row"><span class="label">Resolution</span><span class="value" id="cam-res">—</span></div>
         <div class="row"><span class="label">Distortion</span><span class="value" id="cam-dist">—</span></div>
         <div class="row"><span class="label">Last frame</span><span class="value" id="cam-frame">—</span></div>
@@ -273,6 +393,8 @@
   <script>
     const statusEl = document.getElementById('status');
     const footerTime = document.getElementById('footer-time');
+    const noSignal = document.getElementById('no-signal');
+    const liveDot = document.getElementById('live-dot');
 
     setInterval(() => {
       footerTime.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
@@ -286,13 +408,53 @@
       const el = document.getElementById(id);
       if (!el) return;
       el.textContent = text;
-      if (cls) el.className = 'value ' + cls;
+      if (cls !== undefined) el.className = 'value ' + cls;
+    }
+
+    let hasVideo = false;
+    let feedRunning = false;
+    const feedImg = document.getElementById('video-feed');
+
+    async function feedLoop() {
+      while (feedRunning) {
+        try {
+          const r = await fetch('/snapshot');
+          if (r.status === 200) {
+            const blob = await r.blob();
+            const url = URL.createObjectURL(blob);
+            const old = feedImg.src;
+            feedImg.src = url;
+            if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+          }
+        } catch (_) {}
+        await new Promise(resolve => setTimeout(resolve, 40));
+      }
+    }
+
+    function startVideoFeed() {
+      if (feedRunning) return;
+      feedRunning = true;
+      feedLoop();
+    }
+
+    function stopVideoFeed() {
+      feedRunning = false;
+      const old = feedImg.src;
+      feedImg.removeAttribute('src');
+      if (old.startsWith('blob:')) URL.revokeObjectURL(old);
+    }
+
+    function setVideoActive(active) {
+      noSignal.style.display = active ? 'none' : 'flex';
+      liveDot.className = 'live-dot' + (active ? ' active' : '');
+      if (active) startVideoFeed();
+      else stopVideoFeed();
     }
 
     function update(d) {
       if (d.battery != null) {
         const pct = d.battery.percentage;
-        set('bat-v', fmt(d.battery.voltage, 2) + ' V');
+        set('bat-v',   fmt(d.battery.voltage, 2) + ' V');
         set('bat-pct', fmt(pct * 100, 1) + ' %', pct < 0.2 ? 'warn' : 'ok');
       }
       if (d.throttle != null) set('thr', fmt(d.throttle, 4));
@@ -304,8 +466,10 @@
       }
       if (d.attitude_cmd != null) {
         const c = d.attitude_cmd;
-        set('att-roll', fmt(c.roll, 2)); set('att-pitch', fmt(c.pitch, 2));
-        set('att-yaw', fmt(c.yaw, 2)); set('att-thrust', fmt(c.thrust, 2));
+        set('att-roll',   fmt(c.roll,   2));
+        set('att-pitch',  fmt(c.pitch,  2));
+        set('att-yaw',    fmt(c.yaw,    2));
+        set('att-thrust', fmt(c.thrust, 2));
       }
       if (d.current_target != null) {
         set('tgt-x', fmt(d.current_target.x));
@@ -322,12 +486,13 @@
           ).join('');
       }
       if (d.camera_info != null) {
-        set('cam-res', d.camera_info.width + ' × ' + d.camera_info.height);
+        set('cam-res',  d.camera_info.width + ' × ' + d.camera_info.height);
         set('cam-dist', d.camera_info.distortion_model);
       }
       if (d.image != null) {
         set('cam-frame', fmt(d.image.stamp, 2) + ' s');
-        set('cam-enc', d.image.encoding);
+        set('cam-enc',   d.image.encoding);
+        if (!hasVideo) { hasVideo = true; setVideoActive(true); }
       }
     }
 
@@ -343,6 +508,8 @@
       ws.onclose = () => {
         statusEl.textContent = 'DISCONNECTED';
         statusEl.className = 'disconnected';
+        hasVideo = false;
+        setVideoActive(false);
         setTimeout(connect, 2000);
       };
     }
