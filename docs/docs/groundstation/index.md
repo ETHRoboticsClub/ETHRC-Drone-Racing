@@ -1,6 +1,6 @@
 # Groundstation Overview
 
-**Page Owner:** [Julian Hoffman](https://github.com/JulesHere)
+**Page Owner:** [Julian Hofmann](https://github.com/JulesHere)
 
 The ground station is responsible for operator visibility, telemetry
 inspection, and offline analysis. For the racing camera path, the drone publishes
