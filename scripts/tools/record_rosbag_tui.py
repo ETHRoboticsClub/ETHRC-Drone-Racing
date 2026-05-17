@@ -18,8 +18,8 @@ import zipfile
 
 
 DEFAULT_S3_PREFIX = "s3://ethrc-aeronautics/droneracing/bags"
-DEFAULT_TOPICS = ["/cam0/image_raw", "/cam0/camera_info", "/imu0"]
 PRESETS = {
+    "all non-NITROS topics": None,
     "imu-cam calibration": ["/cam0/image_raw", "/cam0/camera_info", "/imu0"],
     "compressed video": ["/cam0/image_h264", "/cam0/camera_info", "/imu0"],
     "imu only": ["/imu0"],
@@ -74,24 +74,38 @@ def discover_topics() -> list[tuple[str, str]]:
     return sorted(topics, key=lambda item: item[0])
 
 
+def is_nitros_topic(topic: str, msg_type: str) -> bool:
+    """Return true for NITROS transport topics/types that should not be bagged by default."""
+    haystack = f"{topic} {msg_type}".lower()
+    return "nitros" in haystack
+
+
+def default_selected_topics(topics: list[tuple[str, str]]) -> set[str]:
+    """Select every discovered topic except NITROS transport topics."""
+    return {
+        topic for topic, msg_type in topics
+        if not is_nitros_topic(topic, msg_type)
+    }
+
+
 class App:
     def __init__(self, stdscr: curses.window) -> None:
         self.stdscr = stdscr
         self.topics = discover_topics()
-        self.selected = set(DEFAULT_TOPICS)
+        self.selected = default_selected_topics(self.topics)
         self.add_missing_selected_topics()
         self.cursor = 0
         self.scroll = 0
         self.filter_text = ""
-        self.message = "Space toggles topics. Enter records. Press q to quit."
+        self.message = "All non-NITROS topics selected. Space toggles topics. Enter records."
 
         self.date = today()
         self.person = default_person()
         self.drone = "zephyrus"
-        self.description = "calib-imu-cam"
+        self.description = "bench-all-topics"
         self.notes = ""
         self.output_root = "bags"
-        self.zip_after = True
+        self.zip_after = False
         self.upload_after = False
         self.s3_prefix = DEFAULT_S3_PREFIX
 
@@ -158,7 +172,11 @@ class App:
             elif key in (curses.KEY_DOWN, ord("j")):
                 index = min(len(names) - 1, index + 1)
             elif key in (10, 13):
-                self.selected = set(PRESETS[names[index]])
+                preset = PRESETS[names[index]]
+                if preset is None:
+                    self.selected = default_selected_topics(self.topics)
+                else:
+                    self.selected = set(preset)
                 self.add_missing_selected_topics()
                 self.message = f"Preset applied: {names[index]}"
                 return

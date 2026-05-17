@@ -29,17 +29,17 @@ The pipeline consists of three primary stages:
 #### `detector_node`
 The primary real-time node that runs the full inference pipeline.
 
-*   **Subscribes to**: `/cam0/image_raw` (`sensor_msgs/Image`)
+*   **Subscribes to**: `/cam0/image_rgb` (`sensor_msgs/Image`) by default
 *   **Publishes to**: `/gate_detection/drone_pose` (`geometry_msgs/PoseWithCovarianceStamped`)
 *   **Parameters**:
     *   `checkpoint`: Path to the `.pth` model file.
     *   `camera_topic`: The image topic to subscribe to.
     *   `output_topic`: The pose topic to publish.
 
-The detector should consume `/cam0/image_raw`, the same low-latency `mono8`
-topic used by OpenVINS. The `/cam0/image_rgb` branch is reserved for H.264
-encoding and `/cam0/image_h264` is compressed video, not detector input. See
-[Jetson Camera Pipeline](camera_pipeline.md).
+The detector converts incoming frames to `rgb8` before inference.
+`/cam0/image_raw` is `mono8`, so it does not contain real color information.
+Use `/cam0/image_rgb` for real color. `/cam0/image_h264` is compressed video,
+not detector input. See [Jetson Camera Pipeline](camera_pipeline.md).
 
 ### Launching
 
@@ -53,7 +53,10 @@ In the full racing bringup, gate detection is currently disabled by default
 until the package is production-ready:
 
 ```bash
-ros2 launch drone_control racing_bringup.launch.py use_gate_detection:=true
+ros2 launch drone_control racing_bringup.launch.py \
+  msp_bench_mode:=true \
+  use_gate_detection:=true \
+  gate_camera_topic:=/cam0/image_rgb
 ```
 
 ## Development Tools

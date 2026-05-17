@@ -13,7 +13,9 @@ The system follows a tiered architecture for pose estimation:
 ```mermaid
 graph TD
     subgraph Sensors
-        Cam["IMX219 CSI<br/>/cam0/image_raw mono8 @ 60 Hz"]
+        Cam["IMX219 CSI<br/>Argus capture @ 60 Hz"]
+        Mono["/cam0/image_raw<br/>mono8"]
+        RGB["/cam0/image_rgb<br/>rgb8"]
         IMU["IMU (Accel/Gyro)"]
         Vicon["Vicon (Optional)"]
     end
@@ -30,11 +32,13 @@ graph TD
         EKF["EKF (robot_localization)"]
     end
 
-    Cam --> VIO
+    Cam --> Mono
+    Mono --> VIO
     IMU --> VIO
     VIO -->|"/ov_msckf/odomimu (Odom)"| EKF
     
-    Cam --> Gate
+    Cam --> RGB
+    RGB --> Gate
     Gate -->|"/gate_detection/drone_pose (Pose)"| EKF
     
     
@@ -49,8 +53,8 @@ The following table summarizes the data flow between perception modules.
 
 | Source Module | Topic Name | Message Type | Frequency | Consumer |
 | :--- | :--- | :--- | :--- | :--- |
-| **Camera** | `/cam0/image_raw` | `sensor_msgs/Image` (`mono8`) | 60 Hz | VIO, Gate Detection |
-| **Camera** | `/cam0/image_rgb` | `sensor_msgs/Image` (`rgb8`) | 60 Hz when H.264 is enabled | Isaac ROS H.264 encoder |
+| **Camera** | `/cam0/image_raw` | `sensor_msgs/Image` (`mono8`) | 60 Hz | VIO / mono debug |
+| **Camera** | `/cam0/image_rgb` | `sensor_msgs/Image` (`rgb8`) | 60 Hz target | Gate Detection / color debug |
 | **Video Encoder** | `/cam0/image_h264` | `sensor_msgs/CompressedImage` | 60 Hz target | Recording / ground station decoder |
 | **Sensors** | `/imu0` | `sensor_msgs/Imu` | 200 Hz | VIO |
 | **OpenVINS** | `/ov_msckf/odomimu` | `nav_msgs/Odometry` | 100 Hz | EKF |
@@ -127,11 +131,12 @@ ros2 launch drone_control racing_bringup.launch.py \
 ```
 
 This starts the IMX219 camera at `1280x720 @ 60 Hz` and publishes
-`/cam0/image_raw` for OpenVINS and gate detection. Gate detection is currently
-disabled by default in racing bringup because the package is still WIP.
+`/cam0/image_raw` for OpenVINS and `/cam0/image_rgb` for color consumers. Gate
+detection is currently disabled by default in racing bringup because the package
+is still WIP.
 
 H.264 streaming is no longer an exclusive camera mode. When
-`view_stream:=true h264_backend:=isaac_ros`, the camera node adds an RGB branch
-for `isaac_ros_h264_encoder` while the mono perception topic stays live. See
+`view_stream:=true h264_backend:=gstreamer_ros`, the camera node publishes
+hardware-encoded `/cam0/image_h264` while the mono and RGB topics stay live. See
 [Jetson Camera Pipeline](camera_pipeline.md) and
 [H.264 Video Streaming](../groundstation/video-streaming.md).

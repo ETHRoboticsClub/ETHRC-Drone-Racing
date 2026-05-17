@@ -14,6 +14,8 @@ def generate_launch_description():
     use_vio = LaunchConfiguration("use_vio")
     use_ekf = LaunchConfiguration("use_ekf")
     use_video_stream = LaunchConfiguration("use_video_stream")
+    h264_backend = LaunchConfiguration("h264_backend")
+    gate_camera_topic = LaunchConfiguration("gate_camera_topic")
 
     camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -27,8 +29,12 @@ def generate_launch_description():
             "framerate": LaunchConfiguration("camera_fps"),
             "width": LaunchConfiguration("camera_width"),
             "height": LaunchConfiguration("camera_height"),
-            "publish_color": use_video_stream,
+            "publish_color": LaunchConfiguration("publish_rgb"),
             "color_encoding": "rgb8",
+            "color_reliable": PythonExpression(["'", h264_backend, "' == 'isaac_ros'"]),
+            "publish_h264": PythonExpression([
+                "'", use_video_stream, "' == 'true' and '", h264_backend, "' == 'gstreamer_ros'",
+            ]),
         }.items(),
         condition=IfCondition(
             PythonExpression(["'", use_sim, "' == 'false' and '", use_camera, "' == 'true'"])
@@ -51,7 +57,7 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            "camera_topic": "/cam0/image_raw",
+            "camera_topic": gate_camera_topic,
             "output_topic": "/gate_detection/drone_pose",
         }.items(),
         condition=IfCondition(use_gate_detection),
@@ -106,7 +112,8 @@ def generate_launch_description():
         condition=IfCondition(
             PythonExpression([
                 "'", use_video_stream, "' == 'true' and '",
-                use_camera, "' == 'true' and '", use_sim, "' == 'false'",
+                use_camera, "' == 'true' and '", use_sim, "' == 'false' and '",
+                h264_backend, "' == 'isaac_ros'",
             ])
         ),
     )
@@ -116,7 +123,19 @@ def generate_launch_description():
         condition=IfCondition(
             PythonExpression([
                 "'", use_video_stream, "' == 'true' and '",
-                use_camera, "' == 'true' and '", use_sim, "' == 'false'",
+                use_camera, "' == 'true' and '", use_sim, "' == 'false' and '",
+                h264_backend, "' == 'isaac_ros'",
+            ])
+        ),
+    )
+
+    gstreamer_ros_h264_enabled = LogInfo(
+        msg="GStreamer ROS H.264 encoder enabled inside the camera node: /cam0/image_h264.",
+        condition=IfCondition(
+            PythonExpression([
+                "'", use_video_stream, "' == 'true' and '",
+                use_camera, "' == 'true' and '", use_sim, "' == 'false' and '",
+                h264_backend, "' == 'gstreamer_ros'",
             ])
         ),
     )
@@ -129,6 +148,9 @@ def generate_launch_description():
             DeclareLaunchArgument("use_vio", default_value="true"),
             DeclareLaunchArgument("use_ekf", default_value="true"),
             DeclareLaunchArgument("use_video_stream", default_value="true"),
+            DeclareLaunchArgument("publish_rgb", default_value="true"),
+            DeclareLaunchArgument("gate_camera_topic", default_value="/cam0/image_rgb"),
+            DeclareLaunchArgument("h264_backend", default_value="gstreamer_ros"),
             DeclareLaunchArgument("camera_width", default_value="1280"),
             DeclareLaunchArgument("camera_height", default_value="720"),
             DeclareLaunchArgument("camera_fps", default_value="60"),
@@ -145,5 +167,6 @@ def generate_launch_description():
             ekf_launch,
             h264_encoder_launch,
             h264_encoder_enabled,
+            gstreamer_ros_h264_enabled,
         ]
     )

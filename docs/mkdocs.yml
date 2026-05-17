@@ -106,6 +106,7 @@ nav:
   - Groundstation:
     - Overview: groundstation/index.md
     - Video Streaming: groundstation/video-streaming.md
+    - Web Server: groundstation/web-server.md
   - Contributors: contributors.md
   - Deprecated:
     - ArUco: deprecated/ArUco.md

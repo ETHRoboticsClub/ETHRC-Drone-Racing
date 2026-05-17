@@ -17,7 +17,7 @@ class GateDetectorNode(Node):
         super().__init__('gate_detector_node')
         
         self.declare_parameter('checkpoint', '')
-        self.declare_parameter('camera_topic', '/cam0/image_raw')
+        self.declare_parameter('camera_topic', '/cam0/image_rgb')
         self.declare_parameter('output_topic', '/gate_detection/drone_pose')
         self.declare_parameter('max_rate_hz', 30.0)
         

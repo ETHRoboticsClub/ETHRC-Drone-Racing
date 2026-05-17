@@ -42,8 +42,8 @@ def generate_launch_description():
     arg_video_fps = DeclareLaunchArgument('video_fps', default_value='60')
     arg_video_port = DeclareLaunchArgument('video_port', default_value='5000')
     arg_h264_backend = DeclareLaunchArgument(
-        'h264_backend', default_value='isaac_ros',
-        description='H.264 backend when view_stream=true: isaac_ros or gstreamer'
+        'h264_backend', default_value='gstreamer_ros',
+        description='H.264 backend when view_stream=true: gstreamer_ros, isaac_ros, or gstreamer'
     )
     arg_isaac_h264_qp = DeclareLaunchArgument(
         'isaac_h264_qp', default_value='18',
@@ -71,11 +71,19 @@ def generate_launch_description():
     )
     arg_publish_raw = DeclareLaunchArgument(
         'publish_raw', default_value='true',
-        description='Publish /cam0/image_raw for VIO and gate detection'
+        description='Publish /cam0/image_raw as mono8 for VIO'
+    )
+    arg_publish_rgb = DeclareLaunchArgument(
+        'publish_rgb', default_value='true',
+        description='Publish /cam0/image_rgb as the default color camera topic'
     )
     arg_use_gate_detection = DeclareLaunchArgument(
         'use_gate_detection', default_value='false',
         description='Gate detector is WIP; enable only after gate_detection is built and installed'
+    )
+    arg_gate_camera_topic = DeclareLaunchArgument(
+        'gate_camera_topic', default_value='/cam0/image_rgb',
+        description='Gate detector image topic. /cam0/image_rgb has real color; /cam0/image_raw is mono.'
     )
     arg_use_vio = DeclareLaunchArgument('use_vio', default_value='true')
 
@@ -164,11 +172,15 @@ def generate_launch_description():
             'framerate': LaunchConfiguration('video_fps'),
             'width': LaunchConfiguration('video_width'),
             'height': LaunchConfiguration('video_height'),
-            'publish_color': PythonExpression([
-                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'isaac_ros'"
-            ]),
+            'publish_color': LaunchConfiguration('publish_rgb'),
             'color_encoding': 'rgb8',
+            'color_reliable': PythonExpression([
+                "'", LaunchConfiguration('h264_backend'), "' == 'isaac_ros'"
+            ]),
+            'publish_h264': PythonExpression([
+                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
+                LaunchConfiguration('h264_backend'), "' == 'gstreamer_ros'"
+            ]),
             'enable_h264_stream': PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
                 LaunchConfiguration('h264_backend'), "' == 'gstreamer'"
@@ -222,6 +234,17 @@ def generate_launch_description():
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
                 LaunchConfiguration('publish_raw'), "' == 'true' and '",
                 LaunchConfiguration('h264_backend'), "' == 'gstreamer' and ", str(is_jetson)
+            ])
+        )
+    )
+
+    gstreamer_ros_h264_enabled = LogInfo(
+        msg="GStreamer ROS H.264 enabled inside the camera pipeline: /cam0/image_h264. /cam0/image_rgb remains a best-effort color topic for gate detection/debug.",
+        condition=launch.conditions.IfCondition(
+            PythonExpression([
+                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
+                LaunchConfiguration('publish_raw'), "' == 'true' and '",
+                LaunchConfiguration('h264_backend'), "' == 'gstreamer_ros' and ", str(is_jetson)
             ])
         )
     )
@@ -306,7 +329,7 @@ def generate_launch_description():
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and (not ", str(is_jetson),
+                LaunchConfiguration('h264_backend'), "' in ['isaac_ros', 'gstreamer_ros'] and (not ", str(is_jetson),
                 " or '", LaunchConfiguration('decode_h264'), "' == 'true')"
             ])
         )
@@ -319,7 +342,7 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            'camera_topic': '/cam0/image_raw',
+            'camera_topic': LaunchConfiguration('gate_camera_topic'),
             'output_topic': '/gate_detection/drone_pose',
         }.items(),
         condition=launch.conditions.IfCondition(LaunchConfiguration('use_gate_detection'))
@@ -390,7 +413,9 @@ def generate_launch_description():
         arg_decode_h264,
         arg_ground_station_ip,
         arg_publish_raw,
+        arg_publish_rgb,
         arg_use_gate_detection,
+        arg_gate_camera_topic,
         arg_use_vio,
         arg_msp_bench_mode,
         arg_load_bf_config,
@@ -402,6 +427,7 @@ def generate_launch_description():
         load_config_process,
         video_publisher_node,
         gstreamer_stream_enabled_for_perception,
+        gstreamer_ros_h264_enabled,
         isaac_h264_encoder,
         isaac_h264_enabled,
         video_receiver,

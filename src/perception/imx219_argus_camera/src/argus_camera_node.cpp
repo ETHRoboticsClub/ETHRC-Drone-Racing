@@ -10,6 +10,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
+#include "sensor_msgs/msg/compressed_image.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
 namespace
@@ -46,6 +47,8 @@ public:
     declare_parameter<int>("flip_method", 2);
     declare_parameter<bool>("publish_color", false);
     declare_parameter<std::string>("color_encoding", "rgb8");
+    declare_parameter<bool>("color_reliable", false);
+    declare_parameter<bool>("publish_h264", false);
     declare_parameter<bool>("enable_h264_stream", false);
     declare_parameter<std::string>("ground_station_ip", "127.0.0.1");
     declare_parameter<int>("stream_port", 5000);
@@ -67,6 +70,7 @@ public:
     encoding_ = get_parameter("output_encoding").as_string();
     color_encoding_ = get_parameter("color_encoding").as_string();
     publish_color_ = get_parameter("publish_color").as_bool();
+    publish_h264_ = get_parameter("publish_h264").as_bool();
     width_ = get_parameter("width").as_int();
     height_ = get_parameter("height").as_int();
     channels_ = encoding_ == "mono8" ? 1 : 3;
@@ -77,11 +81,17 @@ public:
     camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
       "camera_info", rclcpp::QoS(kCameraInfoQueue));
     if (publish_color_) {
-      // Isaac ROS H.264 encoder subscribes with reliable QoS, so the auxiliary
-      // RGB stream must also be reliable. Keep the perception mono stream on
-      // SensorDataQoS to avoid backpressure on VIO/detection.
-      color_pub_ = create_publisher<sensor_msgs::msg::Image>(
-        "image_rgb", rclcpp::QoS(1).reliable());
+      if (get_parameter("color_reliable").as_bool()) {
+        color_pub_ = create_publisher<sensor_msgs::msg::Image>(
+          "image_rgb", rclcpp::QoS(1).reliable());
+      } else {
+        color_pub_ = create_publisher<sensor_msgs::msg::Image>(
+          "image_rgb", rclcpp::SensorDataQoS().keep_last(1));
+      }
+    }
+    if (publish_h264_) {
+      h264_pub_ = create_publisher<sensor_msgs::msg::CompressedImage>(
+        "image_h264", rclcpp::SensorDataQoS().keep_last(1));
     }
 
     camera_info_ = make_camera_info();
@@ -115,6 +125,14 @@ public:
       g_signal_connect(
         color_appsink_, "new-sample", G_CALLBACK(&ArgusCameraNode::on_color_sample_static), this);
     }
+    if (publish_h264_) {
+      h264_appsink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "h264_sink");
+      if (h264_appsink_ == nullptr) {
+        throw std::runtime_error("Camera pipeline does not contain appsink name=h264_sink");
+      }
+      g_signal_connect(
+        h264_appsink_, "new-sample", G_CALLBACK(&ArgusCameraNode::on_h264_sample_static), this);
+    }
 
     const GstStateChangeReturn state_ret = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
     if (state_ret == GST_STATE_CHANGE_FAILURE) {
@@ -139,6 +157,10 @@ public:
       gst_object_unref(color_appsink_);
       color_appsink_ = nullptr;
     }
+    if (h264_appsink_ != nullptr) {
+      gst_object_unref(h264_appsink_);
+      h264_appsink_ = nullptr;
+    }
     if (pipeline_ != nullptr) {
       gst_object_unref(pipeline_);
       pipeline_ = nullptr;
@@ -154,6 +176,7 @@ private:
     const auto fps = get_parameter("framerate").as_double();
     const int flip_method = get_parameter("flip_method").as_int();
     const bool enable_stream = get_parameter("enable_h264_stream").as_bool();
+    const bool publish_h264 = get_parameter("publish_h264").as_bool();
 
     std::ostringstream pipeline;
     pipeline
@@ -195,7 +218,7 @@ private:
         << " ! appsink name=color_sink emit-signals=true sync=false max-buffers=1 drop=true";
     }
 
-    if (enable_stream) {
+    if (enable_stream || publish_h264) {
       pipeline
         << " t. ! queue max-size-buffers=1 leaky=downstream"
         << " ! nvv4l2h264enc"
@@ -205,11 +228,24 @@ private:
         << " bitrate=" << get_parameter("stream_bitrate").as_int()
         << " control-rate=1"
         << " maxperf-enable=true"
-        << " ! h264parse"
-        << " ! rtph264pay config-interval=1 pt=" << get_parameter("payload_type").as_int()
-        << " ! udpsink host=" << get_parameter("ground_station_ip").as_string()
-        << " port=" << get_parameter("stream_port").as_int()
-        << " sync=false async=false";
+        << " ! h264parse config-interval=1"
+        << " ! tee name=h264t";
+
+      if (publish_h264) {
+        pipeline
+          << " h264t. ! queue max-size-buffers=1 leaky=downstream"
+          << " ! video/x-h264,stream-format=byte-stream,alignment=au"
+          << " ! appsink name=h264_sink emit-signals=true sync=false max-buffers=1 drop=true";
+      }
+
+      if (enable_stream) {
+        pipeline
+          << " h264t. ! queue max-size-buffers=1 leaky=downstream"
+          << " ! rtph264pay config-interval=1 pt=" << get_parameter("payload_type").as_int()
+          << " ! udpsink host=" << get_parameter("ground_station_ip").as_string()
+          << " port=" << get_parameter("stream_port").as_int()
+          << " sync=false async=false";
+      }
     }
 
     return pipeline.str();
@@ -250,6 +286,11 @@ private:
   static GstFlowReturn on_color_sample_static(GstElement * sink, gpointer data)
   {
     return static_cast<ArgusCameraNode *>(data)->on_color_sample(sink);
+  }
+
+  static GstFlowReturn on_h264_sample_static(GstElement * sink, gpointer data)
+  {
+    return static_cast<ArgusCameraNode *>(data)->on_h264_sample(sink);
   }
 
   GstFlowReturn on_sample(GstElement * sink)
@@ -318,6 +359,33 @@ private:
     return GST_FLOW_OK;
   }
 
+  GstFlowReturn on_h264_sample(GstElement * sink)
+  {
+    GstSample * sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
+    if (sample == nullptr) {
+      return GST_FLOW_ERROR;
+    }
+
+    GstBuffer * buffer = gst_sample_get_buffer(sample);
+    GstMapInfo map;
+    if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+      gst_sample_unref(sample);
+      return GST_FLOW_ERROR;
+    }
+
+    auto msg = sensor_msgs::msg::CompressedImage();
+    msg.header.stamp = now();
+    msg.header.frame_id = frame_id_;
+    msg.format = "h264";
+    msg.data.assign(map.data, map.data + map.size);
+
+    h264_pub_->publish(std::move(msg));
+
+    gst_buffer_unmap(buffer, &map);
+    gst_sample_unref(sample);
+    return GST_FLOW_OK;
+  }
+
   void poll_bus()
   {
     GstBus * bus = gst_element_get_bus(pipeline_);
@@ -377,15 +445,18 @@ private:
   GstElement * pipeline_{nullptr};
   GstElement * appsink_{nullptr};
   GstElement * color_appsink_{nullptr};
+  GstElement * h264_appsink_{nullptr};
   rclcpp::TimerBase::SharedPtr bus_timer_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr color_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr h264_pub_;
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
   sensor_msgs::msg::CameraInfo camera_info_;
   std::string frame_id_;
   std::string encoding_;
   std::string color_encoding_;
   bool publish_color_{false};
+  bool publish_h264_{false};
   int width_{1280};
   int height_{720};
   int channels_{1};

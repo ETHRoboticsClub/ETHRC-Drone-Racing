@@ -6,6 +6,8 @@ perception stack has no external gscam runtime dependency. The node captures via
 nvarguscamerasrc/libargus, drops stale frames at the appsink, and publishes:
 
   /cam0/image_raw
+  /cam0/image_rgb
+  /cam0/image_h264
   /cam0/camera_info
 """
 
@@ -39,8 +41,10 @@ def generate_launch_description():
             'flip_method', default_value='2',
             description='nvvidconv flip-method; 2 rotates 180 degrees for the Zephyrus mount',
         ),
-        DeclareLaunchArgument('publish_color', default_value='false'),
+        DeclareLaunchArgument('publish_color', default_value='true'),
         DeclareLaunchArgument('color_encoding', default_value='rgb8'),
+        DeclareLaunchArgument('color_reliable', default_value='false'),
+        DeclareLaunchArgument('publish_h264', default_value='false'),
         DeclareLaunchArgument('enable_h264_stream', default_value='false'),
         DeclareLaunchArgument('ground_station_ip', default_value='127.0.0.1'),
         DeclareLaunchArgument('stream_port', default_value='5000'),
@@ -64,6 +68,10 @@ def generate_launch_description():
                     'publish_color': ParameterValue(
                         LaunchConfiguration('publish_color'), value_type=bool),
                     'color_encoding': LaunchConfiguration('color_encoding'),
+                    'color_reliable': ParameterValue(
+                        LaunchConfiguration('color_reliable'), value_type=bool),
+                    'publish_h264': ParameterValue(
+                        LaunchConfiguration('publish_h264'), value_type=bool),
                     'enable_h264_stream': ParameterValue(
                         LaunchConfiguration('enable_h264_stream'), value_type=bool),
                     'ground_station_ip': LaunchConfiguration('ground_station_ip'),
@@ -75,6 +83,7 @@ def generate_launch_description():
             remappings=[
                 ('image_raw', '/cam0/image_raw'),
                 ('image_rgb', '/cam0/image_rgb'),
+                ('image_h264', '/cam0/image_h264'),
                 ('camera_info', '/cam0/camera_info'),
             ],
         ),

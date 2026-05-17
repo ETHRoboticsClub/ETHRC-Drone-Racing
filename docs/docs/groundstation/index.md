@@ -14,7 +14,7 @@ topic for viewing.
 | `/cam0/image_h264` | H.264 bytes in `sensor_msgs/CompressedImage` | No |
 | `/image_decoded` | Decoded image from `isaac_ros_h264_decoder` | Yes |
 | `/cam0/image_raw` | Mono perception image on the drone | Only for debug |
-| `/cam0/image_rgb` | Encoder input branch on the drone | No |
+| `/cam0/image_rgb` | Raw color branch for gate detection/debug | Yes, but avoid bagging for long runs |
 
 Start with [H.264 Video Streaming](video-streaming.md) when setting up live
 video or bagging camera logs. See the [**ROS Bags & Datasets**](../infrastructure/ros_bags.md) registry for a list of available flight data.
