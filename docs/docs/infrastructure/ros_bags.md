@@ -1,3 +1,4 @@
+ls
 # ROS Bags & Flight Data (S3)
 
 **Page Owner:** [Aeronautics Division](https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/)
@@ -10,6 +11,7 @@ This page serves as a central registry for flight data uploaded to our AWS S3 st
 
 | Date | Person | Drone | S3 Location (s3://...) | Notes | Useful Topics |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-05-17 | zephyrus | zephyrus | `s3://ethrc-aeronautics/droneracing/bags/2026-05-17-zephyrus-multi-gate2.zip` | multi_gate2, lows rgb framerates | /cam0/camera_info, /cam0/image_h264, /cam0/image_rgb, /imu0, /motor_rpm, /vicon/* |
 | 2026-05-12 | Dimetri | Zephyrus | `s3://ethrc-aeronautics/droneracing/bags/2026-05-12_dimetri_zephyrus-calib4-rgb.zip` | AprilTag calibration pattern for cam-imu calibration using RGB images. | `/cam0/image_raw`, `/imu0` |
 | 2026-05-09 | Dimetri | Zephyrus | `s3://ethrc-aeronautics/droneracing/bags/zephyrus-calib3-imu-cam.zip` | Calibration run with the NITROS cam stack for imu-cam calibration. Monochrome image only. | `/cam0/image_raw`, `/imu0` |
 | 2026-05-06 | Dimetri | Zephyrus | `s3://ethrc-aeronautics/droneracing/bags/06-05-26-zephyrus-calib2.zip` | Calibration run with the old h264 compressed video feed. Shouldn't be used anymore | `/image_raw/h264`, `/imu0` |
