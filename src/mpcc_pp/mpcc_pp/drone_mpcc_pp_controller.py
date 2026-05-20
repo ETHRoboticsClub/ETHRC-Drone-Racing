@@ -167,7 +167,7 @@ class DroneMpccPpController(ControllerInterface):
         self._model = DroneMpccPpModel(
             model_params=get_section(self._parameters, 'model'))
         self._opt: DroneOptimizerMpccPp = None   # built lazily in initialize()
-        weight_keys = ('ql', 'Qw', 'r_dvt', 'R_df', 'mu', 'track_weight')
+        weight_keys = DroneOptimizerMpccPp.WEIGHT_ORDER
         self._runtime_weights = {
             key: float(DroneOptimizerMpccPp._DEFAULTS[key])
             for key in weight_keys
@@ -179,8 +179,22 @@ class DroneMpccPpController(ControllerInterface):
             self._runtime_weights.update({
                 k: float(v) for k, v in weights.items() if k in weight_keys
             })
+        discount_value = cost_cfg.get(
+            'discount_factor', DroneOptimizerMpccPp._DEFAULTS['discount_factor'])
+        if weights and 'discount_factor' in weights:
+            discount_value = weights['discount_factor']
+        self._discount_factor = DroneOptimizerMpccPp._validate_discount_factor(
+            discount_value)
         self._track_barrier_alpha = float(
             cost_cfg.get('track_barrier_alpha', DroneOptimizerMpccPp._ALPHA_TRACK))
+        terminal_multiplier = cost_cfg.get(
+            'terminal_cost_multiplier',
+            DroneOptimizerMpccPp._DEFAULTS['terminal_cost_multiplier'])
+        if weights and 'terminal_cost_multiplier' in weights:
+            terminal_multiplier = weights['terminal_cost_multiplier']
+        self._terminal_cost_multiplier = (
+            DroneOptimizerMpccPp._validate_terminal_cost_multiplier(
+                terminal_multiplier))
         self._solver_options = get_section(self._parameters, 'solver')
 
         # Save gates config for deferred path rebuild with drone start position
@@ -252,6 +266,7 @@ class DroneMpccPpController(ControllerInterface):
             weights=self._runtime_weights,
             solver_options=self._solver_options,
             track_barrier_alpha=self._track_barrier_alpha,
+            terminal_cost_multiplier=self._terminal_cost_multiplier,
             enable_logging=True,
         )
         mode = ("GatedRacingPath (Track Constraint active)"
@@ -475,7 +490,7 @@ class DroneMpccPpController(ControllerInterface):
             return
 
         allowed = set(DroneOptimizerMpccPp.WEIGHT_ORDER)
-        allowed.update({'qc_nom', 'qc_gate', 'qc_gate_ratio'})
+        allowed.update({'discount_factor', 'qc_nom', 'qc_gate', 'qc_gate_ratio'})
         unknown = sorted(set(params) - allowed)
         if unknown:
             raise ValueError(f"Unknown MPCC++ tuning parameter(s): {unknown}")
@@ -484,6 +499,9 @@ class DroneMpccPpController(ControllerInterface):
             if key in params:
                 self._runtime_weights[key] = self._positive_float(
                     key, params[key])
+        if 'discount_factor' in params:
+            self._discount_factor = DroneOptimizerMpccPp._validate_discount_factor(
+                params['discount_factor'])
 
         qc_nom = self._positive_float(
             'qc_nom', params.get('qc_nom', self._qc_nom))
@@ -502,6 +520,7 @@ class DroneMpccPpController(ControllerInterface):
     def get_tuning_parameters(self) -> dict:
         """Return the currently active runtime tuning parameters."""
         params = dict(self._runtime_weights)
+        params['discount_factor'] = float(self._discount_factor)
         params['qc_nom'] = float(self._qc_nom)
         params['qc_gate'] = float(self._qc_gate)
         params['qc_gate_ratio'] = float(self._qc_gate / self._qc_nom)
@@ -538,7 +557,8 @@ class DroneMpccPpController(ControllerInterface):
         Core mpcc_pp step shared by controller_update and mpcc_pp_update.
 
         Uses get_tunnel_params() for the 15-column path/tunnel geometry, then
-        appends the 6 runtime tuning weights expected by the OCP.  For plain
+        appends runtime tuning weights and per-stage cost discounts expected
+        by the OCP.  For plain
         RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
@@ -581,7 +601,7 @@ class DroneMpccPpController(ControllerInterface):
             self._lap  += 1
             self._opt._warm = False   # force cold start after lap wrap
 
-        # Compute path + tunnel geometry and append runtime tuning weights.
+        # Compute path + tunnel geometry and append runtime cost parameters.
         stage_params = self._path.get_tunnel_params(
             theta        = self._theta,
             n_stages     = self.Nnodes + 1,
@@ -592,7 +612,7 @@ class DroneMpccPpController(ControllerInterface):
             W_default    = self._disabled_W,
             H_default    = self._disabled_H,
         )
-        stage_params = self._append_weight_params(stage_params)
+        stage_params = self._append_cost_params(stage_params)
 
         # Solve mpcc_pp OCP
         u_opt, x_pred, info = self._opt.solve(x_aug, stage_params)
@@ -633,15 +653,17 @@ class DroneMpccPpController(ControllerInterface):
             raise ValueError(f"{name} must be a finite positive value")
         return converted
 
-    def _append_weight_params(self, stage_params: np.ndarray) -> np.ndarray:
-        """Append runtime cost weights to path/tunnel stage parameters."""
+    def _append_cost_params(self, stage_params: np.ndarray) -> np.ndarray:
+        """Append runtime cost weights and discounts to stage parameters."""
         params = np.asarray(stage_params, dtype=np.float64)
         weights = np.array([
             self._runtime_weights[key]
             for key in DroneOptimizerMpccPp.WEIGHT_ORDER
         ], dtype=np.float64)
         repeated = np.repeat(weights.reshape(1, -1), params.shape[0], axis=0)
-        return np.hstack([params, repeated])
+        discounts = DroneOptimizerMpccPp._discount_vector(
+            params.shape[0], self._discount_factor)
+        return np.hstack([params, repeated, discounts])
 
     def _record_solver_info(self, info: dict) -> None:
         """Accumulate solver status counters for tuning metrics."""

@@ -21,7 +21,7 @@ controller:
 
   # Number of shooting intervals in the horizon. dt = t_horizon / n_nodes.
   # Larger values improve discretization at higher CPU cost.
-  n_nodes: 21
+  n_nodes: 25
 
   # Minimum speed used to roll reference parameters forward along the horizon
   # when vtheta is still small. This mostly affects takeoff/lead-in behavior.
@@ -95,6 +95,14 @@ cost:
 
   # Soft-barrier weight for tunnel halfspace violations.
   track_weight: 3.2437217958780518 # was 10
+
+  # Horizon cost discount base gamma. 1.0 disables discounting; lower values
+  # make later shooting stages matter less than near-term stages.
+  discount_factor: 0.99
+
+  # Multiplier applied to the terminal state cost. Higher values make the final
+  # horizon state prioritize tracking/progress more strongly.
+  terminal_cost_multiplier: 10.0
 
   # Log-barrier steepness for the tunnel constraint. Higher is sharper but can
   # make the optimization numerically harder.

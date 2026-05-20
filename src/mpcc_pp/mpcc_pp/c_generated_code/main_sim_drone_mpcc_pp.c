@@ -137,6 +137,7 @@ int main()
     p[18] = 0.0011621720782828086;
     p[19] = 1.668270546020688;
     p[20] = 3.243721795878052;
+    p[21] = 1;
 
     drone_mpcc_pp_acados_sim_update_params(capsule, p, NP);
   

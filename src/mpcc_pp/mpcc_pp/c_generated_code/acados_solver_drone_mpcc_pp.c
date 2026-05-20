@@ -421,6 +421,7 @@ void drone_mpcc_pp_acados_create_set_default_parameters(drone_mpcc_pp_solver_cap
     p[18] = 0.0011621720782828086;
     p[19] = 1.668270546020688;
     p[20] = 3.243721795878052;
+    p[21] = 1;
 
     for (int i = 0; i <= N; i++) {
         drone_mpcc_pp_acados_update_params(capsule, i, p, NP);
@@ -463,35 +464,39 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     {
         // set time_steps
     
-        double time_step = 0.07142857142857142;
+        double time_step = 0.06;
         for (int i = 0; i < N; i++)
         {
             ocp_nlp_in_set(nlp_config, nlp_dims, nlp_in, i, "Ts", &time_step);
         }
         // set cost scaling
         double* cost_scaling = malloc((N+1)*sizeof(double));
-        cost_scaling[0] = 0.07142857142857142;
-        cost_scaling[1] = 0.07142857142857142;
-        cost_scaling[2] = 0.07142857142857142;
-        cost_scaling[3] = 0.07142857142857142;
-        cost_scaling[4] = 0.07142857142857142;
-        cost_scaling[5] = 0.07142857142857142;
-        cost_scaling[6] = 0.07142857142857142;
-        cost_scaling[7] = 0.07142857142857142;
-        cost_scaling[8] = 0.07142857142857142;
-        cost_scaling[9] = 0.07142857142857142;
-        cost_scaling[10] = 0.07142857142857142;
-        cost_scaling[11] = 0.07142857142857142;
-        cost_scaling[12] = 0.07142857142857142;
-        cost_scaling[13] = 0.07142857142857142;
-        cost_scaling[14] = 0.07142857142857142;
-        cost_scaling[15] = 0.07142857142857142;
-        cost_scaling[16] = 0.07142857142857142;
-        cost_scaling[17] = 0.07142857142857142;
-        cost_scaling[18] = 0.07142857142857142;
-        cost_scaling[19] = 0.07142857142857142;
-        cost_scaling[20] = 0.07142857142857142;
-        cost_scaling[21] = 1;
+        cost_scaling[0] = 0.06;
+        cost_scaling[1] = 0.06;
+        cost_scaling[2] = 0.06;
+        cost_scaling[3] = 0.06;
+        cost_scaling[4] = 0.06;
+        cost_scaling[5] = 0.06;
+        cost_scaling[6] = 0.06;
+        cost_scaling[7] = 0.06;
+        cost_scaling[8] = 0.06;
+        cost_scaling[9] = 0.06;
+        cost_scaling[10] = 0.06;
+        cost_scaling[11] = 0.06;
+        cost_scaling[12] = 0.06;
+        cost_scaling[13] = 0.06;
+        cost_scaling[14] = 0.06;
+        cost_scaling[15] = 0.06;
+        cost_scaling[16] = 0.06;
+        cost_scaling[17] = 0.06;
+        cost_scaling[18] = 0.06;
+        cost_scaling[19] = 0.06;
+        cost_scaling[20] = 0.06;
+        cost_scaling[21] = 0.06;
+        cost_scaling[22] = 0.06;
+        cost_scaling[23] = 0.06;
+        cost_scaling[24] = 0.06;
+        cost_scaling[25] = 1;
         for (int i = 0; i <= N; i++)
         {
             ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "scaling", &cost_scaling[i]);
@@ -821,7 +826,7 @@ static void drone_mpcc_pp_acados_create_set_opts(drone_mpcc_pp_solver_capsule* c
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "levenberg_marquardt", &levenberg_marquardt);
 
     /* options QP solver */
-    int qp_solver_cond_N;const int qp_solver_cond_N_ori = 21;
+    int qp_solver_cond_N;const int qp_solver_cond_N_ori = 25;
     qp_solver_cond_N = N < qp_solver_cond_N_ori ? N : qp_solver_cond_N_ori; // use the minimum value here
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_N", &qp_solver_cond_N);
     double reg_epsilon = 0.0001;
@@ -1060,7 +1065,7 @@ int drone_mpcc_pp_acados_update_params(drone_mpcc_pp_solver_capsule* capsule, in
 {
     int solver_status = 0;
 
-    int casadi_np = 21;
+    int casadi_np = 22;
     if (casadi_np != np) {
         printf("acados_update_params: trying to set %i parameters for external functions."
             " External function has %i parameters. Exiting.\n", np, casadi_np);

@@ -4,13 +4,13 @@ ACADOS OCP solver for mpcc_pp with Track Constraint.
 
 Stage cost (per stage k = 0 … N):
 
-  L_k = ql · el(θk)²
+  L_k = γ^k · (ql · el(θk)²
       + qc(θk) · ‖ec(θk)‖²
       + Qω · ‖ωk‖²
       + rΔv · Δvθ,k²
       + RΔf · ‖Δfk‖²
       − μ · vθ,k
-      + track_weight · Σ_{i=1}^{4} p(h_i(θk))   ← Track Constraint
+      + track_weight · Σ_{i=1}^{4} p(h_i(θk)))  ← Track Constraint
 
 where
   e(θk)  = pk − p^d(θk)                     position error
@@ -28,7 +28,7 @@ Track Constraint (mpcc_pp paper, Section IV-A, eq. 7):
 
 Soft barrier (paper eq. 14):  p(h) = log(1 + exp(−α·h)),  α = 100
 
-Stage parameters (21 values, set per stage):
+Stage parameters (22 values, set per stage):
   [p_ref_x, p_ref_y, p_ref_z,   ← p^d(θk)        indices 0:3
    t_ref_x, t_ref_y, t_ref_z,   ← unit tangent     indices 3:6
    qc,                           ← contouring wt    index  6
@@ -37,12 +37,13 @@ Stage parameters (21 values, set per stage):
    W,                            ← half-width       index  13
    H,                            ← half-height      index  14
    ql, Qw, r_dvt, R_df, mu,      ← runtime weights  indices 15:20
-   track_weight]
+   track_weight,
+   discount]                     ← γ^k cost discount index 21
 
 The SQP_RTI scheme is used as in the paper (Section VII-A).
 Warm-starting shifts the previous trajectory by one step (RTI practice).
 
-Note: changing NP from 15 to 21 invalidates any previously compiled
+Note: changing NP from 15 to 22 invalidates any previously compiled
       ACADOS C code.  ACADOS regenerates c_generated_code/ automatically
       on the first call to DroneOptimizerMpccPp().
 """
@@ -84,7 +85,9 @@ class DroneOptimizerMpccPp:
     r_dvt        — progress-acceleration cost (prevents noisy vθ)
     R_df         — rotor thrust-rate cost (scalar, applied as R_df·I₄)
     mu           — progress reward (higher → faster flight)
-    track_weight — penalty weight for track constraint log-barrier terms
+    track_weight    — penalty weight for track constraint log-barrier terms
+    discount_factor — horizon discount base γ; 1.0 disables discounting
+    terminal_cost_multiplier — multiplier applied to the terminal state cost
     """
 
     _DEFAULTS = dict(
@@ -94,14 +97,18 @@ class DroneOptimizerMpccPp:
         R_df=0.0003,
         mu=7.0,
         track_weight=30.0,   # Track Constraint soft-barrier weight
+        discount_factor=1.0,
+        terminal_cost_multiplier=10.0,
     )
 
     # Runtime stage parameters:
     # [p_ref(3), t_ref(3), qc(1), n_ref(3), b_ref(3), W(1), H(1),
-    #  ql(1), Qw(1), r_dvt(1), R_df(1), mu(1), track_weight(1)]
+    #  ql(1), Qw(1), r_dvt(1), R_df(1), mu(1), track_weight(1),
+    #  discount(1)]
     GEOMETRY_NP = 15
     WEIGHT_ORDER = ('ql', 'Qw', 'r_dvt', 'R_df', 'mu', 'track_weight')
-    NP = GEOMETRY_NP + len(WEIGHT_ORDER)
+    DISCOUNT_NP = 1
+    NP = GEOMETRY_NP + len(WEIGHT_ORDER) + DISCOUNT_NP
 
     # Log-barrier steepness.
     _ALPHA_TRACK = 150.0
@@ -109,6 +116,7 @@ class DroneOptimizerMpccPp:
     def __init__(self, model, t_horizon: float = 1.5, n_nodes: int = 40,
                  weights: dict = None, solver_options: dict = None,
                  track_barrier_alpha: float = None,
+                 terminal_cost_multiplier: float = None,
                  enable_logging: bool = True):
         self.T  = t_horizon
         self.N  = n_nodes
@@ -129,6 +137,8 @@ class DroneOptimizerMpccPp:
         }
         self._default_weight_vector = self._weight_vector(
             self._default_weight_params)
+        self._default_discount_factor = self._validate_discount_factor(
+            w.get('discount_factor', self._DEFAULTS['discount_factor']))
 
         solver_parameters = get_section(parameter_file, 'solver')
         solver_options = {**solver_parameters, **(solver_options or {})}
@@ -136,6 +146,11 @@ class DroneOptimizerMpccPp:
             cost_parameters.get('track_barrier_alpha', self._ALPHA_TRACK)
             if track_barrier_alpha is None
             else track_barrier_alpha)
+        self._terminal_cost_multiplier = self._validate_terminal_cost_multiplier(
+            w.get('terminal_cost_multiplier',
+                  self._DEFAULTS['terminal_cost_multiplier'])
+            if terminal_cost_multiplier is None
+            else terminal_cost_multiplier)
         c = model.constraint
 
         os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -147,7 +162,7 @@ class DroneOptimizerMpccPp:
         ocp.solver_options.N_horizon = self.N
         ocp.solver_options.tf = self.T
 
-        # ── Per-stage parameters (21 × 1) ──────────────────────────────
+        # ── Per-stage parameters (22 × 1) ──────────────────────────────
         p_ref = ca.MX.sym('p_ref', 3)   # reference position       [0:3]
         t_ref = ca.MX.sym('t_ref', 3)   # unit tangent             [3:6]
         qc    = ca.MX.sym('qc',    1)   # contouring weight        [6]
@@ -162,10 +177,12 @@ class DroneOptimizerMpccPp:
         R_df_p = ca.MX.sym('R_df', 1)                  # [18]
         mu_p = ca.MX.sym('mu', 1)                      # [19]
         track_weight_p = ca.MX.sym('track_weight', 1)  # [20]
+        discount_p = ca.MX.sym('discount', 1)          # [21]
 
         params = ca.vertcat(
             p_ref, t_ref, qc, n_ref, b_ref, W, H,
             ql_p, Qw_p, r_dvt_p, R_df_p, mu_p, track_weight_p,
+            discount_p,
         )
 
         ocp.dims.np          = self.NP
@@ -173,6 +190,7 @@ class DroneOptimizerMpccPp:
         ocp.parameter_values = np.concatenate([
             np.zeros(self.GEOMETRY_NP),
             self._default_weight_vector,
+            np.ones(self.DISCOUNT_NP),
         ])
 
         # ── State and control aliases ───────────────────────────────────
@@ -224,16 +242,20 @@ class DroneOptimizerMpccPp:
         cost_df       = R_df_p     * ca.dot(df_k, df_k)
         cost_progress = -mu_p      * vt_k
 
-        stage_cost = (cost_lag + cost_contour + cost_omega
-                      + cost_dvt + cost_df + cost_progress
-                      + cost_track)
+        undiscounted_stage_cost = (cost_lag + cost_contour + cost_omega
+                                   + cost_dvt + cost_df + cost_progress
+                                   + cost_track)
+        stage_cost = discount_p * undiscounted_stage_cost
 
         # ── Terminal cost (state-only: no control increments) ────────────
-        terminal_cost = 10 * (ql_p * el**2
-                         + qc * ca.dot(ec, ec)
-                         + Qw_p * ca.dot(w_k, w_k)
-                         - mu_p * vt_k
-                         + cost_track)
+        terminal_cost = (
+            discount_p * self._terminal_cost_multiplier
+            * (ql_p * el**2
+               + qc * ca.dot(ec, ec)
+               + Qw_p * ca.dot(w_k, w_k)
+               - mu_p * vt_k
+               + cost_track)
+        )
 
         ocp.cost.cost_type   = 'EXTERNAL'
         ocp.cost.cost_type_e = 'EXTERNAL'
@@ -326,6 +348,7 @@ class DroneOptimizerMpccPp:
         model_payload = getattr(model, 'config_hash_payload', {})
         config_str = (f"{self.T}:{self.N}:{self.nx}:{self.nu}:{self.NP}:"
                       f"{self._alpha_track}:"
+                      f"{self._terminal_cost_multiplier}:"
                       f"{sorted(solver_cfg.items())}:{model_payload}:"
                       f"{lbu.tolist()}:{ubu.tolist()}:{lbx.tolist()}:{ubx.tolist()}:"
                       f"{model_hash}")
@@ -371,7 +394,9 @@ class DroneOptimizerMpccPp:
                   f"ql={w['ql']}, mu={w['mu']}, Qw={w['Qw']}, "
                   f"r_dvt={w['r_dvt']}, R_df={w['R_df']}, "
                   f"track_weight={w['track_weight']}")
+            print(f"  Discount factor: {self._default_discount_factor}")
             print(f"  Track barrier alpha: {self._alpha_track}")
+            print(f"  Terminal cost multiplier: {self._terminal_cost_multiplier}")
 
     # ------------------------------------------------------------------
     # Public interface
@@ -384,12 +409,13 @@ class DroneOptimizerMpccPp:
         Args:
             x0:           Current augmented state (19,).
             stage_params: Path + tunnel parameters for all N+1 stages.
-                          Shape (N+1, 21).  A legacy (N+1, 15) geometry-only
+                          Shape (N+1, 22).  A legacy (N+1, 15) geometry-only
                           matrix is also accepted and completed with the
                           optimizer default runtime weights.
                           Columns: [p_ref(3), t_ref(3), qc(1),
                                     n_ref(3), b_ref(3), W(1), H(1),
-                                    ql, Qw, r_dvt, R_df, mu, track_weight].
+                                    ql, Qw, r_dvt, R_df, mu, track_weight,
+                                    discount].
 
         Returns:
             u_opt:  First optimal control (5,) = [Δvθ, Δf1..4].
@@ -492,12 +518,37 @@ class DroneOptimizerMpccPp:
             dtype=np.float64,
         )
 
+    @staticmethod
+    def _validate_discount_factor(value) -> float:
+        """Convert a discount factor to a finite value in (0, 1]."""
+        discount = float(value)
+        if not np.isfinite(discount) or discount <= 0.0 or discount > 1.0:
+            raise ValueError("discount_factor must be finite and in (0, 1]")
+        return discount
+
+    @staticmethod
+    def _validate_terminal_cost_multiplier(value) -> float:
+        """Convert a terminal cost multiplier to a finite non-negative value."""
+        multiplier = float(value)
+        if not np.isfinite(multiplier) or multiplier < 0.0:
+            raise ValueError(
+                "terminal_cost_multiplier must be finite and non-negative")
+        return multiplier
+
+    @staticmethod
+    def _discount_vector(n_stages: int, discount_factor: float) -> np.ndarray:
+        """Return per-stage multipliers [1, gamma, ..., gamma^(N)]."""
+        return np.power(
+            discount_factor,
+            np.arange(n_stages, dtype=np.float64),
+        ).reshape(-1, 1)
+
     def _complete_stage_params(self, stage_params: np.ndarray) -> np.ndarray:
         """
-        Normalize stage parameters to the 21-column runtime format.
+        Normalize stage parameters to the 22-column runtime format.
 
         Keeping the 15-column geometry-only fallback makes old callers usable,
-        but the controller now sends all 21 columns during normal operation.
+        but the controller now sends all 22 columns during normal operation.
         """
         params = np.asarray(stage_params, dtype=np.float64)
         if params.ndim != 2:
@@ -507,17 +558,24 @@ class DroneOptimizerMpccPp:
         n_cols = params.shape[1]
         if n_cols == self.NP:
             return params
+
+        discount = self._discount_vector(
+            params.shape[0], self._default_discount_factor)
+        if n_cols == self.GEOMETRY_NP + len(self.WEIGHT_ORDER):
+            return np.hstack([params, discount])
         if n_cols == self.GEOMETRY_NP:
             repeated = np.repeat(
                 self._default_weight_vector.reshape(1, -1),
                 params.shape[0],
                 axis=0,
             )
-            return np.hstack([params, repeated])
+            return np.hstack([params, repeated, discount])
         raise ValueError(
             f"stage_params must have {self.NP} columns "
-            f"({self.GEOMETRY_NP} geometry + {len(self.WEIGHT_ORDER)} weights), "
-            f"or legacy {self.GEOMETRY_NP} columns; got {n_cols}")
+            f"({self.GEOMETRY_NP} geometry + {len(self.WEIGHT_ORDER)} weights "
+            f"+ {self.DISCOUNT_NP} discount), legacy "
+            f"{self.GEOMETRY_NP + len(self.WEIGHT_ORDER)} columns, or legacy "
+            f"{self.GEOMETRY_NP} columns; got {n_cols}")
 
     @staticmethod
     def _stat_to_float(value) -> float:
