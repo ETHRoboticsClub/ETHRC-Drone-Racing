@@ -188,7 +188,7 @@ class DroneModel(object):
         constraint.thrust_max = self.maxThrust
 
         # State bounds (angular rates)
-        constraint.w_state_max = np.array([np.pi, np.pi, np.pi])
+        constraint.w_state_max = np.array([2*np.pi, 2*np.pi, 2*np.pi])
         constraint.w_state_min = -constraint.w_state_max
 
         # Velocity bounds

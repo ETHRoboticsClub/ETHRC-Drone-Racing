@@ -78,7 +78,7 @@ class DroneMpcController(ControllerInterface):
         # TODO: Handle mpc failure more explicitely
         try:
             #TODO: bound solution time, ensure RT
-            u0 = self.opt.compute_control_once(self.x_current, goal_trajectory, is_trajectory=True)
+            u0, _, _, _ = self.opt.compute_control_once(self.x_current, goal_trajectory, is_trajectory=True)
 
             if self.verbose:
                 self._debug_print(u0)
@@ -86,7 +86,7 @@ class DroneMpcController(ControllerInterface):
         except Exception as e:
             print(f"[MPC Controller] ERROR: Optimizer failed: {e}")
             return AttitudeRate(0.0, 0.0, 0.0, self.thrust_norm_hover)
-        
+
         thrust_N = float(u0[0])
         wx_cmd = float(u0[1])  # roll rate
         wy_cmd = float(u0[2])  # pitch rate

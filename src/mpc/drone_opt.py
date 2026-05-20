@@ -230,6 +230,9 @@ class DroneOptimizer(object):
         self.last_x_pred = None
         self.last_u_pred = None
         self.warm_start_available = False
+        # Shifted input buffer: u_buffer[i] = u_{i+1}, x_buffer[i] = x_{i+2}
+        self._u_buffer = None  # shape (N-1, nu)
+        self._x_buffer = None  # shape (N-1, nx)
 
         if self.enable_logging:
             print(f"Acados OCP solver initialized: N={self.N}, T={self.T}")
@@ -304,6 +307,10 @@ class DroneOptimizer(object):
 
         if np.isfinite(x_pred_all).all() and np.isfinite(u_pred_all).all():
             self.warm_start_available = True
+            # Save u[1..N-1] and x[2..N] as the fallback buffer for the next step.
+            # _u_buffer[i] = u_{i+1}, _x_buffer[i] = x_{i+2} (state after u_{i+1})
+            self._u_buffer = u_pred_all[1:].copy()
+            self._x_buffer = x_pred_all[2:].copy()
 
     def rotor_to_attitude_cmd(self, u_rotor: np.ndarray, x_next: np.ndarray) -> np.ndarray:
         """
@@ -360,6 +367,12 @@ class DroneOptimizer(object):
             print(f"[WARNING] ACADOS solver status {status}")
             if self.log_failures:
                 self.log_solver_failures(x_current, x_ref if not is_trajectory else x_ref[:, -1])
+            if self._u_buffer is not None and len(self._u_buffer) > 0:
+                u_fallback = self.rotor_to_attitude_cmd(self._u_buffer[0], self._x_buffer[0])
+                print(f"[WARNING] Using buffered input ({len(self._u_buffer)} steps remaining)")
+                self._u_buffer = self._u_buffer[1:]
+                self._x_buffer = self._x_buffer[1:]
+                return u_fallback, None, self.last_x_pred, self.last_u_pred
             raise Exception(f"acados ocp solver returned status {status}")
 
         u_rotor = self.solver.get(0, 'u').copy()   # per-rotor [0,1] x4
