@@ -32,7 +32,9 @@ pip-delete-this-directory.txt
 rosbag/
 *.bag
 *.mcap
-bags/
+
+bags/*
+!bags/plot_vicon_path.py
 
 # Project Specific
 get-docker.sh
