@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import threading
 from pathlib import Path
 
@@ -13,9 +14,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
-from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import BatteryState, CameraInfo, CompressedImage, Image, Imu
-from std_msgs.msg import Float64, Float64MultiArray
+from std_msgs.msg import Bool, Float64, Float64MultiArray
 import uvicorn
 
 
@@ -29,6 +30,14 @@ CAMERA_QOS = QoSProfile(
 IMAGE_QOS = QoSProfile(
     depth=1,
     reliability=ReliabilityPolicy.RELIABLE,
+    history=HistoryPolicy.KEEP_LAST,
+)
+
+# Latch the killswitch trigger so late subscribers (e.g., the bridge restarting) see it.
+KILLSWITCH_QOS = QoSProfile(
+    depth=1,
+    reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL,
     history=HistoryPolicy.KEEP_LAST,
 )
 
@@ -64,6 +73,14 @@ class GroundstationNode(Node):
         self.state = state
         self._h264_codec = pyav.CodecContext.create('h264', 'r')
         self._h264_active = False  # set True once first H264 frame decodes; suppresses raw RGB
+        self._killswitch_sub = None  # toggled by /api/killswitch/bounds
+        self._killswitch_live = None  # running {'min': {x,y,z}, 'max': {x,y,z}} while recording
+        self.killswitch_bounds = None  # last finalized bounds after recording stops
+        self._killswitch_monitor_sub = None  # toggled by /api/killswitch/activate
+        self._killswitch_triggered = False  # latched once a violation is detected
+
+        # Publisher: send True to trigger Betaflight failsafe; subscriber lives in msp_bridge.
+        self.killswitch_pub = self.create_publisher(Bool, '/drone/killswitch', KILLSWITCH_QOS)
 
         self.create_subscription(Imu, '/imu0', self._imu_cb, 10)
         self.create_subscription(BatteryState, '/battery', self._battery_cb, 10)
@@ -178,8 +195,119 @@ class GroundstationNode(Node):
     def _motor_rpm_cb(self, msg: Float64MultiArray):
         self.state.update('motor_rpm', list(msg.data))
 
+    def configure_killswitch_bounds(self) -> dict:
+        """Toggle subscription to /vicon/zephyrus/zephyrus (PoseStamped).
 
-def build_app(state: TelemetryState, static_dir: Path) -> FastAPI:
+        First click: start subscribing and tracking per-axis min/max.
+        Second click: stop subscribing and store the recorded bounds.
+        """
+        if self._killswitch_sub is None:
+            self._killswitch_live = {
+                'min': {'x': math.inf,  'y': math.inf,  'z': math.inf},
+                'max': {'x': -math.inf, 'y': -math.inf, 'z': -math.inf},
+                'samples': 0,
+            }
+            self._killswitch_sub = self.create_subscription(
+                PoseStamped,
+                '/vicon/zephyrus/zephyrus',
+                self._killswitch_pose_cb,
+                10,
+            )
+            self.state.update('killswitch_bounds', {'active': True, 'bounds': None})
+            self.get_logger().info('Killswitch bounds: recording started')
+            return {'active': True}
+
+        self.destroy_subscription(self._killswitch_sub)
+        self._killswitch_sub = None
+
+        live = self._killswitch_live
+        self._killswitch_live = None
+        if live is None or live['samples'] == 0:
+            self.get_logger().warn('Killswitch bounds: no samples recorded')
+            self.state.update('killswitch_bounds', {'active': False, 'bounds': None})
+            return {'active': False, 'bounds': None, 'samples': 0}
+
+        self.killswitch_bounds = {'min': live['min'], 'max': live['max']}
+        self.state.update('killswitch_bounds', {
+            'active': False,
+            'bounds': self.killswitch_bounds,
+            'samples': live['samples'],
+        })
+        self.get_logger().info(
+            f"Killswitch bounds stored ({live['samples']} samples): "
+            f"min={self.killswitch_bounds['min']} max={self.killswitch_bounds['max']}"
+        )
+        return {'active': False, 'bounds': self.killswitch_bounds, 'samples': live['samples']}
+
+    def _killswitch_pose_cb(self, msg: PoseStamped):
+        """Update per-axis min/max while recording is active."""
+        live = self._killswitch_live
+        if live is None:
+            return
+        p = msg.pose.position
+        for axis, val in (('x', p.x), ('y', p.y), ('z', p.z)):
+            if val < live['min'][axis]:
+                live['min'][axis] = val
+            if val > live['max'][axis]:
+                live['max'][axis] = val
+        live['samples'] += 1
+
+    def activate_killswitch(self) -> dict:
+        """Toggle monitoring of /vicon/zephyrus/zephyrus against recorded bounds.
+
+        While active, every incoming pose is compared to self.killswitch_bounds;
+        any axis outside [min, max] triggers a printed warning.
+        """
+        if self._killswitch_monitor_sub is None:
+            if self.killswitch_bounds is None:
+                self.get_logger().warn('Killswitch activate refused: no bounds recorded yet')
+                return {'active': False, 'error': 'No bounds recorded. Configure killswitch bounds first.'}
+            self._killswitch_triggered = False
+            self.killswitch_pub.publish(Bool(data=False))
+            self._killswitch_monitor_sub = self.create_subscription(
+                PoseStamped,
+                '/vicon/zephyrus/zephyrus',
+                self._killswitch_monitor_cb,
+                10,
+            )
+            self.state.update('killswitch_active', True)
+            self.get_logger().info(
+                f'Killswitch activated. Bounds: min={self.killswitch_bounds["min"]} '
+                f'max={self.killswitch_bounds["max"]}'
+            )
+            return {'active': True, 'bounds': self.killswitch_bounds}
+
+        self.destroy_subscription(self._killswitch_monitor_sub)
+        self._killswitch_monitor_sub = None
+        self._killswitch_triggered = False
+        self.killswitch_pub.publish(Bool(data=False))
+        self.state.update('killswitch_active', False)
+        self.get_logger().info('Killswitch deactivated')
+        return {'active': False}
+
+    def _killswitch_monitor_cb(self, msg: PoseStamped):
+        """Print a warning whenever any axis leaves the recorded bounds."""
+        bounds = self.killswitch_bounds
+        if bounds is None:
+            return
+        p = msg.pose.position
+        violations = []
+        for axis, val in (('x', p.x), ('y', p.y), ('z', p.z)):
+            lo, hi = bounds['min'][axis], bounds['max'][axis]
+            if val < lo or val > hi:
+                violations.append(f'{axis}={val:.3f} not in [{lo:.3f}, {hi:.3f}]')
+        if violations:
+            print('[KILLSWITCH] OUT OF BOUNDS: ' + '; '.join(violations), flush=True)
+            if not self._killswitch_triggered:
+                self._killswitch_triggered = True
+                self.killswitch_pub.publish(Bool(data=True))
+                self.state.update('killswitch_triggered', True)
+                self.get_logger().error(
+                    '[KILLSWITCH] Triggered Betaflight failsafe via /drone/killswitch'
+                )
+
+
+def build_app(state: TelemetryState, node: 'GroundstationNode', static_dir: Path) -> FastAPI:
     app = FastAPI(title='ETHRC Drone Groundstation')
 
     app.mount('/static', StaticFiles(directory=static_dir), name='static')
@@ -191,6 +319,14 @@ def build_app(state: TelemetryState, static_dir: Path) -> FastAPI:
     @app.get('/api/telemetry')
     async def telemetry():
         return state.snapshot()
+
+    @app.post('/api/killswitch/bounds')
+    async def configure_killswitch_bounds():
+        return node.configure_killswitch_bounds()
+
+    @app.post('/api/killswitch/activate')
+    async def activate_killswitch():
+        return node.activate_killswitch()
 
     @app.websocket('/ws')
     async def ws_stream(websocket: WebSocket):
@@ -231,7 +367,7 @@ def main():
     node.get_logger().info(f'Web UI at http://{host}:{port}')
 
     try:
-        uvicorn.run(build_app(state, static_dir), host=host, port=port, log_level='warning')
+        uvicorn.run(build_app(state, node, static_dir), host=host, port=port, log_level='warning')
     finally:
         rclpy.shutdown()
 

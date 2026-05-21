@@ -241,9 +241,49 @@
       text-transform: uppercase;
       flex-shrink: 0;
     }
+    .actions {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+    }
+    button {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    button:hover {
+      border-color: var(--accent);
+      background: #1c2129;
+    }
+    button:active {
+      background: #0e1117;
+    }
   </style>
 </head>
 <body>
+  <header>
+    <h1>ETHRC Drone Groundstation</h1>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">connecting…</span></div>
+  </header>
+
+  <div class="actions">
+    <button id="btn-killswitch-bounds" type="button">Configure Killswitch Bounds</button>
+    <button id="btn-killswitch-activate" type="button">Activate Killswitch</button>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Position [m]</h2>
+      <div class="row"><span class="label">x</span><span class="value" id="pos-x">—</span></div>
+      <div class="row"><span class="label">y</span><span class="value" id="pos-y">—</span></div>
+      <div class="row"><span class="label">z</span><span class="value" id="pos-z">—</span></div>
+    </div>
 
   <!-- Header -->
   <div class="header">
@@ -513,6 +553,53 @@
         setVideoActive(false);
         setTimeout(connect, 2000);
       };
+    }
+
+    const killswitchBtn = document.getElementById('btn-killswitch-bounds');
+    if (killswitchBtn) {
+      const setKillswitchLabel = (active) => {
+        killswitchBtn.textContent = active
+          ? 'Stop Configuring Killswitch Bounds'
+          : 'Configure Killswitch Bounds';
+        killswitchBtn.classList.toggle('active', active);
+      };
+      killswitchBtn.addEventListener('click', async () => {
+        killswitchBtn.disabled = true;
+        try {
+          const r = await fetch('/api/killswitch/bounds', { method: 'POST' });
+          const data = await r.json().catch(() => ({}));
+          setKillswitchLabel(!!data.active);
+          console.log('killswitch bounds response:', data);
+        } catch (err) {
+          console.error('killswitch bounds request failed:', err);
+        } finally {
+          killswitchBtn.disabled = false;
+        }
+      });
+    }
+
+    const killswitchActivateBtn = document.getElementById('btn-killswitch-activate');
+    if (killswitchActivateBtn) {
+      const setActivateLabel = (active) => {
+        killswitchActivateBtn.textContent = active
+          ? 'Deactivate Killswitch'
+          : 'Activate Killswitch';
+        killswitchActivateBtn.classList.toggle('active', active);
+      };
+      killswitchActivateBtn.addEventListener('click', async () => {
+        killswitchActivateBtn.disabled = true;
+        try {
+          const r = await fetch('/api/killswitch/activate', { method: 'POST' });
+          const data = await r.json().catch(() => ({}));
+          setActivateLabel(!!data.active);
+          console.log('killswitch activate response:', data);
+          if (data.error) alert(data.error);
+        } catch (err) {
+          console.error('killswitch activate request failed:', err);
+        } finally {
+          killswitchActivateBtn.disabled = false;
+        }
+      });
     }
 
     connect();
