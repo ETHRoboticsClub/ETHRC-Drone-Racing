@@ -61,7 +61,8 @@ class HoveringExperiment:
         """World → simulation body (est quaternion + ``_R_EST_TO_SIM`` at top of file)."""
         s = np.asarray(state, dtype=float).reshape(HoveringExperiment.STATE_DIM)
         quat_est_xyzw = np.array([s[6], s[7], s[8], s[9]], dtype=float)
-        return _R_EST_TO_SIM * R.from_quat(quat_est_xyzw)
+        rotation = R.from_quat(quat_est_xyzw)
+        return rotation
 
     def _obs_projected_gravity_body(self, x_current: np.ndarray) -> np.ndarray:
         """[3] unit gravity direction in simulation body frame."""
@@ -75,7 +76,8 @@ class HoveringExperiment:
         """[3] angular velocity in simulation body frame [rad/s] (IMU ω + axis fix)."""
         s = np.asarray(x_current, dtype=float).reshape(self.STATE_DIM)
         omega_est = s[10:13]
-        return _R_EST_TO_SIM.apply(omega_est).astype(np.float32)
+        omega_est[-1] *= -1.0
+        return omega_est.astype(np.float32)
 
     def _obs_base_lin_vel(self, x_current: np.ndarray) -> np.ndarray:
         """
@@ -86,29 +88,7 @@ class HoveringExperiment:
         """
         s = np.asarray(x_current, dtype=float).reshape(self.STATE_DIM)
         vel_w = s[3:6]
-        return self._body_rot_world_to_sim(x_current).inv().apply(vel_w).astype(np.float32)
-
-    def _obs_next_waypoint_rel_body(
-        self,
-        x_current: np.ndarray,
-        goal_state: np.ndarray,
-    ) -> np.ndarray:
-        """
-        [3] goal relative to drone in simulation body axes (k=1), scaled.
-
-        ``offset_b[0]`` = forward (X), ``offset_b[1]`` = left (Y), ``offset_b[2]`` = up (Z)
-        distance to goal along each body axis (not just Euclidean range).
-
-        Same as Isaac ``next_waypoints_rel_body`` with ``num_waypoints=1``:
-          offset_w = goal_pos_w - drone_pos_w
-          offset_b = quat_apply_inverse(drone_quat_w, offset_w) / _REL_POSITION_SCALE
-        """
-        x = np.asarray(x_current, dtype=float).reshape(self.STATE_DIM)
-        goal = np.asarray(goal_state, dtype=float).reshape(self.STATE_DIM)
-
-        offset_w = goal[0:3] - x[0:3]
-        offset_b = self._body_rot_world_to_sim(x).inv().apply(offset_w) / _REL_POSITION_SCALE
-        return offset_b.astype(np.float32)
+        return vel_w.astype(np.float32)
 
     def _obs_gate_forward_body(
         self,
@@ -136,7 +116,6 @@ class HoveringExperiment:
                 self._obs_base_lin_vel(x_current),
                 self._obs_base_ang_vel(x_current),
                 self._obs_projected_gravity_body(x_current),
-                self._obs_next_waypoint_rel_body(x_current, goal_state),
                 self._obs_gate_forward_body(x_current, goal_state),
             ],
             dtype=np.float32,
