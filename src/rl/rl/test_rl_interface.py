@@ -3,9 +3,10 @@
 import numpy as np
 import sys
 import os
+from pathlib import Path
 
 # Add the src directory to Python path
-sys.path.insert(0, '/home/ubuntu/ETHRC/experimental/ETHRC-Drone-Racing/src')
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # Also try sourcing ROS setup if available
 ros_setup = '/home/drone_dev/ros_ws/install/setup.bash'
