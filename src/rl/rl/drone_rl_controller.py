@@ -7,7 +7,7 @@ from rl.hovering_experiment import HoveringExperiment
 class DroneRLController(ControllerInterface):
     def __init__(self):
         super().__init__()
-        self.experiment = HoveringExperiment("models/pytorch/hovering_policy.pt")
+        self.experiment = HoveringExperiment("models/policy.pt")
         self.velocity_limit = 15.0
 
 
