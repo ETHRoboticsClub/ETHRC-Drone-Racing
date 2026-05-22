@@ -17,4 +17,13 @@ else
     echo "Warning: /dev/ttyTHS1 not found."
 fi
 
+# 3. Configure group and permissions for ttyTCU0 (Tegra Combined UART)
+if [ -e /dev/ttyTCU0 ]; then
+    echo "Configuring /dev/ttyTCU0 permissions..."
+    sudo chown root:dialout /dev/ttyTCU0
+    sudo chmod 660 /dev/ttyTCU0
+else
+    echo "Warning: /dev/ttyTCU0 not found."
+fi
+
 echo "Jetson UART tuning complete."

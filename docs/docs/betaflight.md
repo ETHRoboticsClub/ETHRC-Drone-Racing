@@ -23,13 +23,42 @@ This document describes the configuration required to enable 2000Hz IMU streamin
    echo 80000000 | sudo tee /sys/kernel/debug/bpmp/debug/clk/uarti/rate
    ```
    > [!IMPORTANT]
-   > This setting is volatile. It MUST be reapplied after every Jetson reboot.
+   > This setting is volatile. It MUST be reapplied after every Jetson reboot. A persistent systemd service `jetson-uart-init.service` is used to automate this.
 
 3. **Power Mode**: Run the Jetson in `MAXN` mode for stable high-rate serial processing:
    ```bash
    sudo nvpmodel -m 0
    sudo jetson_clocks
    ```
+
+4. **Persistent UART Initialization Service**:
+   To automate the volatile BPMP clock adjustment on boot, configure `/etc/systemd/system/jetson-uart-init.service` with:
+   ```ini
+   [Unit]
+   Description=Initialize Jetson UART Clock and Performance for Betaflight
+   After=multi-user.target
+
+   [Service]
+   Type=oneshot
+   ExecStart=/home/aero/proj/ETHRC-Drone-Racing/scripts/perception/betaflight/setup_jetson_uart.sh --apply
+   RemainAfterExit=yes
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+   > [!IMPORTANT]
+   > - The script **MUST** have executable permissions on the Jetson: `chmod +x scripts/perception/betaflight/setup_jetson_uart.sh`.
+   > - Running `systemctl start jetson-uart-init.service` might print a warning: `Cannot set serial info: Invalid argument` from `setserial`. This is **harmless** and expected on Jetson platforms, as the `ttyTHS` driver does not support standard low-latency serial ioctl commands. The BPMP clock rate will still apply correctly.
+
+5. **Enabling Tegra Combined UART (ttyTCU0) for MSP Control**:
+   By default, `/dev/ttyTCU0` is claimed by the Linux kernel as a serial debug console. To use it for standard serial communication (e.g. the MSP RC simulation bridge), you must free it:
+   * **Disable the Kernel Console**: Edit `/boot/extlinux/extlinux.conf` on the Jetson and remove the `console=ttyTCU0,115200` argument from the `APPEND` line. (Be sure to keep a backup of the original configuration).
+   * **Disable the systemd Getty Service**: Stop and mask the systemd service to prevent a login shell from spawning on the port:
+     ```bash
+     sudo systemctl stop serial-getty@ttyTCU0.service
+     sudo systemctl disable serial-getty@ttyTCU0.service
+     sudo systemctl mask serial-getty@ttyTCU0.service
+     ```
 
 ## Betaflight CLI Configuration (4.5.x)
 
