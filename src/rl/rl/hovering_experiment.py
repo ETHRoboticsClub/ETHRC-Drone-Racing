@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from scipy.spatial.transform import Rotation as R
 
-from policy_model import PolicyModel
+from rl.policy_model import PolicyModel
 
 
 # Match the values from the Isaac Lab training env.

@@ -18,8 +18,8 @@ import torch
 import torch.onnx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from policy_model import PolicyModel
-import hovering_experiment
+from rl.policy_model import PolicyModel
+from rl import hovering_experiment
 
 _MODELS_DIR = Path(__file__).resolve().parent / "models"
 

@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from policy_model import PolicyModel
-import hovering_experiment
+from rl.policy_model import PolicyModel
+from rl import hovering_experiment
 
 _MODELS_DIR = Path(__file__).resolve().parent / "models"
 
