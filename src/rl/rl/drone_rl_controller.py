@@ -22,5 +22,7 @@ class DroneRLController(ControllerInterface):
         return AttitudeRate(float(cmd[0]), float(cmd[1]), float(cmd[2]), float(cmd[3]))
 
     def trajectory_controller_update(self, x_current, goal_trajectory) -> AttitudeRate:
-        print("RL trajectory tracking is not supported.")
-        return AttitudeRate(0, 0, 0, 0)
+        # Use the current target state from the trajectory (first node in the horizon)
+        goal_position = goal_trajectory[:, 0]
+        return self.controller_update(x_current, goal_position)
+
