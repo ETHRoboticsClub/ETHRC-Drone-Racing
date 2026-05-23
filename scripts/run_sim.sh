@@ -19,7 +19,11 @@
 MODEL=${1:-gz_zephyros}
 WORLD=${2:-default}
 
-cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PX4_DIR="$REPO_ROOT/px4/PX4-Autopilot"
+
+cd "$PX4_DIR"
 
 echo ""
 echo "====================================================="
@@ -28,5 +32,11 @@ echo "  Model : $MODEL"
 echo "  World : $WORLD"
 echo "====================================================="
 echo ""
+
+BUILD_NINJA="$PX4_DIR/build/px4_sitl_default/build.ninja"
+if [[ -f "$BUILD_NINJA" ]] && ! grep -q "build $MODEL:" "$BUILD_NINJA"; then
+    echo "Refreshing PX4 SITL build targets..."
+    make px4_sitl
+fi
 
 PX4_GZ_WORLD=$WORLD make px4_sitl $MODEL
