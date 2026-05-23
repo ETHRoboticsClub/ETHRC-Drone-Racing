@@ -24,6 +24,11 @@ def generate_launch_description():
 
     arg_imu_port = DeclareLaunchArgument('imu_port', default_value=default_imu_port,
                                             description='Dedicated UART for high-rate Blackbox IMU telemetry')
+    arg_imu_source = DeclareLaunchArgument('imu_source', default_value='blackbox',
+                                            choices=['blackbox', 'msp'],
+                                            description='Source of IMU telemetry: "blackbox" or "msp"')
+    arg_imu_baud = DeclareLaunchArgument('imu_baud', default_value='1500000',
+                                          description='Baudrate for the IMU telemetry serial port')
     arg_msp_port = DeclareLaunchArgument('msp_port', default_value=default_msp_port,
                                             description='Dedicated UART/USB-VCP for MSP Control commands')
     arg_attitude_topic = DeclareLaunchArgument('attitude_cmd_topic', default_value='/drone_attitude_cmd')
@@ -104,20 +109,49 @@ def generate_launch_description():
     arg_rate_error_scale = DeclareLaunchArgument('rate_error_scale', default_value='300.0',
                                                description='Torque-to-rate scaling for RL controller')
 
-    # --- 1. IMU DRIVER: Betaflight Blackbox ---
+    # --- 1. IMU DRIVER: Betaflight Blackbox or MSP ---
     blackbox_node = Node(
         package='betaflight_blackbox_driver',
         executable='blackbox_driver_node',
         name='imu_driver_node',
         parameters=[{
             'port': LaunchConfiguration('imu_port'),
-            'baud': 1500000,
+            'baud': LaunchConfiguration('imu_baud'),
             'imu_topic': '/imu0',
             'target_hz': LaunchConfiguration('target_hz'),
             'enable_msp_control': False, # Explicitly disabled in separate port mode
             'motor_poles': 14,
             'rpm_topic': '/motor_rpm',
+            # IMU validation parameters
+            'validate_imu_stream': True,
+            'reject_zero_imu': True,
+            'max_gyro_deg_s': 4000.0,       # Physical max (2x 2000 DPS full-scale range)
+            'max_accel_g': 32.0,            # Physical max
+            'max_gyro_jump_deg_s': 1000.0,  # Per-frame jump limit
+            'max_accel_jump_g': 8.0,        # Per-frame jump limit
+            'max_consecutive_rejects': 5,   # Hard resync after N consecutive bad frames
+            'outlier_sigma_k': 4.0,         # Sliding-window outlier detection (sigma)
         }],
+        condition=launch.conditions.IfCondition(
+            PythonExpression(["'", LaunchConfiguration('imu_source'), "' == 'blackbox'"])
+        ),
+        output='screen'
+    )
+
+    msp_imu_node = Node(
+        package='betaflight_blackbox_driver',
+        executable='msp_imu_driver_node',
+        name='imu_driver_node',
+        parameters=[{
+            'port': LaunchConfiguration('imu_port'),
+            'baud': LaunchConfiguration('imu_baud'),
+            'imu_topic': '/imu0',
+            'target_hz': LaunchConfiguration('target_hz'),
+            'rpm_topic': '/motor_rpm',
+        }],
+        condition=launch.conditions.IfCondition(
+            PythonExpression(["'", LaunchConfiguration('imu_source'), "' == 'msp'"])
+        ),
         output='screen'
     )
 
@@ -394,6 +428,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         arg_imu_port,
+        arg_imu_source,
+        arg_imu_baud,
         arg_msp_port,
         arg_attitude_topic,
         arg_target_hz,
@@ -422,6 +458,7 @@ def generate_launch_description():
         arg_controller_type,
         arg_rate_error_scale,
         blackbox_node,
+        msp_imu_node,
         msp_bridge_node,
         bench_mode_warning,
         load_config_process,

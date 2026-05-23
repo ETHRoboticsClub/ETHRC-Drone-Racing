@@ -94,6 +94,67 @@ serial 0 128 1500000 57600 115200 1500000
 save
 ```
 
+## 🛠️ Building Custom Betaflight Firmware (with CRC-8 Protection)
+
+To secure high-speed serial telemetry and eliminate transient UART noise or gyro spikes, we use a custom Betaflight firmware that appends a frame-level CRC-8 checksum to every Intraframe (I) and Interframe (P) packet. This custom firmware is maintained on a dedicated branch.
+
+### 1. Prerequisites & Toolchain Setup
+
+To compile Betaflight, you need the standard GNU ARM Embedded Toolchain. You can install it on your Ubuntu host using the Betaflight repository scripts:
+
+```bash
+cd ~/proj/betaflight
+make arm_sdk_install
+```
+
+This will automatically download and install the registered Arm SDK/toolchain.
+
+### 2. Fetch the Code & Checkout the Branch
+
+The custom source code containing the CRC-8 stream protection changes is maintained on the `feature/blackbox-crc-validation` branch:
+
+```bash
+cd ~/proj/betaflight
+git checkout feature/blackbox-crc-validation
+```
+
+### 3. Compilation Guide
+
+Compile the appropriate flight controller target for your drone. For example, if you are using an STM32H743-based FC:
+
+```bash
+# Clean previous builds
+make TARGET=STM32H743 clean
+
+# Compile the target firmware (using multiple cores)
+make TARGET=STM32H743 -j$(nproc)
+```
+
+Alternatively, to test or compile locally for the software-in-the-loop simulator:
+```bash
+make SITL -j$(nproc)
+```
+
+The resulting binary (`.hex` or `.bin`) will be output under the `obj/` directory (e.g., `obj/betaflight_2026.6.0_STM32H743.hex`).
+
+### 4. Flashing the Firmware
+
+Connect the flight controller to your host via USB and flash the compiled binary.
+
+#### Method A: via Betaflight Configurator
+1. Open the Betaflight Configurator.
+2. Go to **Firmware Flasher**.
+3. Click **Load Firmware [Local]** and select the `.hex` file from your `obj/` directory.
+4. Click **Flash Firmware**.
+
+#### Method B: via CLI DFU Mode
+If your FC is detected in DFU mode, you can flash directly from the command line:
+```bash
+make TARGET=STM32H743 dfu_flash
+```
+
+---
+
 ### 🏗️ Deployment Architecture
 
 The system utilizes a distributed ROS 2 graph to achieve low-latency perception and high-frequency control. The following diagram illustrates the data flow between hardware producers, processing nodes, and the flight controller.
