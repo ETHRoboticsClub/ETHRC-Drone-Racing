@@ -59,8 +59,8 @@ class PolicyModel():
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
         policy_state = checkpoint.get("policy", checkpoint)
 
-        if "observation_preprocessor" in checkpoint:
-            prep = checkpoint["observation_preprocessor"]
+        prep = checkpoint.get("observation_preprocessor", checkpoint.get("state_preprocessor", None))
+        if prep is not None:
             self.running_mean = prep.get("running_mean", None)
             self.running_var = prep.get("running_variance", None)
             if self.running_mean is not None:
