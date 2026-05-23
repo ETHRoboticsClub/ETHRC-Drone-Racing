@@ -130,7 +130,7 @@ def generate_launch_description():
             'motor_poles': 14,
             'rpm_topic': '/motor_rpm',
             # IMU validation parameters
-            'validate_imu_stream': True,
+            'validate_imu_stream': False,
             'reject_zero_imu': True,
             'max_gyro_deg_s': 4000.0,       # Physical max (2x 2000 DPS full-scale range)
             'max_accel_g': 32.0,            # Physical max
