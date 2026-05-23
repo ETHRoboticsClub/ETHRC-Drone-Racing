@@ -12,9 +12,11 @@ import yaml
 import os
 
 # --- Default Config Path ---
-# NOTE: In a real ROS 2 setup, you would use rclpy.get_parameters_from_file or 
-# a parameter file, but for a single file example, we'll hardcode or use a CLI arg.
-DEFAULT_CONFIG_PATH = os.path.expanduser('~/ros_ws/src/drone_control/config/waypoints_config.yaml') 
+try:
+    from ament_index_python.packages import get_package_share_directory
+    DEFAULT_CONFIG_PATH = os.path.join(get_package_share_directory('drone_control'), 'config', 'waypoints_config.yaml')
+except Exception:
+    DEFAULT_CONFIG_PATH = os.path.expanduser('~/proj/ETHRC-Drone-Racing/src/drone_control/config/waypoints_config.yaml') 
 
 class DroneWaypointGoalClient(Node):
     def __init__(self, config_path=DEFAULT_CONFIG_PATH):
