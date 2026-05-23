@@ -29,6 +29,17 @@ class DroneRLController(ControllerInterface):
         scaled_pitch = float(cmd[1]) * scale_factor
         scaled_yaw = float(cmd[2]) * scale_factor
         
+        # Calculate horizontal distance to target
+        import numpy as np
+        dist_xy = float(np.linalg.norm(goal_position[:2] - x_current[:2]))
+        
+        # Smoothly scale down yaw command close to target to prevent persistent spinning
+        if dist_xy < 0.10:
+            scaled_yaw = 0.0
+        elif dist_xy < 0.30:
+            yaw_multiplier = (dist_xy - 0.10) / 0.20
+            scaled_yaw *= yaw_multiplier
+        
         return AttitudeRate(scaled_roll, scaled_pitch, scaled_yaw, float(cmd[3]))
 
     def trajectory_controller_update(self, x_current, goal_trajectory) -> AttitudeRate:
