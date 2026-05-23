@@ -40,6 +40,11 @@ repo_artifact/
 aws/
 awscliv2.zip
 CLAUDE.md
+handover.md
+# v3.4 perception checkpoint (~87 MB) — rsync from qolam, do not commit:
+#   rsync -avP qolam:'~/uni/DroneRacing_GateDetection/checkpoints/best_deeplabv3plus_keypoint_multi_balanced_v3_nextgate_seed42.pth' \
+#       src/perception/gate_detection/checkpoints/
+src/perception/gate_detection/checkpoints/best_deeplabv3plus_*.pth
 
 # MPC / Acados specific
 src/mpc/mpc/c_generated_code/

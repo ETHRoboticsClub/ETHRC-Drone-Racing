@@ -7,7 +7,20 @@ package_name = 'gate_detection'
 setup(
     name=package_name,
     version='0.1.0',
-    packages=[package_name, f'{package_name}.models', f'{package_name}.utils', f'{package_name}.scripts'],
+    packages=[
+        package_name,
+        f'{package_name}.models',
+        f'{package_name}.utils',
+        f'{package_name}.scripts',
+        # v3.4 hybrid detector subpackage (DeepLabV3+ seg + kp + ng heads
+        # + HybridSegNextGateTracker). Ported from DroneRacing_GateDetection
+        # commit 14d21f3 — see handover.md for the dep-tree audit.
+        f'{package_name}.v3_4',
+        f'{package_name}.v3_4.data',
+        f'{package_name}.v3_4.inference',
+        f'{package_name}.v3_4.models',
+        f'{package_name}.v3_4.models.heads',
+    ],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
