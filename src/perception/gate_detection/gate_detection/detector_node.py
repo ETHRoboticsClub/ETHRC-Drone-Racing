@@ -296,8 +296,15 @@ class GateDetectorNode(Node):
         H_cam, W_cam = img_bgr.shape[:2]
 
         # ---- forward pass + tracker --------------------------------------
+        # fp16 autocast on CUDA gives ~1.4x speedup with no measurable
+        # accuracy degradation on this model (Report 43: max abs Δseg
+        # 5.2e-3, 100% kp argmax match, 99.996% binary mask agreement on
+        # the TII test split). On CPU, autocast(enabled=False) is a
+        # no-op so this stays correct on non-CUDA hosts.
+        _use_amp = self.predictor.device.startswith("cuda")
         try:
-            _rgb_resized, seg, kp, ng = self.predictor.predict_full_from_bgr(img_bgr)
+            with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=_use_amp):
+                _rgb_resized, seg, kp, ng = self.predictor.predict_full_from_bgr(img_bgr)
         except Exception as e:
             self.get_logger().error(
                 f"[ERROR] predictor.predict_full_from_bgr crashed: {e}"
@@ -314,12 +321,17 @@ class GateDetectorNode(Node):
 
         # ---- corner rescale 384 -> camera-native pixels ------------------
         # GatePredictor resizes the input to img_size×img_size, so the
-        # detected quad lives in 384×384 coords. Rescale to native.
+        # detected quad lives in 384×384 coords. Rescale to native using a
+        # half-pixel-aware mapping: a pixel center at coord x_in in an image
+        # of width W_in corresponds to (x_in + 0.5) * W_out / W_in - 0.5 in
+        # an image of width W_out. The naive `x_in * W_out / W_in` form is
+        # off by up to ~1.7 px at 1280-wide native — invisible to overlays
+        # but a systematic PnP-residual / cam_T_gate bias (Report 43 §7).
         sx = float(W_cam) / float(self.img_size)
         sy = float(H_cam) / float(self.img_size)
         quad_cam_px = quad.astype(np.float64).copy()
-        quad_cam_px[:, 0] *= sx
-        quad_cam_px[:, 1] *= sy
+        quad_cam_px[:, 0] = (quad_cam_px[:, 0] + 0.5) * sx - 0.5
+        quad_cam_px[:, 1] = (quad_cam_px[:, 1] + 0.5) * sy - 0.5
 
         # ---- undistort the corner pixels -> rectified image coords -------
         rectified = self._undistort_points(quad_cam_px)
