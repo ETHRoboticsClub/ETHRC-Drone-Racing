@@ -61,6 +61,7 @@ class DroneController(Node):
     # Misc
     state_lock : threading.Lock
     active_goal_lock: threading.Lock
+    initialized_target: bool = False
 
     def __init__(self):
         super().__init__('drone_controller_node')
@@ -106,7 +107,7 @@ class DroneController(Node):
             # RL specific parameters
             self.controller.rate_error_scale = self.get_parameter('rl.rate_error_scale').get_parameter_value().double_value
 
-        #TODO: maybe change to joint_states (Michalis)
+        # Publishers & Subscribers
         self.state_subscriber = self.create_subscription(Float64MultiArray, state_topic, self.drone_state_cb, 10)
         self.attitude_command_publisher = self.create_publisher(Float64MultiArray,attitude_command_topic, 10)
         self.position_command_publisher = self.create_publisher(Float64MultiArray,position_command_topic, 10)
@@ -116,7 +117,10 @@ class DroneController(Node):
                                                                             depth=1, 
                                                                             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL
                                                                         ))
-        self.controller_rate =  self.create_rate(self.control_rate)
+        self.controller_rate = self.create_rate(self.control_rate)
+        
+        # Main Control Timer (for Idle/Hover mode)
+        self.control_timer = self.create_timer(1.0/self.control_rate, self.main_control_callback, callback_group=self.timer_cb_group)
         
         self.position_goal_server = rclpy.action.ActionServer(
             self, FollowWaypoints, 'drone_set_pose_goal',
@@ -135,11 +139,47 @@ class DroneController(Node):
     def drone_state_cb(self, msg: Float64MultiArray):
         with self.state_lock:
             self.state = np.array(msg.data)
+            # Initialize target to current position on first valid state
+            if not self.initialized_target and not np.isnan(self.state).any():
+                self.current_goal_state = self.state.copy()
+                self.current_goal_state[3:6] = 0.0 # zero vel
+                self.current_goal_state[10:13] = 0.0 # zero omega
+                self.initialized_target = True
+
+    def main_control_callback(self):
+        """ Runs the control loop in idle mode (when no action is active) """
+        with self.active_goal_lock:
+            if self.active_goal or self.hovering_active:
+                return # Action executor is handling the publishing
+
+        if not self.initialized_target:
+            return
+
+        try:
+            with self.state_lock:
+                current_state = self.state.copy()
+            
+            # Command hover at the initialized target
+            attitude_cmd = self.controller.controller_update(current_state, self.current_goal_state)
+            
+            # Support both MAVSDK AttitudeRate and generic objects
+            roll = getattr(attitude_cmd, 'roll_deg_s', 0.0)
+            pitch = getattr(attitude_cmd, 'pitch_deg_s', 0.0)
+            yaw = getattr(attitude_cmd, 'yaw_deg_s', 0.0)
+            thrust = getattr(attitude_cmd, 'thrust_value', 0.0)
+            
+            cmd_msg = Float64MultiArray()
+            cmd_msg.data = [float(roll), float(pitch), float(yaw), float(thrust)]
+            self.attitude_command_publisher.publish(cmd_msg)
+        except Exception as e:
+            # Prevent the node from dying on a single loop failure
+            self.get_logger().error(f'Control Loop Error: {e}', throttle_duration_sec=2.0)
 
     def initialize(self):
         """ Constructor should return fast, so async operations are moved here. """
         self.controller.initialize()
-        self.get_logger().info("Controller node initialized")  
+        self.get_logger().info("Controller node initialized")
+  
 
     def waypoint_reached(self ):
         with self.state_lock:

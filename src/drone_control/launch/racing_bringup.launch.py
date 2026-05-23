@@ -5,7 +5,7 @@ import launch.conditions
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import GroupAction, IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, LogInfo
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.launch_description_sources import PythonLaunchDescriptionSource, FrontendLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node, SetRemap
 from launch_ros.substitutions import FindPackageShare
@@ -35,6 +35,8 @@ def generate_launch_description():
     arg_target_hz = DeclareLaunchArgument('target_hz', default_value='150',
                                           description='Target frequency for the published IMU messages')
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
+    arg_vicon_subject = DeclareLaunchArgument('vicon_subject', default_value='zephyrus')
+    arg_vicon_segment = DeclareLaunchArgument('vicon_segment', default_value='zephyrus')
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
     arg_view_stream = DeclareLaunchArgument('view_stream', default_value='true',
@@ -71,7 +73,7 @@ def generate_launch_description():
         description='Decode /cam0/image_h264 to /image_decoded for local visualization/debugging'
     )
     arg_ground_station_ip = DeclareLaunchArgument(
-        'ground_station_ip', default_value='10.200.117.1',
+        'ground_station_ip', default_value='192.168.0.78',
         description='Ground station IPv4 address for the Jetson RTP/H.264 UDP stream'
     )
     arg_publish_raw = DeclareLaunchArgument(
@@ -90,7 +92,8 @@ def generate_launch_description():
         'gate_camera_topic', default_value='/cam0/image_rgb',
         description='Gate detector image topic. /cam0/image_rgb has real color; /cam0/image_raw is mono.'
     )
-    arg_use_vio = DeclareLaunchArgument('use_vio', default_value='true')
+    arg_use_vio = DeclareLaunchArgument('use_vio', default_value='false')
+    arg_use_ekf = DeclareLaunchArgument('use_ekf', default_value='false')
 
     # Bench Mode Arguments from Main
     arg_msp_bench_mode = DeclareLaunchArgument('msp_bench_mode', default_value='false',
@@ -383,7 +386,7 @@ def generate_launch_description():
     )
 
     ov_config_path = PathJoinSubstitution(
-        [FindPackageShare('ov_msckf'), 'config', 'zephyrus_imx219_720p', 'estimator_config.yaml']
+        [FindPackageShare('ov_msckf'), 'config', 'zephyrus_real', 'estimator_config.yaml']
     )
     vio_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -392,7 +395,7 @@ def generate_launch_description():
             )
         ),
         launch_arguments={
-            'config': 'zephyrus_imx219_720p',
+            'config': 'zephyrus_real',
             'config_path': ov_config_path,
             'use_sim_time': 'false',
             'use_stereo': 'false',
@@ -402,15 +405,43 @@ def generate_launch_description():
         condition=launch.conditions.IfCondition(LaunchConfiguration('use_vio'))
     )
 
-    # --- 4. VICON: Ground Truth ---
     vicon_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
                 [FindPackageShare('vicon_receiver'), 'launch', 'client.launch.py']
             )
         ),
-        launch_arguments={'hostname': '10.200.117.1'}.items(),
+        launch_arguments={'hostname': '192.168.0.78'}.items(),
         condition=launch.conditions.IfCondition(LaunchConfiguration('use_vicon'))
+    )
+
+    # --- 4.1 EKF: State Estimation ---
+    vicon_topic = PythonExpression([
+        "'/vicon/' + '", LaunchConfiguration('vicon_subject'), "' + '/' + '", LaunchConfiguration('vicon_segment'), "'"
+    ])
+    
+    ekf_launch = IncludeLaunchDescription(
+        FrontendLaunchDescriptionSource(
+            PathJoinSubstitution([FindPackageShare('ekf'), 'launch', 'rl_ekf.launch.xml'])
+        ),
+        launch_arguments={
+            'pose1': vicon_topic
+        }.items(),
+        condition=launch.conditions.IfCondition(LaunchConfiguration('use_ekf'))
+    )
+
+    # --- 4.2 STATE BRIDGE: Odometry -> Float64MultiArray ---
+    state_bridge_node = Node(
+        package='drone_control',
+        executable='state_bridge_node',
+        name='state_estimator_bridge',
+        parameters=[{
+            'vicon_topic': vicon_topic,
+            'imu_topic': '/imu0',
+            'state_topic': 'drone_state_sim',
+            'publish_rate': 100.0
+        }],
+        output='screen'
     )
 
     # --- 5. CONTROL: Drone Controller ---
@@ -434,6 +465,8 @@ def generate_launch_description():
         arg_attitude_topic,
         arg_target_hz,
         arg_use_vicon,
+        arg_vicon_subject,
+        arg_vicon_segment,
         arg_use_rc_sim,
         arg_view_stream,
         arg_video_bitrate,
@@ -453,6 +486,7 @@ def generate_launch_description():
         arg_use_gate_detection,
         arg_gate_camera_topic,
         arg_use_vio,
+        arg_use_ekf,
         arg_msp_bench_mode,
         arg_load_bf_config,
         arg_controller_type,
@@ -473,5 +507,7 @@ def generate_launch_description():
         gate_detection_launch,
         vio_launch,
         vicon_launch,
+        ekf_launch,
+        state_bridge_node,
         control_launch,
     ])

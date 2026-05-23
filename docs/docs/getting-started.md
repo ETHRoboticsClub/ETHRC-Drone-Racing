@@ -89,5 +89,49 @@ Once you are set up, explore the following sections for more details:
 
 ---
 
+## Native Execution (Non-Docker)
+
+While Docker is great for simulation and development on a workstation, you may want to run part of the stack **natively** on your companion computer (e.g., Jetson Orin NX) to reduce overhead or access specific hardware pins.
+
+### 1. Prerequisites
+Ensure you have ROS 2 installed on your host system (this project targets **Humble**, though it is compatible with **Jazzy**). 
+```bash
+# Example for installing colcon
+sudo apt update && sudo apt install python3-colcon-common-extensions
+```
+
+### 2. Build the Workspace
+From the project root:
+```bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+### 3. Fast Bringup (The "Big Button")
+Once built, you can launch the entire racing stack across all modules (Comms, Perception, and Control) using the unified bringup script:
+
+```bash
+source install/setup.bash
+ros2 launch drone_control racing_bringup.launch.py controller_type:=rl
+```
+
+#### Bringup Arguments
+
+| Argument | Default | Description |
+| :--- | :--- | :--- |
+| `controller_type` | `rl` | Choice of high-level controller: `rl` or `mpc`. |
+| `rate_error_scale`| `300.0`| **(RL Only)** Scaling factor to map neural network torques to Betaflight attitude rates. |
+| `msp_port` | `/dev/ttyTCU0`| Serial port for Betaflight MSP control (dedicated port). |
+| `imu_port` | `/dev/ttyTHS1`| Serial port for Blackbox high-rate IMU telemetry. |
+| `use_vicon` | `true` | Whether to launch the Vicon receiver for ground truth. |
+| `use_rc_sim` | `true` | Whether to simulate an RC receiver for arming via MSP. |
+| `view_stream` | `true` | Start the video decoding/republishing pipeline (GS only). |
+
+### 4. Configuration Tips
+- **Serial Ports:** If you are using a USB-to-Serial adapter instead of the internal UART, use `msp_port:=/dev/ttyUSB0`.
+- **RL Tuning:** If the drone feels sluggish under RL control, increase `rate_error_scale` (e.g., to `500.0`). If it oscillates, decrease it.
+- **Persisting Settings:** You can edit the default parameters in `src/drone_control/config/drone_controller_config.yaml` so you don't have to pass them every time.
+
+---
+
 ## ❓ Troubleshooting
 If you encounter issues with permissions or missing packages, refer to our [**General Troubleshooting Guide**](controls/troubleshooting.md) or the [**Guidelines**](guidelines.md).

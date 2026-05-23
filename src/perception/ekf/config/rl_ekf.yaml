@@ -1,32 +1,38 @@
 ekf_filter_node:
   ros__parameters:
     frequency: 100.0
-    sensor_timeout: 0.1
+    sensor_timeout: 0.5
     publish_tf: true
     two_d_mode: false
 
-    map_frame: world
+    map_frame: map
     base_link_frame: base_link
     odom_frame: odom
-    world_frame: world
+    world_frame: map
 
-    # VIO as Odometry
-    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
-    odom0: /ov_msckf/odomimu
-    odom0_config: [true, true, true,   true, true, true,   true, true, true,
-                   true, true, true,  false, false, false]
-    odom0_differential: false
+    # VIO as Odometry (Disabled for Vicon-only mode)
+    # odom0: /ov_msckf/odomimu
+    # odom0_config: [true, true, true,   true, true, true,   true, true, true,
+    #                true, true, true,  false, false, false]
+    # odom0_differential: false
 
-    # Vision absolute pose (Gate Detection)
-    pose0: /gate_detection/drone_pose
-    pose0_config: [true, true, true,   true, true, true,
+    # Vision absolute pose (Gate Detection) (Disabled for Vicon-only mode)
+    # pose0: /gate_detection/drone_pose
+    # pose0_config: [true, true, true,   true, true, true,
+    #                false, false, false, false, false, false, false, false, false]
+    # pose0_differential: false
+
+    # Vicon absolute pose
+    pose1: /vicon/zephyrus/zephyrus
+    pose1_config: [true, true, true,   true, true, true,
                    false, false, false, false, false, false, false, false, false]
-    pose0_differential: false
+    pose1_differential: false
 
-    # If we have an IMU later:
-    # imu0: /imu/data
-    # imu0_config: [false,false,false,  true,true,true,
-    #               false,false,false,  true,true,true,  false,false,false]
+    # IMU from Blackbox (Temporarily disabled for debugging)
+    # imu0: /imu0
+    # imu0_config: [false, false, false,  true,  true,  true,
+    #               false, false, false,  true,  true,  true,  true,  true,  true]
+    # imu0_nodelay: true
     # imu0_remove_gravitational_acceleration: true
 
     # =======================
