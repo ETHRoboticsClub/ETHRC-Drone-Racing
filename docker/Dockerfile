@@ -129,7 +129,7 @@ COPY --chown=drone_dev:drone_dev src/groundstation ${WORKSPACE}/src/groundstatio
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 # Add docs
 COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
-RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0" fastapi uvicorn
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0" fastapi uvicorn av
 
 USER drone_dev
 WORKDIR ${WORKSPACE}

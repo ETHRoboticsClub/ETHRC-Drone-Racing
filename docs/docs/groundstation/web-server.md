@@ -1,6 +1,6 @@
 # Groundstation Web Server
 
-**Page Owner:** [Julian Hoffman](https://github.com/JulesHere)
+**Page Owner:** [Julian Hofmann](https://github.com/JulesHere)
 
 The groundstation web server is a ROS 2 node that subscribes to all drone
 telemetry topics and exposes a live dashboard at `http://localhost:8080`.
