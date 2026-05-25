@@ -202,7 +202,7 @@ private:
       << " ! nvvidconv"
       << " flip-method=" << flip_method
       << " ! video/x-raw,format=" << gst_format
-      << " ! appsink name=sink emit-signals=true sync=false max-buffers=1 drop=true";
+      << " ! appsink name=sink emit-signals=true";
 
     if (publish_color_) {
       pipeline
