@@ -27,8 +27,8 @@ def generate_launch_description():
         parameters=[{
             'camera_id': ParameterValue(sensor_id, value_type=int),
             'module_id': -1,
-            'mode': ParameterValue(sensor_mode, value_type=int),
-            'sensor_mode': ParameterValue(sensor_mode, value_type=int),
+            'mode': 0,
+            'sensor_mode': 0,
             'output_encoding': raw_output_encoding,
             'fsync_type': 0,
         }],
