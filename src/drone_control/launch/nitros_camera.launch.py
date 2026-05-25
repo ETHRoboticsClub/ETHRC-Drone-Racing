@@ -24,10 +24,8 @@ def _launch_setup(context):
         namespace='cam0',
         parameters=[{
             'camera_id': sensor_id,
-            'module_id': sensor_id,
+            'module_id': -1,
             'mode': sensor_mode,
-            'sensor_mode': sensor_mode,
-            'fsync_type': 0,
             'output_width': image_width,
             'output_height': image_height,
             'framerate': framerate,
