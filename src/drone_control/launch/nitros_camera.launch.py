@@ -19,8 +19,8 @@ def generate_launch_description():
     publish_rgb = LaunchConfiguration('publish_rgb')
 
     # 1. Native NITROS Argus Camera Node
-    # Keep the camera-owned output as NV12/NITROS so the H.264 encoder can stay
-    # on the hardware path. ROS Image branches are opt-in consumers below.
+    # Keep the camera-owned output on the high-performance NITROS path. Argus
+    # negotiates RGB8 with downstream NITROS consumers on the A603.
     argus_mono_node = ComposableNode(
         name='argus_mono',
         package='isaac_ros_argus_camera',
@@ -41,25 +41,25 @@ def generate_launch_description():
         ]
     )
 
-    # 2. Format Converter: NV12 -> RGB8 (only for color CPU consumers)
-    format_converter_rgb = ComposableNode(
-        name='format_converter_rgb',
+    # 2. Flip/relay: RGB8 -> RGB8 for the default color topic.
+    # The flip corrects the A603 camera orientation and avoids the distorted
+    # output produced by ImageFormatConverter on this branch.
+    rgb_flip = ComposableNode(
+        name='rgb_flip',
         package='isaac_ros_image_proc',
-        plugin='nvidia::isaac_ros::image_proc::ImageFormatConverterNode',
+        plugin='nvidia::isaac_ros::image_proc::ImageFlipNode',
         namespace='cam0',
         parameters=[{
-            'encoding_desired': 'rgb8',
-            'image_width': ParameterValue(image_width, value_type=int),
-            'image_height': ParameterValue(image_height, value_type=int),
+            'flip_mode': 'BOTH',
         }],
         remappings=[
-            ('image_raw', 'image_raw_nitros'),
-            ('image', 'image_rgb')
+            ('image', 'image_raw_nitros'),
+            ('image_flipped', 'image_rgb')
         ],
         condition=IfCondition(publish_rgb),
     )
 
-    # 3. Format Converter: NV12 -> Mono8 (for VIO and mono ROS consumers)
+    # 3. Format Converter: RGB8 -> Mono8 (for VIO and mono ROS consumers)
     format_converter_mono = ComposableNode(
         name='format_converter_mono',
         package='isaac_ros_image_proc',
@@ -85,7 +85,7 @@ def generate_launch_description():
         namespace='',
         composable_node_descriptions=[
             argus_mono_node,
-            format_converter_rgb,
+            rgb_flip,
             format_converter_mono
         ],
         output='screen'
@@ -110,7 +110,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'publish_rgb',
             default_value='true',
-            description='Publish /cam0/image_rgb as rgb8 for color CPU consumers. H.264 still uses /cam0/image_raw_nitros.',
+            description='Publish /cam0/image_rgb as the default flipped NITROS RGB camera output.',
         ),
         container
     ])
