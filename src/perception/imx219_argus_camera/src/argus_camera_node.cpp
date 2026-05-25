@@ -300,6 +300,7 @@ private:
 
   GstFlowReturn on_sample(GstElement * sink)
   {
+    RCLCPP_INFO_ONCE(get_logger(), "on_sample callback triggered!");
     GstSample * sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
     if (sample == nullptr) {
       return GST_FLOW_ERROR;
