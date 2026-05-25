@@ -290,11 +290,7 @@ def generate_launch_description():
                 launch_arguments={
                     'input_width': LaunchConfiguration('video_width'),
                     'input_height': LaunchConfiguration('video_height'),
-                    'config': 'custom',
-                    'hw_preset': LaunchConfiguration('isaac_h264_hw_preset'),
-                    'profile': LaunchConfiguration('isaac_h264_profile'),
-                    'iframe_interval': LaunchConfiguration('isaac_h264_iframe_interval'),
-                    'qp': LaunchConfiguration('isaac_h264_qp'),
+                    'config': 'pframe_cqp',
                 }.items(),
             ),
         ],
