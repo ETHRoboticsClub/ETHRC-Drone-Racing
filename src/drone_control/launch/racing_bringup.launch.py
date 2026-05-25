@@ -82,6 +82,10 @@ def generate_launch_description():
         'publish_rgb', default_value='true',
         description='Publish /cam0/image_rgb as the default color camera topic'
     )
+    arg_camera_info_url = DeclareLaunchArgument(
+        'camera_info_url', default_value='file:///home/aero/proj/ETHRC-Drone-Racing/src/perception/camera_calibration/camera_info.yaml',
+        description='Path to standard camera calibration YAML file'
+    )
     arg_use_gate_detection = DeclareLaunchArgument(
         'use_gate_detection', default_value='false',
         description='Gate detector is WIP; enable only after gate_detection is built and installed'
@@ -203,11 +207,12 @@ def generate_launch_description():
         launch_arguments={
             'sensor_id': '0',
             'sensor_mode': '4',
-            'framerate': LaunchConfiguration('video_fps'),
             'image_width': LaunchConfiguration('video_width'),
             'image_height': LaunchConfiguration('video_height'),
+            'framerate': LaunchConfiguration('video_fps'),
             'publish_mono': LaunchConfiguration('publish_raw'),
             'publish_rgb': LaunchConfiguration('publish_rgb'),
+            'camera_info_url': LaunchConfiguration('camera_info_url'),
         }.items(),
         condition=launch.conditions.IfCondition(
             PythonExpression([
@@ -439,6 +444,7 @@ def generate_launch_description():
         arg_ground_station_ip,
         arg_publish_raw,
         arg_publish_rgb,
+        arg_camera_info_url,
         arg_use_gate_detection,
         arg_gate_camera_topic,
         arg_use_vio,

@@ -56,6 +56,7 @@ public:
     declare_parameter<int>("stream_bitrate", 4000000);
     declare_parameter<int>("iframe_interval", 30);
     declare_parameter<int>("payload_type", 96);
+    declare_parameter<bool>("use_exposure_gain_range", false);
     declare_parameter<std::vector<double>>("exposure_time_range_ns", {1000000.0, 5000000.0});
     declare_parameter<std::vector<double>>("gain_range", {1.0, 8.0});
     declare_parameter<std::vector<double>>("camera_matrix", {
@@ -177,8 +178,12 @@ public:
 private:
   std::string build_pipeline()
   {
-    const auto exposure = join_range(get_parameter("exposure_time_range_ns").as_double_array());
-    const auto gain = join_range(get_parameter("gain_range").as_double_array());
+    std::string exposure = "";
+    std::string gain = "";
+    if (get_parameter("use_exposure_gain_range").as_bool()) {
+      exposure = join_range(get_parameter("exposure_time_range_ns").as_double_array());
+      gain = join_range(get_parameter("gain_range").as_double_array());
+    }
     const auto gst_format = encoding_ == "mono8" ? "GRAY8" : "RGB";
     const auto fps = get_parameter("framerate").as_double();
     const int flip_method = get_parameter("flip_method").as_int();
@@ -326,6 +331,7 @@ private:
 
   GstFlowReturn on_sample(GstElement * sink)
   {
+    RCLCPP_INFO_ONCE(get_logger(), "on_sample callback triggered!");
     GstSample * sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
     if (sample == nullptr) {
       return GST_FLOW_ERROR;
