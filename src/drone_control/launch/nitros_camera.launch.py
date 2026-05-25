@@ -1,37 +1,35 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction
+from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch_ros.parameter_descriptions import ParameterValue
 
-def _launch_setup(context):
-    sensor_id = int(LaunchConfiguration('sensor_id').perform(context))
-    sensor_mode = int(LaunchConfiguration('sensor_mode').perform(context))
-    image_width = int(LaunchConfiguration('image_width').perform(context))
-    image_height = int(LaunchConfiguration('image_height').perform(context))
-    framerate = float(LaunchConfiguration('framerate').perform(context))
-    raw_output_encoding = LaunchConfiguration('raw_output_encoding').perform(context)
-    publish_mono = LaunchConfiguration('publish_mono').perform(context)
-    publish_rgb = LaunchConfiguration('publish_rgb').perform(context)
-    camera_info_url = LaunchConfiguration('camera_info_url').perform(context)
+
+def generate_launch_description():
+    sensor_id = LaunchConfiguration('sensor_id')
+    sensor_mode = LaunchConfiguration('sensor_mode')
+    image_width = LaunchConfiguration('image_width')
+    image_height = LaunchConfiguration('image_height')
+    raw_output_encoding = LaunchConfiguration('raw_output_encoding')
+    publish_mono = LaunchConfiguration('publish_mono')
+    publish_rgb = LaunchConfiguration('publish_rgb')
 
     # 1. Native NITROS Argus Camera Node
+    # Keep the camera-owned output as NV12/NITROS so the H.264 encoder can stay
+    # on the hardware path. ROS Image branches are opt-in consumers below.
     argus_mono_node = ComposableNode(
         name='argus_mono',
         package='isaac_ros_argus_camera',
         plugin='nvidia::isaac_ros::argus::ArgusMonoNode',
         namespace='cam0',
         parameters=[{
-            'camera_id': sensor_id,
-            'module_id': -1,
-            'mode': sensor_mode,
-            'output_width': image_width,
-            'output_height': image_height,
-            'framerate': framerate,
-            'fps': framerate,
+            'camera_id': ParameterValue(sensor_id, value_type=int),
+            'module_id': ParameterValue(sensor_id, value_type=int),
+            'mode': ParameterValue(sensor_mode, value_type=int),
+            'sensor_mode': ParameterValue(sensor_mode, value_type=int),
             'output_encoding': raw_output_encoding,
-            'camera_info_url': camera_info_url,
         }],
         remappings=[
             ('left/image_raw', 'image_raw_nitros'),
@@ -47,8 +45,8 @@ def _launch_setup(context):
         namespace='cam0',
         parameters=[{
             'encoding_desired': 'rgb8',
-            'image_width': image_width,
-            'image_height': image_height,
+            'image_width': ParameterValue(image_width, value_type=int),
+            'image_height': ParameterValue(image_height, value_type=int),
         }],
         remappings=[
             ('image_raw', 'image_raw_nitros'),
@@ -65,8 +63,8 @@ def _launch_setup(context):
         namespace='cam0',
         parameters=[{
             'encoding_desired': 'mono8',
-            'image_width': image_width,
-            'image_height': image_height,
+            'image_width': ParameterValue(image_width, value_type=int),
+            'image_height': ParameterValue(image_height, value_type=int),
         }],
         remappings=[
             ('image_raw', 'image_raw_nitros'),
@@ -89,16 +87,11 @@ def _launch_setup(context):
         output='screen'
     )
 
-    return [container]
-
-
-def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument('sensor_id', default_value='0'),
         DeclareLaunchArgument('sensor_mode', default_value='4'),
         DeclareLaunchArgument('image_width', default_value='1280'),
         DeclareLaunchArgument('image_height', default_value='720'),
-        DeclareLaunchArgument('framerate', default_value='60.0'),
         DeclareLaunchArgument('raw_output_encoding', default_value='nv12'),
         DeclareLaunchArgument(
             'publish_mono',
@@ -110,10 +103,5 @@ def generate_launch_description():
             default_value='true',
             description='Publish /cam0/image_rgb as rgb8 for color CPU consumers. H.264 still uses /cam0/image_raw_nitros.',
         ),
-        DeclareLaunchArgument(
-            'camera_info_url',
-            default_value='file:///home/aero/proj/ETHRC-Drone-Racing/src/perception/camera_calibration/camera_info.yaml',
-            description='Path to standard camera calibration YAML file',
-        ),
-        OpaqueFunction(function=_launch_setup),
+        container
     ])
