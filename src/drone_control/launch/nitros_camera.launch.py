@@ -30,6 +30,7 @@ def generate_launch_description():
             'mode': ParameterValue(sensor_mode, value_type=int),
             'sensor_mode': ParameterValue(sensor_mode, value_type=int),
             'output_encoding': raw_output_encoding,
+            'fsync_type': 0,
         }],
         remappings=[
             ('left/image_raw', 'image_raw_nitros'),
