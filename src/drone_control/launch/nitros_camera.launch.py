@@ -26,7 +26,7 @@ def generate_launch_description():
         namespace='cam0',
         parameters=[{
             'camera_id': ParameterValue(sensor_id, value_type=int),
-            'module_id': ParameterValue(sensor_id, value_type=int),
+            'module_id': -1,
             'mode': ParameterValue(sensor_mode, value_type=int),
             'sensor_mode': ParameterValue(sensor_mode, value_type=int),
             'output_encoding': raw_output_encoding,
