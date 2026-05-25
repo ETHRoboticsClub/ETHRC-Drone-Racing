@@ -34,7 +34,8 @@ class ROS2H264ToTCP(Node):
             try:
                 self.client_sock, addr = self.server_sock.accept()
                 self.get_logger().info(f"GStreamer connected from {addr}!")
-                self.client_sock.setblocking(False)
+                # Keep client socket blocking so sendall naturally buffers and blocks
+                self.client_sock.setblocking(True)
             except BlockingIOError:
                 pass
 
