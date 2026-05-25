@@ -59,7 +59,10 @@ def main(args=None):
         if node.client_sock:
             node.client_sock.close()
         node.server_sock.close()
-        rclpy.shutdown()
+        try:
+            rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()
