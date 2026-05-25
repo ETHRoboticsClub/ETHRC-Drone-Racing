@@ -47,7 +47,7 @@ def generate_launch_description():
     arg_video_fps = DeclareLaunchArgument('video_fps', default_value='60')
     arg_video_port = DeclareLaunchArgument('video_port', default_value='5000')
     arg_h264_backend = DeclareLaunchArgument(
-        'h264_backend', default_value='gstreamer_ros',
+        'h264_backend', default_value='isaac_ros',
         description='H.264 backend when view_stream=true: gstreamer_ros, isaac_ros, or gstreamer'
     )
     arg_isaac_h264_qp = DeclareLaunchArgument(
@@ -81,6 +81,10 @@ def generate_launch_description():
     arg_publish_rgb = DeclareLaunchArgument(
         'publish_rgb', default_value='true',
         description='Publish /cam0/image_rgb as the default color camera topic'
+    )
+    arg_camera_info_url = DeclareLaunchArgument(
+        'camera_info_url', default_value='file:///home/aero/proj/ETHRC-Drone-Racing/src/perception/camera_calibration/camera_info.yaml',
+        description='Path to standard camera calibration YAML file'
     )
     arg_use_gate_detection = DeclareLaunchArgument(
         'use_gate_detection', default_value='false',
@@ -196,32 +200,17 @@ def generate_launch_description():
     # --- 3. VIDEO: Team-Standard Camera for perception ---
     camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            PathJoinSubstitution(
-                [FindPackageShare('imx219_argus_camera'), 'launch', 'isaac_camera.launch.py']
-            )
+            os.path.join(pkg_drone_control, 'launch', 'nitros_camera.launch.py')
         ),
         launch_arguments={
             'sensor_id': '0',
             'sensor_mode': '4',
+            'image_width': LaunchConfiguration('video_width'),
+            'image_height': LaunchConfiguration('video_height'),
             'framerate': LaunchConfiguration('video_fps'),
-            'width': LaunchConfiguration('video_width'),
-            'height': LaunchConfiguration('video_height'),
-            'publish_color': LaunchConfiguration('publish_rgb'),
-            'color_encoding': 'rgb8',
-            'color_reliable': PythonExpression([
-                "'", LaunchConfiguration('h264_backend'), "' == 'isaac_ros'"
-            ]),
-            'publish_h264': PythonExpression([
-                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'gstreamer_ros'"
-            ]),
-            'enable_h264_stream': PythonExpression([
-                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'gstreamer'"
-            ]),
-            'ground_station_ip': LaunchConfiguration('ground_station_ip'),
-            'stream_port': LaunchConfiguration('video_port'),
-            'stream_bitrate': LaunchConfiguration('video_bitrate'),
+            'publish_mono': LaunchConfiguration('publish_raw'),
+            'publish_rgb': LaunchConfiguration('publish_rgb'),
+            'camera_info_url': LaunchConfiguration('camera_info_url'),
         }.items(),
         condition=launch.conditions.IfCondition(
             PythonExpression(["'", LaunchConfiguration('publish_raw'), "' == 'true' and ", str(is_jetson)])
@@ -285,7 +274,7 @@ def generate_launch_description():
 
     isaac_h264_encoder = GroupAction(
         actions=[
-            SetRemap(src='image_raw', dst='/cam0/image_rgb'),
+            SetRemap(src='image_raw', dst='/cam0/image_raw_nitros'),
             SetRemap(src='image_compressed', dst='/cam0/image_h264'),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -450,6 +439,7 @@ def generate_launch_description():
         arg_ground_station_ip,
         arg_publish_raw,
         arg_publish_rgb,
+        arg_camera_info_url,
         arg_use_gate_detection,
         arg_gate_camera_topic,
         arg_use_vio,
