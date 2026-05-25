@@ -12,6 +12,8 @@ def generate_launch_description():
     sensor_mode = LaunchConfiguration('sensor_mode')
     image_width = LaunchConfiguration('image_width')
     image_height = LaunchConfiguration('image_height')
+    framerate = LaunchConfiguration('framerate')
+    camera_info_url = LaunchConfiguration('camera_info_url')
     raw_output_encoding = LaunchConfiguration('raw_output_encoding')
     publish_mono = LaunchConfiguration('publish_mono')
     publish_rgb = LaunchConfiguration('publish_rgb')
@@ -31,6 +33,7 @@ def generate_launch_description():
             'sensor_mode': ParameterValue(sensor_mode, value_type=int),
             'output_encoding': raw_output_encoding,
             'fsync_type': 0,
+            'camera_info_url': camera_info_url,
         }],
         remappings=[
             ('left/image_raw', 'image_raw_nitros'),
@@ -93,10 +96,15 @@ def generate_launch_description():
         DeclareLaunchArgument('sensor_mode', default_value='4'),
         DeclareLaunchArgument('image_width', default_value='1280'),
         DeclareLaunchArgument('image_height', default_value='720'),
+        DeclareLaunchArgument('framerate', default_value='60'),
+        DeclareLaunchArgument(
+            'camera_info_url',
+            default_value='file:///home/aero/proj/ETHRC-Drone-Racing/src/perception/camera_calibration/camera_info.yaml',
+        ),
         DeclareLaunchArgument('raw_output_encoding', default_value='nv12'),
         DeclareLaunchArgument(
             'publish_mono',
-            default_value='true',
+            default_value='false',
             description='Publish /cam0/image_raw as mono8 for VIO and other CPU ROS consumers',
         ),
         DeclareLaunchArgument(

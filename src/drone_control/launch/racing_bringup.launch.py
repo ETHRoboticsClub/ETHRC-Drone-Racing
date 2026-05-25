@@ -75,7 +75,7 @@ def generate_launch_description():
         description='Ground station IPv4 address for the Jetson RTP/H.264 UDP stream'
     )
     arg_publish_raw = DeclareLaunchArgument(
-        'publish_raw', default_value='true',
+        'publish_raw', default_value='false',
         description='Publish /cam0/image_raw as mono8 for VIO'
     )
     arg_publish_rgb = DeclareLaunchArgument(
@@ -213,7 +213,10 @@ def generate_launch_description():
             'camera_info_url': LaunchConfiguration('camera_info_url'),
         }.items(),
         condition=launch.conditions.IfCondition(
-            PythonExpression(["'", LaunchConfiguration('publish_raw'), "' == 'true' and ", str(is_jetson)])
+            PythonExpression([
+                "('", LaunchConfiguration('publish_raw'), "' == 'true' or '",
+                LaunchConfiguration('publish_rgb'), "' == 'true') and ", str(is_jetson)
+            ])
         )
     )
 
@@ -298,19 +301,23 @@ def generate_launch_description():
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('publish_raw'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ", str(is_jetson)
+                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ('",
+                LaunchConfiguration('publish_raw'), "' == 'true' or '",
+                LaunchConfiguration('publish_rgb'), "' == 'true') and ",
+                str(is_jetson)
             ])
         )
     )
 
     isaac_h264_enabled = LogInfo(
-        msg="Isaac ROS H.264 encoder enabled: /cam0/image_rgb -> /cam0/image_h264. View /image_decoded after decoding; /cam0/image_h264 is compressed bytes, not a directly displayable image.",
+        msg="Isaac ROS H.264 encoder enabled: /cam0/image_raw_nitros -> /cam0/image_h264.",
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('publish_raw'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ", str(is_jetson)
+                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ('",
+                LaunchConfiguration('publish_raw'), "' == 'true' or '",
+                LaunchConfiguration('publish_rgb'), "' == 'true') and ",
+                str(is_jetson)
             ])
         )
     )
