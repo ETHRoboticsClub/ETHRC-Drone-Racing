@@ -11,8 +11,9 @@ argus_camera_node:
     # Set to 0 for no rotation if the camera is mounted upright.
     flip_method: 2
 
-    exposure_time_range_ns: []
-    gain_range: []
+    use_exposure_gain_range: false
+    exposure_time_range_ns: [1000000.0, 5000000.0]
+    gain_range: [1.0, 8.0]
     denoise_mode: "fast"            # off | fast | high_quality
     edge_enhance_mode: "fast"       # off | fast | high_quality
 
