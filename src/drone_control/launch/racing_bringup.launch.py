@@ -35,8 +35,8 @@ def generate_launch_description():
     arg_target_hz = DeclareLaunchArgument('target_hz', default_value='150',
                                           description='Target frequency for the published IMU messages')
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
-    arg_vicon_subject = DeclareLaunchArgument('vicon_subject', default_value='zephyrus')
-    arg_vicon_segment = DeclareLaunchArgument('vicon_segment', default_value='zephyrus')
+    arg_vicon_subject = DeclareLaunchArgument('vicon_subject', default_value=hostname)
+    arg_vicon_segment = DeclareLaunchArgument('vicon_segment', default_value=hostname)
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
     arg_view_stream = DeclareLaunchArgument('view_stream', default_value='true',
