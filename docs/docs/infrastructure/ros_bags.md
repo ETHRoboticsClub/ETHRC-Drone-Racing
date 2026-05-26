@@ -10,6 +10,7 @@ This page serves as a central registry for flight data uploaded to our AWS S3 st
 
 | Date | Person | Drone | S3 Location (s3://...) | Notes | Useful Topics |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-05-26 | Aero-Boreas | boreas | `s3://ethrc-aeronautics/droneracing/bags/2026-05-26-boreas-imu-cam-calib2.zip` | imu-cam-calib2 | `/battery`, `/blackbox_diagnostics`, `/cam0/image_h264`, `/cam0/image_rgb`, `/imu0`, `/tf_static` |
 | 2026-05-17 | zephyrus | zephyrus | `s3://ethrc-aeronautics/droneracing/bags/2026-05-17-zephyrus-imu-cam-calib5.zip` | imu-cam-calib5 | `/battery`, `/cam0/camera_info`, `/cam0/image_h264`, `/cam0/image_rgb`, `/drone_attitude_cmd`, `/drone_current_target`, `/drone_position_cmd`, `/drone_state_sim`, `/imu0`, `/motor_rpm`, `/tf`, `/tf_static` |
 | 2026-05-17 | zephyrus | zephyrus | `s3://ethrc-aeronautics/droneracing/bags/2026-05-17-zephyrus-multi-gate-rgb-only1.zip` | multi_gate_rgb_only1 | `/battery`, `/cam0/camera_info`, `/cam0/image_h264`, `/cam0/image_rgb`, `/drone_attitude_cmd`, `/drone_current_target`, `/drone_position_cmd`, `/drone_state_sim`, `/imu0`, `/motor_rpm`, `/vicon/*` |
 | 2026-05-17 | zephyrus | zephyrus | `s3://ethrc-aeronautics/droneracing/bags/2026-05-17-zephyrus-multi-gate2.zip` | multi_gate2, low RGB framerate because raw `/cam0/image_rgb` was recorded; prefer H.264 for color video | `/cam0/camera_info`, `/cam0/image_h264`, `/cam0/image_rgb`, `/imu0`, `/motor_rpm`, `/vicon/*` |
