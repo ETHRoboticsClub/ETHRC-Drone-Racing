@@ -1,11 +1,16 @@
+import logging
+import os
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+import numpy as np
 from mavsdk.offboard import AttitudeRate
 from interfaces import ControllerInterface
 
 from rl.hovering_experiment import HoveringExperiment
 
 _POLICY_PATH = Path(__file__).resolve().parent / "models" / "policy.pt"
+_LOG_PATH = Path.home() / ".ros" / "rl_controller.log"
 
 
 class DroneRLController(ControllerInterface):
@@ -13,37 +18,52 @@ class DroneRLController(ControllerInterface):
         super().__init__()
         self.experiment = HoveringExperiment(str(_POLICY_PATH))
         self.velocity_limit = 15.0
+        self._logger = self._build_logger()
+        self._log_every_n = 10  # log 1 in N controller_update calls
+        self._update_counter = 0
+        self._logger.info(
+            "DroneRLController created pid=%d policy=%s velocity_limit=%.3f",
+            os.getpid(), _POLICY_PATH, self.velocity_limit,
+        )
+
+    @staticmethod
+    def _build_logger() -> logging.Logger:
+        logger = logging.getLogger("drone_rl_controller")
+        if getattr(logger, "_rl_configured", False):
+            return logger
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+        _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        handler = RotatingFileHandler(_LOG_PATH, maxBytes=10 * 1024 * 1024, backupCount=3)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(handler)
+        logger._rl_configured = True
+        return logger
 
     def initialize(self):
         pass  # policy loaded in HoveringExperiment.__init__
 
     def controller_update(self, x_current, goal_position) -> AttitudeRate:
         cmd = self.experiment.predict_commands(x_current, goal_position)
-        
-        # Scale the attitude rate commands based on the rate_error_scale parameter.
-        # It defaults to 300.0 (scale factor 1.0). Lowering it scales down the rates.
-        ros_scale = getattr(self, "rate_error_scale", 300.0)
-        scale_factor = ros_scale / 300.0
-        
-        scaled_roll = float(cmd[0]) * scale_factor
-        scaled_pitch = float(cmd[1]) * scale_factor
-        scaled_yaw = float(cmd[2]) * scale_factor
-        
-        # Calculate horizontal distance to target
-        import numpy as np
+
+
+        roll = float(cmd[0])
+        pitch = float(cmd[1])
+        yaw = float(cmd[2])
+
         dist_xy = float(np.linalg.norm(goal_position[:2] - x_current[:2]))
-        
-        # Smoothly scale down yaw command close to target to prevent persistent spinning
-        if dist_xy < 0.10:
-            scaled_yaw = 0.0
-        elif dist_xy < 0.30:
-            yaw_multiplier = (dist_xy - 0.10) / 0.20
-            scaled_yaw *= yaw_multiplier
-        
-        return AttitudeRate(scaled_roll, scaled_pitch, scaled_yaw, float(cmd[3]))
 
-    def trajectory_controller_update(self, x_current, goal_trajectory) -> AttitudeRate:
-        # Use the current target state from the trajectory (first node in the horizon)
-        goal_position = goal_trajectory[:, 0]
-        return self.controller_update(x_current, goal_position)
+        thrust = float(cmd[3])
 
+        # Throttled logging every N updates
+        self._update_counter += 1
+        if self._update_counter % self._log_every_n == 0:
+            self._logger.info(
+                "state=%s goal=%s raw_cmd (roll, pitch, yaw, thrust)=[%.4f,%.4f,%.4f,%.4f] "
+                "dist_xy=%.4f out=[%.4f,%.4f,%.4f,%.4f]",
+                np.array2string(np.asarray(x_current), precision=4, separator=","),
+                np.array2string(np.asarray(goal_position), precision=4, separator=","),
+                float(cmd[0]), float(cmd[1]), float(cmd[2]), float(cmd[3]),
+                dist_xy, roll, pitch, yaw, thrust,
+            )
+        return AttitudeRate(roll, pitch, yaw, thrust)
