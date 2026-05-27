@@ -45,7 +45,8 @@ public:
     declare_parameter<std::string>("output_encoding", "mono8");
     declare_parameter<std::string>("frame_id", "cam0");
     declare_parameter<int>("flip_method", 2);
-    declare_parameter<bool>("publish_color", false);
+    declare_parameter<bool>("publish_raw", false);
+    declare_parameter<bool>("publish_color", true);
     declare_parameter<std::string>("color_encoding", "rgb8");
     declare_parameter<bool>("color_reliable", false);
     declare_parameter<bool>("publish_h264", false);
@@ -55,6 +56,7 @@ public:
     declare_parameter<int>("stream_bitrate", 4000000);
     declare_parameter<int>("iframe_interval", 30);
     declare_parameter<int>("payload_type", 96);
+    declare_parameter<bool>("use_exposure_gain_range", false);
     declare_parameter<std::vector<double>>("exposure_time_range_ns", {1000000.0, 5000000.0});
     declare_parameter<std::vector<double>>("gain_range", {1.0, 8.0});
     declare_parameter<std::vector<double>>("camera_matrix", {
@@ -69,17 +71,21 @@ public:
     frame_id_ = get_parameter("frame_id").as_string();
     encoding_ = get_parameter("output_encoding").as_string();
     color_encoding_ = get_parameter("color_encoding").as_string();
+    publish_raw_ = get_parameter("publish_raw").as_bool();
     publish_color_ = get_parameter("publish_color").as_bool();
     publish_h264_ = get_parameter("publish_h264").as_bool();
     width_ = get_parameter("width").as_int();
     height_ = get_parameter("height").as_int();
     channels_ = encoding_ == "mono8" ? 1 : 3;
-    color_channels_ = color_encoding_ == "mono8" ? 1 : 3;
+    color_channels_ = color_encoding_ == "mono8" ? 1 :
+      (color_encoding_ == "rgba8" || color_encoding_ == "bgra8" ? 4 : 3);
 
-    image_pub_ = create_publisher<sensor_msgs::msg::Image>(
-      "image_raw", rclcpp::SensorDataQoS().keep_last(1));
     camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
       "camera_info", rclcpp::QoS(kCameraInfoQueue));
+    if (publish_raw_) {
+      image_pub_ = create_publisher<sensor_msgs::msg::Image>(
+        "image_raw", rclcpp::SensorDataQoS().keep_last(1));
+    }
     if (publish_color_) {
       if (get_parameter("color_reliable").as_bool()) {
         color_pub_ = create_publisher<sensor_msgs::msg::Image>(
@@ -111,11 +117,13 @@ public:
       throw std::runtime_error("Failed to create camera pipeline");
     }
 
-    appsink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "sink");
-    if (appsink_ == nullptr) {
-      throw std::runtime_error("Camera pipeline does not contain appsink name=sink");
+    if (publish_raw_) {
+      appsink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "sink");
+      if (appsink_ == nullptr) {
+        throw std::runtime_error("Camera pipeline does not contain appsink name=sink");
+      }
+      g_signal_connect(appsink_, "new-sample", G_CALLBACK(&ArgusCameraNode::on_sample_static), this);
     }
-    g_signal_connect(appsink_, "new-sample", G_CALLBACK(&ArgusCameraNode::on_sample_static), this);
 
     if (publish_color_) {
       color_appsink_ = gst_bin_get_by_name(GST_BIN(pipeline_), "color_sink");
@@ -170,13 +178,25 @@ public:
 private:
   std::string build_pipeline()
   {
-    const auto exposure = join_range(get_parameter("exposure_time_range_ns").as_double_array());
-    const auto gain = join_range(get_parameter("gain_range").as_double_array());
+    std::string exposure = "";
+    std::string gain = "";
+    if (get_parameter("use_exposure_gain_range").as_bool()) {
+      exposure = join_range(get_parameter("exposure_time_range_ns").as_double_array());
+      gain = join_range(get_parameter("gain_range").as_double_array());
+    }
     const auto gst_format = encoding_ == "mono8" ? "GRAY8" : "RGB";
     const auto fps = get_parameter("framerate").as_double();
     const int flip_method = get_parameter("flip_method").as_int();
     const bool enable_stream = get_parameter("enable_h264_stream").as_bool();
     const bool publish_h264 = get_parameter("publish_h264").as_bool();
+    const bool use_h264_branch = enable_stream || publish_h264;
+    const int branch_count =
+      static_cast<int>(publish_raw_) + static_cast<int>(publish_color_) +
+      static_cast<int>(use_h264_branch);
+    if (branch_count == 0) {
+      throw std::runtime_error("At least one camera output must be enabled");
+    }
+    const bool use_tee = branch_count > 1;
 
     std::ostringstream pipeline;
     pipeline
@@ -191,22 +211,37 @@ private:
     pipeline
       << " ! video/x-raw(memory:NVMM),width=" << width_
       << ",height=" << height_
-      << ",format=NV12,framerate=" << static_cast<int>(fps) << "/1"
-      << " ! tee name=t"
-      << " t. ! queue max-size-buffers=1 leaky=downstream"
-      << " ! nvvidconv"
-      << " flip-method=" << flip_method
-      << " ! video/x-raw,format=" << gst_format
-      << " ! appsink name=sink emit-signals=true sync=false max-buffers=1 drop=true";
+      << ",format=NV12,framerate=" << static_cast<int>(fps) << "/1";
+
+    if (use_tee) {
+      pipeline << " ! tee name=t";
+    }
+
+    if (publish_raw_) {
+      pipeline
+        << (use_tee ? " t." : "")
+        << " ! queue max-size-buffers=1 leaky=downstream"
+        << " ! nvvidconv"
+        << " flip-method=" << flip_method
+        << " ! video/x-raw,format=" << gst_format
+        << " ! appsink name=sink emit-signals=true sync=false max-buffers=1 drop=true";
+    }
 
     if (publish_color_) {
       pipeline
-        << " t. ! queue max-size-buffers=1 leaky=downstream"
+        << (use_tee ? " t." : "")
+        << " ! queue max-size-buffers=1 leaky=downstream"
         << " ! nvvidconv"
         << " flip-method=" << flip_method;
       if (color_encoding_ == "mono8") {
         pipeline
           << " ! video/x-raw,format=GRAY8";
+      } else if (color_encoding_ == "rgba8") {
+        pipeline
+          << " ! video/x-raw,format=RGBA";
+      } else if (color_encoding_ == "bgra8") {
+        pipeline
+          << " ! video/x-raw,format=BGRx";
       } else {
         const auto color_gst_format = color_encoding_ == "bgr8" ? "BGR" : "RGB";
         pipeline
@@ -218,9 +253,10 @@ private:
         << " ! appsink name=color_sink emit-signals=true sync=false max-buffers=1 drop=true";
     }
 
-    if (enable_stream || publish_h264) {
+    if (use_h264_branch) {
       pipeline
-        << " t. ! queue max-size-buffers=1 leaky=downstream"
+        << (use_tee ? " t." : "")
+        << " ! queue max-size-buffers=1 leaky=downstream"
         << " ! nvv4l2h264enc"
         << " preset-level=0"
         << " insert-sps-pps=1"
@@ -295,6 +331,47 @@ private:
 
   GstFlowReturn on_sample(GstElement * sink)
   {
+    RCLCPP_INFO_ONCE(get_logger(), "on_sample callback triggered!");
+    GstSample * sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
+    if (sample == nullptr) {
+      return GST_FLOW_ERROR;
+    }
+    publish_sample(sample);
+    gst_sample_unref(sample);
+    return GST_FLOW_OK;
+  }
+
+  void publish_sample(GstSample * sample)
+  {
+    GstBuffer * buffer = gst_sample_get_buffer(sample);
+    GstMapInfo map;
+    if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+      return;
+    }
+
+    const auto stamp = now();
+    auto image = sensor_msgs::msg::Image();
+    image.header.stamp = stamp;
+    image.header.frame_id = frame_id_;
+    image.height = height_;
+    image.width = width_;
+    image.encoding = encoding_;
+    image.is_bigendian = false;
+    image.step = width_ * channels_;
+    image.data.assign(map.data, map.data + map.size);
+
+    camera_info_.header.stamp = stamp;
+
+    if (image_pub_ != nullptr) {
+      image_pub_->publish(std::move(image));
+    }
+    camera_info_pub_->publish(camera_info_);
+
+    gst_buffer_unmap(buffer, &map);
+  }
+
+  GstFlowReturn on_color_sample(GstElement * sink)
+  {
     GstSample * sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
     if (sample == nullptr) {
       return GST_FLOW_ERROR;
@@ -313,46 +390,14 @@ private:
     image.header.frame_id = frame_id_;
     image.height = height_;
     image.width = width_;
-    image.encoding = encoding_;
-    image.is_bigendian = false;
-    image.step = width_ * channels_;
-    image.data.assign(map.data, map.data + map.size);
-
-    camera_info_.header.stamp = stamp;
-
-    image_pub_->publish(std::move(image));
-    camera_info_pub_->publish(camera_info_);
-
-    gst_buffer_unmap(buffer, &map);
-    gst_sample_unref(sample);
-    return GST_FLOW_OK;
-  }
-
-  GstFlowReturn on_color_sample(GstElement * sink)
-  {
-    GstSample * sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
-    if (sample == nullptr) {
-      return GST_FLOW_ERROR;
-    }
-
-    GstBuffer * buffer = gst_sample_get_buffer(sample);
-    GstMapInfo map;
-    if (!gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-      gst_sample_unref(sample);
-      return GST_FLOW_ERROR;
-    }
-
-    auto image = sensor_msgs::msg::Image();
-    image.header.stamp = now();
-    image.header.frame_id = frame_id_;
-    image.height = height_;
-    image.width = width_;
     image.encoding = color_encoding_;
     image.is_bigendian = false;
     image.step = width_ * color_channels_;
     image.data.assign(map.data, map.data + map.size);
 
     color_pub_->publish(std::move(image));
+    camera_info_.header.stamp = stamp;
+    camera_info_pub_->publish(camera_info_);
 
     gst_buffer_unmap(buffer, &map);
     gst_sample_unref(sample);
@@ -455,6 +500,7 @@ private:
   std::string frame_id_;
   std::string encoding_;
   std::string color_encoding_;
+  bool publish_raw_{false};
   bool publish_color_{false};
   bool publish_h264_{false};
   int width_{1280};

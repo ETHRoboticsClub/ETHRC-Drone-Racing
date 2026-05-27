@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <mutex>
 #include <thread>
 #include <sstream>
@@ -21,7 +23,11 @@ extern "C" {
 #include <linux/serial.h>
 #include <unistd.h>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
+#include <diagnostic_msgs/msg/key_value.hpp>
 #include <fstream>
+#include <numeric>
 
 using namespace std::chrono_literals;
 
@@ -41,6 +47,18 @@ public:
         this->declare_parameter("battery_topic", "/battery");
         this->declare_parameter("vbat_scale", 0.01); // Betaflight vbat is usually 10mV/unit
         this->declare_parameter("use_blackbox_time_for_stamp", false);
+        this->declare_parameter("validate_imu_stream", true);
+        this->declare_parameter("reject_zero_imu", true);
+        this->declare_parameter("max_frame_delta_us", 10000);
+        // Accept both old and new parameter names for backward compatibility
+        this->declare_parameter("max_gyro_deg_s", 4000.0);
+        this->declare_parameter("max_gyro_raw_deg_s", -1.0);  // deprecated alias
+        this->declare_parameter("max_accel_g", 32.0);
+        this->declare_parameter("max_gyro_jump_deg_s", 1000.0);
+        this->declare_parameter("max_accel_jump_g", 8.0);
+        this->declare_parameter("max_consecutive_rejects", 5);
+        this->declare_parameter("outlier_sigma_k", 4.0);
+        this->declare_parameter("diagnostics_topic", "/blackbox_diagnostics");
 
         std::string port_name = this->get_parameter("port").as_string();
         int baud = this->get_parameter("baud").as_int();
@@ -61,12 +79,32 @@ public:
         std::string battery_topic = this->get_parameter("battery_topic").as_string();
         vbat_scale_ = this->get_parameter("vbat_scale").as_double();
         use_blackbox_time_for_stamp_ = this->get_parameter("use_blackbox_time_for_stamp").as_bool();
+        validate_imu_stream_ = this->get_parameter("validate_imu_stream").as_bool();
+        reject_zero_imu_ = this->get_parameter("reject_zero_imu").as_bool();
+        max_frame_delta_us_ = std::max(1, static_cast<int>(this->get_parameter("max_frame_delta_us").as_int()));
+        {
+            // Backward compatibility: prefer max_gyro_deg_s, fall back to deprecated max_gyro_raw_deg_s
+            double deprecated_val = this->get_parameter("max_gyro_raw_deg_s").as_double();
+            if (deprecated_val > 0.0) {
+                RCLCPP_WARN(this->get_logger(), "Parameter 'max_gyro_raw_deg_s' is deprecated; use 'max_gyro_deg_s' instead.");
+                max_gyro_deg_s_ = std::max(1.0, deprecated_val);
+            } else {
+                max_gyro_deg_s_ = std::max(1.0, this->get_parameter("max_gyro_deg_s").as_double());
+            }
+        }
+        max_accel_raw_ = std::max(1.0, this->get_parameter("max_accel_g").as_double()) * kAccelRawPerG;
+        max_gyro_jump_deg_s_ = std::max(1.0, this->get_parameter("max_gyro_jump_deg_s").as_double());
+        max_accel_jump_raw_ = std::max(1.0, this->get_parameter("max_accel_jump_g").as_double()) * kAccelRawPerG;
+        max_consecutive_rejects_ = std::max(1, static_cast<int>(this->get_parameter("max_consecutive_rejects").as_int()));
+        outlier_sigma_k_ = std::max(1.0, this->get_parameter("outlier_sigma_k").as_double());
+        std::string diagnostics_topic = this->get_parameter("diagnostics_topic").as_string();
 
         auto qos_profile = rclcpp::SensorDataQoS();
         qos_profile.keep_last(1);
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic_, qos_profile);
         rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, qos_profile);
         battery_pub_ = this->create_publisher<sensor_msgs::msg::BatteryState>(battery_topic, qos_profile);
+        diag_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(diagnostics_topic, 10);
         
         if (enable_msp_control) {
             // Subscription for Shared UART Control
@@ -127,10 +165,11 @@ public:
 
         sp_flush(port_, SP_BUF_BOTH);
         RCLCPP_INFO(this->get_logger(),
-                    "Connected to Betaflight Blackbox on %s at %d baud (IMU: %d Hz, best-effort QoS, timer-paced latest sample, stamp source: %s, Debug: %s)",
+                    "Connected to Betaflight Blackbox on %s at %d baud (IMU: %d Hz, best-effort QoS, timer-paced latest sample, stamp source: %s, Debug: %s, validation: %s)",
                     port_name.c_str(), baud, target_hz_,
                     use_blackbox_time_for_stamp_ ? "blackbox time" : "ROS publish timer",
-                    debug_raw_ ? "ON" : "OFF");
+                    debug_raw_ ? "ON" : "OFF",
+                    validate_imu_stream_ ? "ON" : "OFF");
         
         if (debug_raw_) {
             raw_dump_file_ = fopen("/tmp/capture.bbl", "wb");
@@ -144,6 +183,9 @@ public:
         
         // RPM Health Check Timer (every 10 seconds)
         health_check_timer_ = this->create_wall_timer(std::chrono::seconds(10), std::bind(&BlackboxDriverNode::rpmHealthCheck, this));
+        
+        // Diagnostics Timer (every 2 seconds)
+        diag_timer_ = this->create_wall_timer(std::chrono::seconds(2), std::bind(&BlackboxDriverNode::publishDiagnostics, this));
         
         // Try to Boost thread priority to Real-Time
         struct sched_param param;
@@ -177,6 +219,10 @@ private:
     
     // Circular Buffer for high-rate parsing
     static constexpr size_t CIRCULAR_SIZE = 65536;
+    static constexpr int kMaxFrameFields = 128;
+    static constexpr int kFrameValueStart = 2;
+    static constexpr double kAccelRawPerG = 2048.0;
+    using DecodedFields = std::array<int32_t, kMaxFrameFields>;
     std::vector<uint8_t> buffer_;
     size_t head_ = 0; // Write index
     size_t tail_ = 0; // Read index
@@ -203,12 +249,24 @@ private:
     uint64_t publish_period_us_ = 1000000ULL / 150ULL;
     int intra_skip_fields_ = 13;
     bool debug_raw_ = false;
+    bool validate_imu_stream_ = true;
+    bool reject_zero_imu_ = true;
+    int max_frame_delta_us_ = 10000;
+    double max_gyro_deg_s_ = 4000.0;
+    double max_accel_raw_ = 32.0 * kAccelRawPerG;
+    double max_gyro_jump_deg_s_ = 1000.0;
+    double max_accel_jump_raw_ = 8.0 * kAccelRawPerG;
+    int max_consecutive_rejects_ = 5;
+    double outlier_sigma_k_ = 4.0;
     std::chrono::steady_clock::time_point last_warning_time_;
     std::chrono::steady_clock::time_point first_data_time_;
     bool saw_first_data_ = false;
 
     FrameData last_frame_ = {0};
+    FrameData prev_frame_ = {0};  // Frame before last_frame_, needed for AVERAGE_2 predictor
     bool has_first_intra_ = false;
+    uint32_t last_iteration_ = 0;
+    int consecutive_rejects_ = 0;
     bool has_gyro_mapped_ = false;
     bool has_accel_mapped_ = false;
     bool time_synced_ = false;
@@ -223,10 +281,12 @@ private:
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr rpm_pub_;
     rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr battery_pub_;
+    rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub_;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr att_sub_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
     rclcpp::TimerBase::SharedPtr imu_publish_timer_;
     rclcpp::TimerBase::SharedPtr health_check_timer_;
+    rclcpp::TimerBase::SharedPtr diag_timer_;
     
     int motor_poles_ = 14;
     std::string imu_topic_;
@@ -251,7 +311,69 @@ private:
 
     std::thread thread_;
     bool running_ = true;
-    uint64_t total_bytes_read_ = 0;
+    std::atomic<uint64_t> total_bytes_read_{0};
+    std::atomic<uint64_t> dropped_stream_bytes_{0};
+    std::atomic<uint64_t> decoded_i_frames_{0};
+    std::atomic<uint64_t> decoded_p_frames_{0};
+    std::atomic<uint64_t> accepted_imu_frames_{0};
+    std::atomic<uint64_t> rejected_imu_frames_{0};
+    std::atomic<uint64_t> resync_count_{0};
+    std::atomic<uint64_t> validation_only_rejects_{0};  // Rejected by validation (not decode error)
+
+    // Sliding-window outlier detection
+    static constexpr int kValidationWindowSize = 8;
+    struct ImuSampleWindow {
+        std::array<int32_t, kValidationWindowSize> gyro_x{}, gyro_y{}, gyro_z{};
+        std::array<int32_t, kValidationWindowSize> accel_x{}, accel_y{}, accel_z{};
+        int count = 0;
+        int head = 0;
+
+        void push(const FrameData& f) {
+            gyro_x[head] = f.gyro[0]; gyro_y[head] = f.gyro[1]; gyro_z[head] = f.gyro[2];
+            accel_x[head] = f.accel[0]; accel_y[head] = f.accel[1]; accel_z[head] = f.accel[2];
+            head = (head + 1) % kValidationWindowSize;
+            if (count < kValidationWindowSize) count++;
+        }
+
+        static double meanAndStddev(const std::array<int32_t, kValidationWindowSize>& arr, int n, double& stddev) {
+            double sum = 0;
+            for (int i = 0; i < n; i++) sum += arr[i];
+            double mean = sum / n;
+            double sq_sum = 0;
+            for (int i = 0; i < n; i++) sq_sum += (arr[i] - mean) * (arr[i] - mean);
+            stddev = std::sqrt(sq_sum / n);
+            return mean;
+        }
+
+        bool isOutlier(const FrameData& candidate, double sigma_k) const {
+            if (count < 4) return false;  // Not enough history
+            const std::array<int32_t, kValidationWindowSize>* arrays[] = {
+                &gyro_x, &gyro_y, &gyro_z, &accel_x, &accel_y, &accel_z
+            };
+            int32_t candidate_vals[] = {
+                candidate.gyro[0], candidate.gyro[1], candidate.gyro[2],
+                candidate.accel[0], candidate.accel[1], candidate.accel[2]
+            };
+            for (int i = 0; i < 6; i++) {
+                double stddev;
+                double mean = meanAndStddev(*arrays[i], count, stddev);
+                // Minimum stddev floor to avoid false positives when stationary
+                double effective_stddev = std::max(stddev, 10.0);
+                if (std::fabs(candidate_vals[i] - mean) > sigma_k * effective_stddev) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    };
+    ImuSampleWindow imu_window_;
+    uint64_t last_health_bytes_ = 0;
+    uint64_t last_health_decoded_i_ = 0;
+    uint64_t last_health_decoded_p_ = 0;
+    uint64_t last_health_accepted_ = 0;
+    uint64_t last_health_rejected_ = 0;
+    uint64_t last_health_dropped_bytes_ = 0;
+    std::chrono::steady_clock::time_point last_stream_health_time_;
     FILE* raw_dump_file_ = nullptr;
 
     // Helper methods for circular buffer
@@ -267,18 +389,24 @@ private:
         tail_ = (tail_ + n) % CIRCULAR_SIZE;
     }
 
-    bool hasCompleteFrame(ParseState s) const {
+    bool hasCompleteFrame(ParseState s, size_t &out_len) const {
         if (s == ParseState::INTRA || s == ParseState::INTER) {
             const std::vector<int>& encodings = (s == ParseState::INTRA) ? i_encoding_ : p_encoding_;
             if (encodings.empty()) return false;
             
             size_t current_peek = 0;
-            for (int enc : encodings) {
-                if (current_peek >= queueSize()) return false;
+            for (size_t fi = 0; fi < encodings.size();) {
+                const int enc = encodings[fi];
                 
                 if (enc == 10 || enc == 9) { // NULL or G-Zero
+                    fi++;
                     continue; 
-                } else if (enc == 6) { // Tag2_3S32
+                }
+
+                if (current_peek >= queueSize()) return false;
+
+                if (enc == 7) { // Tag2_3S32 (in firmware, Tag2_3S32 = 7)
+                    if (fi + 2 >= encodings.size()) return false;
                     uint8_t lead = peekByte(current_peek);
                     current_peek++;
                     switch (lead >> 6) {
@@ -305,6 +433,39 @@ private:
                             break;
                         }
                     }
+                    fi += 3;
+                } else if (enc == 6) { // Tag8_8SVB group decoding (in firmware, Tag8_8SVB = 6)
+                    size_t group_size = 0;
+                    while (fi + group_size < encodings.size() && encodings[fi + group_size] == 6) {
+                        group_size++;
+                    }
+                    if (group_size == 1) {
+                        bool found_end = false;
+                        while (current_peek < queueSize()) {
+                            if (!(peekByte(current_peek++) & 0x80)) {
+                                found_end = true;
+                                break;
+                            }
+                        }
+                        if (!found_end) return false;
+                        fi++;
+                    } else {
+                        if (current_peek >= queueSize()) return false;
+                        uint8_t header = peekByte(current_peek++);
+                        for (size_t i = 0; i < group_size; i++) {
+                            if (header & (1 << i)) {
+                                bool found_end = false;
+                                while (current_peek < queueSize()) {
+                                    if (!(peekByte(current_peek++) & 0x80)) {
+                                        found_end = true;
+                                        break;
+                                    }
+                                }
+                                if (!found_end) return false;
+                            }
+                        }
+                        fi += group_size;
+                    }
                 } else { // Variable Bit (VB) variants
                     bool found_end = false;
                     while (current_peek < queueSize()) {
@@ -314,19 +475,25 @@ private:
                         }
                     }
                     if (!found_end) return false;
+                    fi++;
                 }
             }
+            out_len = current_peek;
+            // Require 1 extra byte for CRC
+            if (queueSize() <= current_peek) return false;
             return true;
         } else if (s == ParseState::MSP_V1) {
             // Header: $M[Direction][Size][Cmd]...[Checksum]
             // We've already popped '$M', sopeek(0)=Dir, peek(1)=Size
             if (queueSize() < 2) return false; 
             uint8_t size = peekByte(1);
+            out_len = size + 2;
             return queueSize() >= (size_t)(size + 3); // Dir + Size + Cmd + Payload + Checksum
         } else if (s == ParseState::MSP_V2) {
             // Header: $X[Direction][Flags][CmdLo][CmdHi][SizeLo][SizeHi]...[CRC]
             if (queueSize() < 6) return false;
             uint16_t size = peekByte(4) | (peekByte(5) << 8);
+            out_len = size + 6;
             return queueSize() >= (size_t)(size + 7); // Dir + Flag + Cmd(2) + Size(2) + Payload + CRC
         }
         return false;
@@ -347,7 +514,8 @@ private:
 
     int32_t decodeVBSI() {
         uint32_t u = decodeVBUI();
-        return (int32_t)((u >> 1) ^ -(int32_t)(u & 1));
+        const int32_t value = static_cast<int32_t>(u >> 1);
+        return (u & 1U) ? -value - 1 : value;
     }
 
     // Tag2_3S32 decoder: decodes 3 signed values from a compact encoding
@@ -421,8 +589,45 @@ private:
         }
     }
 
-    // Parse encoding headers: "H Field I encoding:1,1,3,0,..." → vector of ints
+    // Parse encoding/predictor headers: "H Field I encoding:1,1,3,0,..." → vector of ints
     std::vector<int> i_encoding_, p_encoding_;
+    std::vector<int> i_predictor_, p_predictor_;
+
+    // Betaflight P-frame predictor types (from blackbox_fielddefs.h)
+    static constexpr int PRED_ZERO = 0;
+    static constexpr int PRED_PREVIOUS = 1;
+    static constexpr int PRED_STRAIGHT_LINE = 2;
+    static constexpr int PRED_AVERAGE_2 = 3;
+
+    int32_t applyPredictor(int pred_type, int32_t wire_val, int32_t prev1, int32_t prev2) const {
+        switch (pred_type) {
+            case PRED_ZERO:          return wire_val;
+            case PRED_PREVIOUS:      return prev1 + wire_val;
+            case PRED_STRAIGHT_LINE: return 2 * prev1 - prev2 + wire_val;
+            case PRED_AVERAGE_2:     return (prev1 + prev2) / 2 + wire_val;
+            default:                 return prev1 + wire_val;
+        }
+    }
+
+    int getPPredictor(int local_field_idx) const {
+        const int abs_idx = kFrameValueStart + local_field_idx;
+        if (abs_idx >= 0 && abs_idx < static_cast<int>(p_predictor_.size())) {
+            return p_predictor_[abs_idx];
+        }
+        return PRED_PREVIOUS;
+    }
+
+    static uint8_t crc8_dvb_s2(uint8_t crc, uint8_t a) {
+        crc ^= a;
+        for (int i = 0; i < 8; i++) {
+            if (crc & 0x80) {
+                crc = (crc << 1) ^ 0xD5;
+            } else {
+                crc <<= 1;
+            }
+        }
+        return crc;
+    }
 
     void readLoop() {
         std::vector<uint8_t> raw_buf(4096);
@@ -430,16 +635,320 @@ private:
             int bytes = sp_blocking_read(port_, raw_buf.data(), raw_buf.size(), 1);
             if (bytes > 0) {
                 if (raw_dump_file_) { fwrite(raw_buf.data(), 1, bytes, raw_dump_file_); fflush(raw_dump_file_); }
-                total_bytes_read_ += bytes;
+                total_bytes_read_.fetch_add(static_cast<uint64_t>(bytes), std::memory_order_relaxed);
                 for (int i = 0; i < bytes; ++i) {
                     size_t next_head = (head_ + 1) % CIRCULAR_SIZE;
-                    if (next_head == tail_) break; // Buffer full
+                    if (next_head == tail_) {
+                        dropped_stream_bytes_.fetch_add(static_cast<uint64_t>(bytes - i), std::memory_order_relaxed);
+                        break;
+                    }
                     buffer_[head_] = raw_buf[i];
                     head_ = next_head;
                 }
                 processData();
             }
         }
+    }
+
+    bool decodeFields(const std::vector<int>& encodings, DecodedFields& frame, int& total_fields) {
+        total_fields = static_cast<int>(encodings.size());
+        if (total_fields <= 0 || total_fields > kMaxFrameFields) {
+            return false;
+        }
+
+        int fi = 0;
+        while (fi < total_fields) {
+            int enc = encodings[fi];
+            if (enc == 1) { // Unsigned VB
+                frame[fi] = static_cast<int32_t>(decodeVBUI());
+                fi++;
+            } else if (enc == 0 || enc == 3) { // Signed VB / NEG_14BIT (enc == 3)
+                frame[fi] = decodeVBSI();
+                fi++;
+            } else if (enc == 6) { // Tag8_8SVB group decoding (in firmware, Tag8_8SVB = 6)
+                int group_size = 0;
+                while (fi + group_size < total_fields && encodings[fi + group_size] == 6) {
+                    group_size++;
+                }
+                if (group_size == 1) {
+                    frame[fi] = decodeVBSI();
+                    fi++;
+                } else {
+                    if (queueSize() < 1) return false;
+                    uint8_t header = peekByte();
+                    popBytes(1);
+                    for (int i = 0; i < group_size; i++) {
+                        if (header & (1 << i)) {
+                            frame[fi + i] = decodeVBSI();
+                        } else {
+                            frame[fi + i] = 0;
+                        }
+                    }
+                    fi += group_size;
+                }
+            } else if (enc == 10 || enc == 9) { // NULL / G-Zero
+                frame[fi] = 0;
+                fi++;
+            } else if (enc == 7) { // Tag2_3S32 decodes 3 fields at once (in firmware, Tag2_3S32 = 7)
+                if (fi + 2 >= total_fields) {
+                    return false;
+                }
+                int32_t vals[3];
+                decodeTag2_3S32(vals);
+                frame[fi] = vals[0];
+                frame[fi + 1] = vals[1];
+                frame[fi + 2] = vals[2];
+                fi += 3;
+            } else { // Unknown encoding, try signed VB
+                frame[fi] = decodeVBSI();
+                fi++;
+            }
+        }
+
+        return true;
+    }
+
+    bool readMappedField(const DecodedFields& frame, int total_fields, int local_idx, int32_t& value) const {
+        const int absolute_idx = kFrameValueStart + local_idx;
+        if (local_idx < 0 || absolute_idx < 0 || absolute_idx >= total_fields || absolute_idx >= kMaxFrameFields) {
+            return false;
+        }
+
+        value = frame[absolute_idx];
+        return true;
+    }
+
+    bool buildIntraFrame(const DecodedFields& frame, int total_fields, FrameData& candidate, std::string& reason) const {
+        if (total_fields < kFrameValueStart) {
+            reason = "short I-frame";
+            return false;
+        }
+
+        candidate = {};
+        candidate.time = static_cast<uint32_t>(frame[1]);
+
+        if (!has_gyro_mapped_ || !has_accel_mapped_) {
+            reason = "missing gyro or accel mapping";
+            return false;
+        }
+
+        for (int axis = 0; axis < 3; axis++) {
+            if (!readMappedField(frame, total_fields, i_map_.gyro_idx[axis], candidate.gyro[axis])) {
+                reason = "gyro I-frame index out of range";
+                return false;
+            }
+            if (!readMappedField(frame, total_fields, i_map_.accel_idx[axis], candidate.accel[axis])) {
+                reason = "accel I-frame index out of range";
+                return false;
+            }
+        }
+
+        for (int motor = 0; motor < 4; motor++) {
+            if (has_erpm_mapped_ && i_map_.erpm_idx[motor] >= 0) {
+                if (!readMappedField(frame, total_fields, i_map_.erpm_idx[motor], candidate.erpm[motor])) {
+                    reason = "eRPM I-frame index out of range";
+                    return false;
+                }
+            }
+            if (has_motor_mapped_ && i_map_.motor_idx[motor] >= 0) {
+                if (!readMappedField(frame, total_fields, i_map_.motor_idx[motor], candidate.motor[motor])) {
+                    reason = "motor I-frame index out of range";
+                    return false;
+                }
+            }
+        }
+
+        if (i_map_.vbat_idx >= 0) {
+            if (!readMappedField(frame, total_fields, i_map_.vbat_idx, candidate.vbat)) {
+                reason = "vbat I-frame index out of range";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    bool buildInterFrame(const DecodedFields& frame, int total_fields, FrameData& candidate, std::string& reason) const {
+        if (total_fields < kFrameValueStart) {
+            reason = "short P-frame";
+            return false;
+        }
+
+        candidate = {};
+
+        // Time (field index 1): uses STRAIGHT_LINE predictor in BF
+        {
+            const int time_pred = (1 < static_cast<int>(p_predictor_.size()))
+                ? p_predictor_[1] : PRED_PREVIOUS;
+            candidate.time = static_cast<uint32_t>(applyPredictor(
+                time_pred, frame[1],
+                static_cast<int32_t>(last_frame_.time),
+                static_cast<int32_t>(prev_frame_.time)));
+        }
+
+        // Validate actual time step (not the raw wire residual)
+        {
+            const int32_t actual_dt = static_cast<int32_t>(candidate.time - last_frame_.time);
+            if (actual_dt <= 0 || actual_dt > max_frame_delta_us_) {
+                reason = "implausible P-frame time delta (" + std::to_string(actual_dt) + " us)";
+                return false;
+            }
+        }
+
+        // Gyro and Accel: use per-field predictor (typically AVERAGE_2 in BF)
+        for (int axis = 0; axis < 3; axis++) {
+            if (has_gyro_mapped_) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.gyro_idx[axis], wire_val)) {
+                    reason = "gyro P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.gyro_idx[axis]);
+                candidate.gyro[axis] = applyPredictor(pred, wire_val,
+                    last_frame_.gyro[axis], prev_frame_.gyro[axis]);
+            }
+            if (has_accel_mapped_) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.accel_idx[axis], wire_val)) {
+                    reason = "accel P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.accel_idx[axis]);
+                candidate.accel[axis] = applyPredictor(pred, wire_val,
+                    last_frame_.accel[axis], prev_frame_.accel[axis]);
+            }
+        }
+
+        // Motors and eRPM: use per-field predictor
+        for (int motor = 0; motor < 4; motor++) {
+            if (has_erpm_mapped_ && erpm_valid_ && p_map_.erpm_idx[motor] >= 0) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.erpm_idx[motor], wire_val)) {
+                    reason = "eRPM P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.erpm_idx[motor]);
+                candidate.erpm[motor] = applyPredictor(pred, wire_val,
+                    last_frame_.erpm[motor], prev_frame_.erpm[motor]);
+            }
+            if (has_motor_mapped_ && p_map_.motor_idx[motor] >= 0) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.motor_idx[motor], wire_val)) {
+                    reason = "motor P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.motor_idx[motor]);
+                candidate.motor[motor] = applyPredictor(pred, wire_val,
+                    last_frame_.motor[motor], prev_frame_.motor[motor]);
+            }
+        }
+
+        // vbat: uses PREVIOUS predictor via TAG8_8SVB
+        if (has_vbat_mapped_ && p_map_.vbat_idx >= 0) {
+            int32_t wire_val = 0;
+            if (!readMappedField(frame, total_fields, p_map_.vbat_idx, wire_val)) {
+                reason = "vbat P-frame index out of range";
+                return false;
+            }
+            const int pred = getPPredictor(p_map_.vbat_idx);
+            candidate.vbat = applyPredictor(pred, wire_val,
+                last_frame_.vbat, prev_frame_.vbat);
+        }
+
+        return true;
+    }
+
+    bool validateImuFrame(const FrameData& candidate, bool is_delta_frame, std::string& reason) const {
+        if (!validate_imu_stream_) {
+            return true;
+        }
+
+        bool all_zero = true;
+        for (int axis = 0; axis < 3; axis++) {
+            all_zero = all_zero && candidate.gyro[axis] == 0 && candidate.accel[axis] == 0;
+
+            if (std::fabs(static_cast<double>(candidate.gyro[axis])) > max_gyro_deg_s_) {
+                reason = "gyro outside configured range";
+                return false;
+            }
+            if (std::fabs(static_cast<double>(candidate.accel[axis])) > max_accel_raw_) {
+                reason = "accel outside configured range";
+                return false;
+            }
+
+            if (is_delta_frame) {
+                const double gyro_jump = std::fabs(static_cast<double>(candidate.gyro[axis] - last_frame_.gyro[axis]));
+                const double accel_jump = std::fabs(static_cast<double>(candidate.accel[axis] - last_frame_.accel[axis]));
+                if (gyro_jump > max_gyro_jump_deg_s_) {
+                    reason = "gyro jump outside configured range";
+                    return false;
+                }
+                if (accel_jump > max_accel_jump_raw_) {
+                    reason = "accel jump outside configured range";
+                    return false;
+                }
+            }
+        }
+
+        if (reject_zero_imu_ && all_zero) {
+            reason = "all IMU axes decoded as zero";
+            return false;
+        }
+
+        // Sliding-window outlier detection
+        if (imu_window_.isOutlier(candidate, outlier_sigma_k_)) {
+            reason = "statistical outlier vs recent window";
+            return false;
+        }
+
+        return true;
+    }
+
+    void rejectFrame(const char* frame_type, const std::string& reason, bool lose_delta_reference) {
+        rejected_imu_frames_.fetch_add(1, std::memory_order_relaxed);
+        consecutive_rejects_++;
+
+        if (lose_delta_reference) {
+            has_first_intra_ = false;
+            erpm_valid_ = false;
+            imu_window_ = ImuSampleWindow{};  // Reset outlier window on resync
+            resync_count_.fetch_add(1, std::memory_order_relaxed);
+        } else {
+            validation_only_rejects_.fetch_add(1, std::memory_order_relaxed);
+        }
+
+        // Hard resync: if too many consecutive rejects, flush the entire buffer
+        if (consecutive_rejects_ >= max_consecutive_rejects_) {
+            RCLCPP_WARN(this->get_logger(),
+                "Hard resync: %d consecutive rejects, flushing buffer",
+                consecutive_rejects_);
+            tail_ = head_;  // Flush circular buffer
+            state_ = ParseState::SYNC;
+            has_first_intra_ = false;
+            erpm_valid_ = false;
+            imu_window_ = ImuSampleWindow{};
+            consecutive_rejects_ = 0;
+            resync_count_.fetch_add(1, std::memory_order_relaxed);
+        }
+
+        RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 2000,
+            "Rejected %s Blackbox frame (%s)%s",
+            frame_type, reason.c_str(), lose_delta_reference ? "; waiting for next I-frame" : "");
+    }
+
+    void acceptFrame(const FrameData& candidate, bool is_intra = false) {
+        prev_frame_ = last_frame_;
+        last_frame_ = candidate;
+        if (is_intra) {
+            // On I-frame, both history slots = same frame (no meaningful prev2 yet)
+            prev_frame_ = candidate;
+        }
+        consecutive_rejects_ = 0;
+        imu_window_.push(candidate);
+        accepted_imu_frames_.fetch_add(1, std::memory_order_relaxed);
+        publishIMU();
+        publishRPM();
+        publishBattery();
     }
 
     void processData() {
@@ -546,137 +1055,114 @@ private:
                     continue;
                 }
 
-                if (!hasCompleteFrame(state_)) break; 
+                size_t payload_len = 0;
+                if (!hasCompleteFrame(state_, payload_len)) break; 
 
                 if (state_ == ParseState::INTRA) {
+                    // Compute CRC-8
+                    uint8_t crc = crc8_dvb_s2(0, 'I');
+                    for (size_t i = 0; i < payload_len; i++) {
+                        crc = crc8_dvb_s2(crc, peekByte(i));
+                    }
+                    uint8_t received_crc = peekByte(payload_len);
+                    if (crc != received_crc) {
+                        rejectFrame("I", "CRC mismatch (computed 0x" + 
+                            std::to_string(crc) + ", got 0x" + std::to_string(received_crc) + ")", false);
+                        popBytes(1); // skip the first byte of payload
+                        state_ = ParseState::SYNC;
+                        continue;
+                    }
+
                     try {
-                        // Decode ALL fields using per-field encoding from I-frame encoding header
-                        int total_fields = (int)i_encoding_.size();
-                        int32_t frame[64] = {};
-                        int fi = 0;
-                        while (fi < total_fields && fi < 64) {
-                            int enc = i_encoding_[fi];
-                            if (enc == 1) { // Unsigned VB
-                                frame[fi] = (int32_t)decodeVBUI();
-                                fi++;
-                            } else if (enc == 0) { // Signed VB
-                                frame[fi] = decodeVBSI();
-                                fi++;
-                            } else if (enc == 3) { // Tag8_8SVB (for single field: same as signed VB)
-                                frame[fi] = decodeVBSI();
-                                fi++;
-                            } else if (enc == 10) { // NULL
-                                frame[fi] = 0;
-                                fi++;
-                            } else { // Unknown encoding, try signed VB
-                                frame[fi] = decodeVBSI();
-                                fi++;
+                        decoded_i_frames_.fetch_add(1, std::memory_order_relaxed);
+                        DecodedFields frame = {};
+                        int total_fields = 0;
+                        FrameData candidate = {};
+                        std::string reason;
+
+                        if (!decodeFields(i_encoding_, frame, total_fields)) {
+                            rejectFrame("I", "unable to decode fields", false);
+                        } else if (!buildIntraFrame(frame, total_fields, candidate, reason)) {
+                            rejectFrame("I", reason, false);
+                        } else {
+                            // I-frame structural integrity: check iteration monotonicity
+                            uint32_t iteration = static_cast<uint32_t>(frame[0]);
+                            if (has_first_intra_ && iteration != 0 && iteration <= last_iteration_ &&
+                                (last_iteration_ - iteration) < (1U << 31)) {
+                                rejectFrame("I", "iteration not monotonic", false);
+                            } else if (!validateImuFrame(candidate, false, reason)) {
+                                rejectFrame("I", reason, false);
+                            } else {
+                                last_iteration_ = iteration;
+                                erpm_valid_ = has_erpm_mapped_;
+                                if (i_map_.vbat_idx >= 0) {
+                                    has_vbat_mapped_ = true;
+                                }
+                                has_first_intra_ = true;
+                                acceptFrame(candidate, true);  // is_intra=true resets history
                             }
                         }
-                        // Map fields: indices are relative to start_idx=2 (skip loopIteration, time)
-                        int start = 2; // loopIteration=0, time=1
-                        last_frame_.time = (uint32_t)frame[1];
-                        if (has_gyro_mapped_ || has_accel_mapped_) {
-                            if (has_gyro_mapped_) {
-                                last_frame_.gyro[0] = frame[start + i_map_.gyro_idx[0]];
-                                last_frame_.gyro[1] = frame[start + i_map_.gyro_idx[1]];
-                                last_frame_.gyro[2] = frame[start + i_map_.gyro_idx[2]];
-                            }
-                            if (has_accel_mapped_) {
-                                last_frame_.accel[0] = frame[start + i_map_.accel_idx[0]];
-                                last_frame_.accel[1] = frame[start + i_map_.accel_idx[1]];
-                                last_frame_.accel[2] = frame[start + i_map_.accel_idx[2]];
-                            }
-                            if (has_erpm_mapped_) {
-                                for (int m = 0; m < 4; m++) {
-                                    if (i_map_.erpm_idx[m] >= 0) last_frame_.erpm[m] = frame[start + i_map_.erpm_idx[m]];
-                                }
-                                erpm_valid_ = true;
-                            }
-                            if (has_motor_mapped_) {
-                                for (int m = 0; m < 4; m++) {
-                                    if (i_map_.motor_idx[m] >= 0) last_frame_.motor[m] = frame[start + i_map_.motor_idx[m]];
-                                }
-                            }
-                            if (i_map_.vbat_idx >= 0) {
-                                last_frame_.vbat = frame[start + i_map_.vbat_idx];
-                                has_vbat_mapped_ = true;
-                            }
-                            has_first_intra_ = true;
-                            publishIMU();
-                            publishRPM();
-                            publishBattery();
-                        }
-                    } catch (...) {}
+                    } catch (const std::exception& e) {
+                        rejectFrame("I", std::string("decode exception: ") + e.what(), false);
+                    } catch (...) {
+                        rejectFrame("I", "unknown decode exception", false);
+                    }
+                    popBytes(1); // Consume the CRC byte
                     state_ = ParseState::SYNC;
                 } else if (state_ == ParseState::INTER) {
-                    if (!has_first_intra_) { state_ = ParseState::SYNC; continue; }
+                    if (!has_first_intra_) { 
+                        popBytes(payload_len + 1); // skip payload + CRC
+                        state_ = ParseState::SYNC; 
+                        continue; 
+                    }
+
+                    // Compute CRC-8
+                    uint8_t crc = crc8_dvb_s2(0, 'P');
+                    for (size_t i = 0; i < payload_len; i++) {
+                        crc = crc8_dvb_s2(crc, peekByte(i));
+                    }
+                    uint8_t received_crc = peekByte(payload_len);
+                    if (crc != received_crc) {
+                        rejectFrame("P", "CRC mismatch (computed 0x" + 
+                            std::to_string(crc) + ", got 0x" + std::to_string(received_crc) + ")", true);
+                        popBytes(1); // skip the first byte of payload
+                        state_ = ParseState::SYNC;
+                        continue;
+                    }
+
                     try {
-                        // Decode ALL P-frame fields using per-field encoding
-                        int total_fields = (int)p_encoding_.size();
-                        int32_t frame[64] = {};
-                        int fi = 0;
-                        while (fi < total_fields && fi < 64) {
-                            int enc = p_encoding_[fi];
-                            if (enc == 10 || enc == 9) { // NULL encoding — no bytes
-                                frame[fi] = 0;
-                                fi++;
-                            } else if (enc == 0) { // Signed VB
-                                frame[fi] = decodeVBSI();
-                                fi++;
-                            } else if (enc == 1) { // Unsigned VB
-                                frame[fi] = (int32_t)decodeVBUI();
-                                fi++;
-                            } else if (enc == 6) { // Tag2_3S32 — decodes 3 fields at once
-                                int32_t vals[3];
-                                decodeTag2_3S32(vals);
-                                frame[fi]   = vals[0];
-                                frame[fi+1] = (fi+1 < 64) ? vals[1] : 0;
-                                frame[fi+2] = (fi+2 < 64) ? vals[2] : 0;
-                                fi += 3;
-                            } else { // Unknown, try signed VB
-                                frame[fi] = decodeVBSI();
-                                fi++;
-                            }
+                        decoded_p_frames_.fetch_add(1, std::memory_order_relaxed);
+                        DecodedFields frame = {};
+                        int total_fields = 0;
+                        FrameData candidate = {};
+                        std::string reason;
+
+                        if (!decodeFields(p_encoding_, frame, total_fields)) {
+                            // Decode error: stream is out of sync, must resync
+                            rejectFrame("P", "unable to decode fields", true);
+                        } else if (!buildInterFrame(frame, total_fields, candidate, reason)) {
+                            // Build error (e.g. field index OOB): stream may be corrupted, resync
+                            rejectFrame("P", reason, true);
+                        } else if (!validateImuFrame(candidate, true, reason)) {
+                            // Validation-only error: the decode was fine but values are implausible.
+                            // Do NOT lose the delta reference — just skip this one frame.
+                            // The delta chain remains intact because last_frame_ is unchanged.
+                            rejectFrame("P", reason, false);
+                        } else {
+                            acceptFrame(candidate);
                         }
-                        // Apply deltas: P-frame values are deltas from previous
-                        int start = 2;
-                        last_frame_.time += (uint32_t)frame[1];
-                        if (has_gyro_mapped_) {
-                            last_frame_.gyro[0] += frame[start + p_map_.gyro_idx[0]];
-                            last_frame_.gyro[1] += frame[start + p_map_.gyro_idx[1]];
-                            last_frame_.gyro[2] += frame[start + p_map_.gyro_idx[2]];
-                        }
-                        if (has_accel_mapped_) {
-                            last_frame_.accel[0] += frame[start + p_map_.accel_idx[0]];
-                            last_frame_.accel[1] += frame[start + p_map_.accel_idx[1]];
-                            last_frame_.accel[2] += frame[start + p_map_.accel_idx[2]];
-                        }
-                        if (has_erpm_mapped_ && erpm_valid_) {
-                            for (int m = 0; m < 4; m++) {
-                                if (p_map_.erpm_idx[m] >= 0) last_frame_.erpm[m] += frame[start + p_map_.erpm_idx[m]];
-                            }
-                        }
-                        if (has_motor_mapped_) {
-                            for (int m = 0; m < 4; m++) {
-                                if (p_map_.motor_idx[m] >= 0) last_frame_.motor[m] += frame[start + p_map_.motor_idx[m]];
-                            }
-                        }
-                        if (has_vbat_mapped_ && p_map_.vbat_idx >= 0) {
-                            last_frame_.vbat += frame[start + p_map_.vbat_idx];
-                        }
-                        publishIMU();
-                        publishRPM();
-                        publishBattery();
-                    } catch (...) {}
+                    } catch (const std::exception& e) {
+                        rejectFrame("P", std::string("decode exception: ") + e.what(), true);
+                    } catch (...) {
+                        rejectFrame("P", "unknown decode exception", true);
+                    }
+                    popBytes(1); // Consume the CRC byte
                     state_ = ParseState::SYNC;
                 } else if (state_ == ParseState::MSP_V1) {
-                    uint8_t size = peekByte(1); // peeByte(0) was Direction
-                    popBytes(size + 3); // Consume Direction + Size + Cmd + Payload + Checksum
+                    popBytes(payload_len + 1); // Consume Direction + Size + Cmd + Payload + Checksum
                     state_ = ParseState::SYNC;
                 } else if (state_ == ParseState::MSP_V2) {
-                    uint16_t size = peekByte(4) | (peekByte(5) << 8);
-                    popBytes(size + 7); // Consume Direction + Flags + Cmd(2) + Size(2) + Payload + CRC
+                    popBytes(payload_len + 1); // Consume Direction + Flags + Cmd(2) + Size(2) + Payload + CRC
                     state_ = ParseState::SYNC;
                 }
             }
@@ -781,7 +1267,7 @@ private:
     }
 
     void publishLatestIMU() {
-        FrameData frame = {};
+        FrameData frame;
         uint64_t sample_time_us = 0;
 
         {
@@ -858,6 +1344,8 @@ private:
     }
 
     void rpmHealthCheck() {
+        reportStreamHealth();
+
         const size_t imu_publishers = this->count_publishers(imu_topic_);
         if (imu_publishers > 1) {
             RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 10000,
@@ -883,6 +1371,128 @@ private:
         }
     }
 
+    void reportStreamHealth() {
+        const auto now = std::chrono::steady_clock::now();
+        if (last_stream_health_time_.time_since_epoch().count() == 0) {
+            last_stream_health_time_ = now;
+            last_health_bytes_ = total_bytes_read_.load(std::memory_order_relaxed);
+            last_health_decoded_i_ = decoded_i_frames_.load(std::memory_order_relaxed);
+            last_health_decoded_p_ = decoded_p_frames_.load(std::memory_order_relaxed);
+            last_health_accepted_ = accepted_imu_frames_.load(std::memory_order_relaxed);
+            last_health_rejected_ = rejected_imu_frames_.load(std::memory_order_relaxed);
+            last_health_dropped_bytes_ = dropped_stream_bytes_.load(std::memory_order_relaxed);
+            return;
+        }
+
+        const double dt = std::chrono::duration<double>(now - last_stream_health_time_).count();
+        if (dt <= 0.0) {
+            return;
+        }
+
+        const uint64_t bytes = total_bytes_read_.load(std::memory_order_relaxed);
+        const uint64_t decoded_i = decoded_i_frames_.load(std::memory_order_relaxed);
+        const uint64_t decoded_p = decoded_p_frames_.load(std::memory_order_relaxed);
+        const uint64_t accepted = accepted_imu_frames_.load(std::memory_order_relaxed);
+        const uint64_t rejected = rejected_imu_frames_.load(std::memory_order_relaxed);
+        const uint64_t dropped = dropped_stream_bytes_.load(std::memory_order_relaxed);
+        const uint64_t delta_bytes = bytes - last_health_bytes_;
+        const uint64_t delta_decoded = (decoded_i - last_health_decoded_i_) + (decoded_p - last_health_decoded_p_);
+        const uint64_t delta_accepted = accepted - last_health_accepted_;
+        const uint64_t delta_rejected = rejected - last_health_rejected_;
+        const uint64_t delta_dropped = dropped - last_health_dropped_bytes_;
+
+        if (headers_locked_) {
+            RCLCPP_INFO(this->get_logger(),
+                "Blackbox stream health: %.1f kB/s, decoded %.1f fps (I:%llu P:%llu), accepted %.1f fps, rejected %llu, resyncs %llu",
+                (static_cast<double>(delta_bytes) / dt) / 1000.0,
+                static_cast<double>(delta_decoded) / dt,
+                static_cast<unsigned long long>(decoded_i),
+                static_cast<unsigned long long>(decoded_p),
+                static_cast<double>(delta_accepted) / dt,
+                static_cast<unsigned long long>(delta_rejected),
+                static_cast<unsigned long long>(resync_count_.load(std::memory_order_relaxed)));
+        } else if (delta_bytes > 0) {
+            RCLCPP_INFO(this->get_logger(),
+                "Blackbox bytes are arriving (%.1f kB/s), waiting for header dictionary before validating IMU frames",
+                (static_cast<double>(delta_bytes) / dt) / 1000.0);
+        }
+
+        if (delta_rejected > 0) {
+            RCLCPP_WARN(this->get_logger(),
+                "Rejected %llu malformed/implausible Blackbox frame(s) in the last %.1f s; incoming stream is not clean or parser is out of sync",
+                static_cast<unsigned long long>(delta_rejected), dt);
+        }
+
+        if (delta_dropped > 0) {
+            RCLCPP_WARN(this->get_logger(),
+                "Dropped %llu serial byte(s) because the parser buffer filled; lower Blackbox bandwidth or increase parser throughput",
+                static_cast<unsigned long long>(delta_dropped));
+        }
+
+        last_stream_health_time_ = now;
+        last_health_bytes_ = bytes;
+        last_health_decoded_i_ = decoded_i;
+        last_health_decoded_p_ = decoded_p;
+        last_health_accepted_ = accepted;
+        last_health_rejected_ = rejected;
+        last_health_dropped_bytes_ = dropped;
+    }
+
+    void publishDiagnostics() {
+        auto diag_msg = diagnostic_msgs::msg::DiagnosticArray();
+        diag_msg.header.stamp = this->now();
+
+        diagnostic_msgs::msg::DiagnosticStatus status;
+        status.name = "Betaflight Blackbox Driver";
+        status.hardware_id = "betaflight_blackbox";
+
+        const uint64_t accepted = accepted_imu_frames_.load(std::memory_order_relaxed);
+        const uint64_t rejected = rejected_imu_frames_.load(std::memory_order_relaxed);
+        const uint64_t resyncs = resync_count_.load(std::memory_order_relaxed);
+        const uint64_t val_only = validation_only_rejects_.load(std::memory_order_relaxed);
+        const uint64_t decoded_i = decoded_i_frames_.load(std::memory_order_relaxed);
+        const uint64_t decoded_p = decoded_p_frames_.load(std::memory_order_relaxed);
+        const uint64_t total_decoded = decoded_i + decoded_p;
+
+        const double reject_pct = total_decoded > 0
+            ? (100.0 * rejected / total_decoded) : 0.0;
+
+        if (!headers_locked_) {
+            status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+            status.message = "Awaiting header dictionary";
+        } else if (reject_pct > 10.0) {
+            status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+            status.message = "High frame rejection rate";
+        } else if (resyncs > 0 && reject_pct > 2.0) {
+            status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+            status.message = "Elevated resyncs or rejects";
+        } else {
+            status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+            status.message = "Stream healthy";
+        }
+
+        auto kv = [](const std::string& key, const std::string& val) {
+            diagnostic_msgs::msg::KeyValue kv;
+            kv.key = key;
+            kv.value = val;
+            return kv;
+        };
+
+        status.values.push_back(kv("accepted_frames", std::to_string(accepted)));
+        status.values.push_back(kv("rejected_frames", std::to_string(rejected)));
+        status.values.push_back(kv("reject_pct", std::to_string(reject_pct)));
+        status.values.push_back(kv("resyncs", std::to_string(resyncs)));
+        status.values.push_back(kv("validation_only_rejects", std::to_string(val_only)));
+        status.values.push_back(kv("decoded_i_frames", std::to_string(decoded_i)));
+        status.values.push_back(kv("decoded_p_frames", std::to_string(decoded_p)));
+        status.values.push_back(kv("has_first_intra", has_first_intra_ ? "true" : "false"));
+        status.values.push_back(kv("headers_locked", headers_locked_ ? "true" : "false"));
+        status.values.push_back(kv("consecutive_rejects", std::to_string(consecutive_rejects_)));
+
+        diag_msg.status.push_back(status);
+        diag_pub_->publish(diag_msg);
+    }
+
     void parseHeaderLine(const std::string& line) {
         if (line.find("Field I name:") != std::string::npos) {
             mapFields(line, i_map_);
@@ -891,12 +1501,23 @@ private:
         else if (line.find("Field I encoding:") != std::string::npos) {
             i_encoding_ = parseEncodingHeader(line);
         }
+        else if (line.find("Field I predictor:") != std::string::npos) {
+            i_predictor_ = parseEncodingHeader(line);  // Same CSV int format
+            RCLCPP_INFO(this->get_logger(), "Parsed Field I predictor (%zu entries)", i_predictor_.size());
+        }
         else if (line.find("Field P name:") != std::string::npos) {
             mapFields(line, p_map_);
             RCLCPP_INFO(this->get_logger(), "Parsed Field P name (%d fields)", p_map_.total_fields);
         }
         else if (line.find("Field P encoding:") != std::string::npos) {
             p_encoding_ = parseEncodingHeader(line);
+            std::stringstream ss;
+            for (int enc : p_encoding_) ss << enc << ",";
+            RCLCPP_INFO(this->get_logger(), "Parsed Field P encoding values: %s", ss.str().c_str());
+        }
+        else if (line.find("Field P predictor:") != std::string::npos) {
+            p_predictor_ = parseEncodingHeader(line);
+            RCLCPP_INFO(this->get_logger(), "Parsed Field P predictor (%zu entries)", p_predictor_.size());
         }
         
         // Finalize mapping state
@@ -966,7 +1587,6 @@ private:
     void mapFields(const std::string& line, FieldMap& map) {
         size_t pos = line.find(":");
         if (pos == std::string::npos) return;
-        std::string names = line.substr(pos + 1);
         std::vector<std::string> fields;
         std::string item;
         std::stringstream ss(line.substr(pos + 1));

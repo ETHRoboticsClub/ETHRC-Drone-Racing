@@ -62,7 +62,16 @@ def setup_native():
         f"ros-{ros_distro}-camera-calibration-parsers",
         f"ros-{ros_distro}-cv-bridge",
         f"ros-{ros_distro}-image-transport",
+        f"ros-{ros_distro}-diagnostic-updater",
+        f"ros-{ros_distro}-foxglove-bridge",
     ])
+
+    # Core NITROS dependencies (only on Jetson Orin / aarch64)
+    if arch == "aarch64":
+        sys_deps.extend([
+            f"ros-{ros_distro}-isaac-ros-argus-camera",
+            f"ros-{ros_distro}-isaac-ros-image-proc",
+        ])
 
     run(f"sudo apt-get update || echo 'Warning: apt-get update failed' && sudo apt-get install -y {' '.join(sys_deps)}")
 

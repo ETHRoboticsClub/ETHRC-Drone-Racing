@@ -24,6 +24,11 @@ def generate_launch_description():
 
     arg_imu_port = DeclareLaunchArgument('imu_port', default_value=default_imu_port,
                                             description='Dedicated UART for high-rate Blackbox IMU telemetry')
+    arg_imu_source = DeclareLaunchArgument('imu_source', default_value='blackbox',
+                                            choices=['blackbox', 'msp'],
+                                            description='Source of IMU telemetry: "blackbox" or "msp"')
+    arg_imu_baud = DeclareLaunchArgument('imu_baud', default_value='1500000',
+                                          description='Baudrate for the IMU telemetry serial port')
     arg_msp_port = DeclareLaunchArgument('msp_port', default_value=default_msp_port,
                                             description='Dedicated UART/USB-VCP for MSP Control commands')
     arg_attitude_topic = DeclareLaunchArgument('attitude_cmd_topic', default_value='/drone_attitude_cmd')
@@ -42,7 +47,7 @@ def generate_launch_description():
     arg_video_fps = DeclareLaunchArgument('video_fps', default_value='60')
     arg_video_port = DeclareLaunchArgument('video_port', default_value='5000')
     arg_h264_backend = DeclareLaunchArgument(
-        'h264_backend', default_value='gstreamer_ros',
+        'h264_backend', default_value='isaac_ros',
         description='H.264 backend when view_stream=true: gstreamer_ros, isaac_ros, or gstreamer'
     )
     arg_isaac_h264_qp = DeclareLaunchArgument(
@@ -70,12 +75,16 @@ def generate_launch_description():
         description='Ground station IPv4 address for the Jetson RTP/H.264 UDP stream'
     )
     arg_publish_raw = DeclareLaunchArgument(
-        'publish_raw', default_value='true',
+        'publish_raw', default_value='false',
         description='Publish /cam0/image_raw as mono8 for VIO'
     )
     arg_publish_rgb = DeclareLaunchArgument(
         'publish_rgb', default_value='true',
         description='Publish /cam0/image_rgb as the default color camera topic'
+    )
+    arg_camera_info_url = DeclareLaunchArgument(
+        'camera_info_url', default_value='file:///home/aero/proj/ETHRC-Drone-Racing/src/perception/camera_calibration/camera_info.yaml',
+        description='Path to standard camera calibration YAML file'
     )
     arg_use_gate_detection = DeclareLaunchArgument(
         'use_gate_detection', default_value='false',
@@ -104,20 +113,49 @@ def generate_launch_description():
     arg_rate_error_scale = DeclareLaunchArgument('rate_error_scale', default_value='300.0',
                                                description='Torque-to-rate scaling for RL controller')
 
-    # --- 1. IMU DRIVER: Betaflight Blackbox ---
+    # --- 1. IMU DRIVER: Betaflight Blackbox or MSP ---
     blackbox_node = Node(
         package='betaflight_blackbox_driver',
         executable='blackbox_driver_node',
         name='imu_driver_node',
         parameters=[{
             'port': LaunchConfiguration('imu_port'),
-            'baud': 1500000,
+            'baud': LaunchConfiguration('imu_baud'),
             'imu_topic': '/imu0',
             'target_hz': LaunchConfiguration('target_hz'),
             'enable_msp_control': False, # Explicitly disabled in separate port mode
             'motor_poles': 14,
             'rpm_topic': '/motor_rpm',
+            # IMU validation parameters
+            'validate_imu_stream': True,
+            'reject_zero_imu': True,
+            'max_gyro_deg_s': 4000.0,       # Physical max (2x 2000 DPS full-scale range)
+            'max_accel_g': 32.0,            # Physical max
+            'max_gyro_jump_deg_s': 1000.0,  # Per-frame jump limit
+            'max_accel_jump_g': 8.0,        # Per-frame jump limit
+            'max_consecutive_rejects': 5,   # Hard resync after N consecutive bad frames
+            'outlier_sigma_k': 4.0,         # Sliding-window outlier detection (sigma)
         }],
+        condition=launch.conditions.IfCondition(
+            PythonExpression(["'", LaunchConfiguration('imu_source'), "' == 'blackbox'"])
+        ),
+        output='screen'
+    )
+
+    msp_imu_node = Node(
+        package='betaflight_blackbox_driver',
+        executable='msp_imu_driver_node',
+        name='imu_driver_node',
+        parameters=[{
+            'port': LaunchConfiguration('imu_port'),
+            'baud': LaunchConfiguration('imu_baud'),
+            'imu_topic': '/imu0',
+            'target_hz': LaunchConfiguration('target_hz'),
+            'rpm_topic': '/motor_rpm',
+        }],
+        condition=launch.conditions.IfCondition(
+            PythonExpression(["'", LaunchConfiguration('imu_source'), "' == 'msp'"])
+        ),
         output='screen'
     )
 
@@ -163,34 +201,24 @@ def generate_launch_description():
     camera_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
-                [FindPackageShare('imx219_argus_camera'), 'launch', 'isaac_camera.launch.py']
+                [FindPackageShare('drone_control'), 'launch', 'nitros_camera.launch.py']
             )
         ),
         launch_arguments={
             'sensor_id': '0',
             'sensor_mode': '4',
+            'image_width': LaunchConfiguration('video_width'),
+            'image_height': LaunchConfiguration('video_height'),
             'framerate': LaunchConfiguration('video_fps'),
-            'width': LaunchConfiguration('video_width'),
-            'height': LaunchConfiguration('video_height'),
-            'publish_color': LaunchConfiguration('publish_rgb'),
-            'color_encoding': 'rgb8',
-            'color_reliable': PythonExpression([
-                "'", LaunchConfiguration('h264_backend'), "' == 'isaac_ros'"
-            ]),
-            'publish_h264': PythonExpression([
-                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'gstreamer_ros'"
-            ]),
-            'enable_h264_stream': PythonExpression([
-                "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'gstreamer'"
-            ]),
-            'ground_station_ip': LaunchConfiguration('ground_station_ip'),
-            'stream_port': LaunchConfiguration('video_port'),
-            'stream_bitrate': LaunchConfiguration('video_bitrate'),
+            'publish_mono': LaunchConfiguration('publish_raw'),
+            'publish_rgb': LaunchConfiguration('publish_rgb'),
+            'camera_info_url': LaunchConfiguration('camera_info_url'),
         }.items(),
         condition=launch.conditions.IfCondition(
-            PythonExpression(["'", LaunchConfiguration('publish_raw'), "' == 'true' and ", str(is_jetson)])
+            PythonExpression([
+                "('", LaunchConfiguration('publish_raw'), "' == 'true' or '",
+                LaunchConfiguration('publish_rgb'), "' == 'true') and ", str(is_jetson)
+            ])
         )
     )
 
@@ -251,7 +279,7 @@ def generate_launch_description():
 
     isaac_h264_encoder = GroupAction(
         actions=[
-            SetRemap(src='image_raw', dst='/cam0/image_rgb'),
+            SetRemap(src='image_raw', dst='/cam0/image_raw_nitros'),
             SetRemap(src='image_compressed', dst='/cam0/image_h264'),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
@@ -264,30 +292,30 @@ def generate_launch_description():
                 launch_arguments={
                     'input_width': LaunchConfiguration('video_width'),
                     'input_height': LaunchConfiguration('video_height'),
-                    'config': 'custom',
-                    'hw_preset': LaunchConfiguration('isaac_h264_hw_preset'),
-                    'profile': LaunchConfiguration('isaac_h264_profile'),
-                    'iframe_interval': LaunchConfiguration('isaac_h264_iframe_interval'),
-                    'qp': LaunchConfiguration('isaac_h264_qp'),
+                    'config': 'pframe_cqp',
                 }.items(),
             ),
         ],
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('publish_raw'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ", str(is_jetson)
+                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ('",
+                LaunchConfiguration('publish_raw'), "' == 'true' or '",
+                LaunchConfiguration('publish_rgb'), "' == 'true') and ",
+                str(is_jetson)
             ])
         )
     )
 
     isaac_h264_enabled = LogInfo(
-        msg="Isaac ROS H.264 encoder enabled: /cam0/image_rgb -> /cam0/image_h264. View /image_decoded after decoding; /cam0/image_h264 is compressed bytes, not a directly displayable image.",
+        msg="Isaac ROS H.264 encoder enabled: /cam0/image_raw_nitros -> /cam0/image_h264.",
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
-                LaunchConfiguration('publish_raw'), "' == 'true' and '",
-                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ", str(is_jetson)
+                LaunchConfiguration('h264_backend'), "' == 'isaac_ros' and ('",
+                LaunchConfiguration('publish_raw'), "' == 'true' or '",
+                LaunchConfiguration('publish_rgb'), "' == 'true') and ",
+                str(is_jetson)
             ])
         )
     )
@@ -394,6 +422,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         arg_imu_port,
+        arg_imu_source,
+        arg_imu_baud,
         arg_msp_port,
         arg_attitude_topic,
         arg_target_hz,
@@ -414,6 +444,7 @@ def generate_launch_description():
         arg_ground_station_ip,
         arg_publish_raw,
         arg_publish_rgb,
+        arg_camera_info_url,
         arg_use_gate_detection,
         arg_gate_camera_topic,
         arg_use_vio,
@@ -422,6 +453,7 @@ def generate_launch_description():
         arg_controller_type,
         arg_rate_error_scale,
         blackbox_node,
+        msp_imu_node,
         msp_bridge_node,
         bench_mode_warning,
         load_config_process,
