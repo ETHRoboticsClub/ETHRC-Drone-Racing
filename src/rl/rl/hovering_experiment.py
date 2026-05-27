@@ -11,7 +11,7 @@ from rl.policy_model import PolicyModel
 
 # Match the values from the Isaac Lab training env.
 _REL_POSITION_DIVISOR = 10.0
-_ANG_COMMAND_SCALE = 30.0
+ANG_COMMAND_SCALE = 9.0
 _GRAVITY_WORLD = np.array([0.0, 0.0, -9.81], dtype=float)
 
 OBS_DIM = 12
@@ -122,7 +122,7 @@ class HoveringExperiment:
         # Policy outputs rate commands in sim FLU frame.
         # MAVSDK AttitudeRate / Betaflight MSP use FRD: X (roll) is shared,
         # negate Y (pitch) and Z (yaw).
-        omega_cmd_FLU_rad = np.asarray(raw[1:4], dtype=float) * _ANG_COMMAND_SCALE
+        omega_cmd_FLU_rad = np.asarray(raw[1:4], dtype=float) * ANG_COMMAND_SCALE
         
         # FLU -> FRD/NED:
         omega_cmd_FRD_rad = omega_cmd_FLU_rad.copy()
