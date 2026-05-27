@@ -64,10 +64,17 @@ R_wb is the body-to-world rotation matrix from the quaternion. **Output twist is
 
 ### Gravity coupling (how attitude affects acceleration)
 ```
-Ax = -2g * (Qw*Qy + Qx*Qz)     (zero at hover, grows with tilt)
-Ay = -2g * (Qy*Qz - Qw*Qx)
-Az = 0                            (hover assumption: thrust ~ mg)
+Ax = +2g * (Qw*Qy - Qx*Qz)     (zero at hover, grows with tilt)
+Ay = -2g * (Qw*Qx + Qy*Qz)
+Az = +2g * (Qx^2 + Qy^2)         (under T ~ mg hover thrust; zero at hover)
 ```
+
+> **Replay variant (not the production model)**: An empirical variant pins
+> `Az = 0` and zeroes the Z-column body-horizontal velocity/acceleration
+> coupling. It improves accuracy *only* on the Vicon-substituted replay
+> (zero-twist mock VIO from `zephyrus`) and is **not** the merged model — the
+> production filter uses the full physics above. See
+> `NOTES_EKF_PRODUCTION_TEST.md` for the analysis.
 
 ### Angular rate decay
 ```
