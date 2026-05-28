@@ -117,7 +117,7 @@ class HoveringExperiment:
         raw = self.policy.inference(obs_t).squeeze(0).cpu().numpy().clip(-1.0, 1.0)
 
         # [-1, 1] -> [0, 1] with 0.7 safety cap
-        thrust_cmd = min(float((raw[0] + 1.0) * 0.5), 0.4)
+        thrust_cmd = min(float((raw[0] + 1.0) * 0.5), 0.6)
 
         # Policy outputs rate commands in sim FLU frame.
         # MAVSDK AttitudeRate / Betaflight MSP use FRD: X (roll) is shared,
@@ -133,7 +133,7 @@ class HoveringExperiment:
             [
                 float(np.degrees(omega_cmd_FRD_rad[0])),
                 float(np.degrees(omega_cmd_FRD_rad[1])),
-                float(np.degrees(omega_cmd_FRD_rad[2]))/3.0,
+                float(np.degrees(omega_cmd_FRD_rad[2])),
                 thrust_cmd,
             ],
             dtype=np.float32,
