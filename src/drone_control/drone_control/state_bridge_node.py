@@ -38,8 +38,11 @@ class DirectStateBridgeNode(Node):
         # Subscriptions
         self.vicon_sub = self.create_subscription(
             PoseStamped, vicon_topic, self.vicon_callback, 10)
+        
+        from rclpy.qos import QoSProfile, ReliabilityPolicy
         self.imu_sub = self.create_subscription(
-            Imu, imu_topic, self.imu_callback, 10)
+            Imu, imu_topic, self.imu_callback,
+            QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
             
         # Publisher
         self.publisher = self.create_publisher(Float64MultiArray, state_topic, 10)

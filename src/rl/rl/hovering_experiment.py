@@ -62,7 +62,6 @@ class HoveringExperiment:
         """[3] angular velocity in simulation body frame [rad/s] (IMU ω + axis fix)."""
         s = np.asarray(x_current, dtype=float).reshape(STATE_DIM)
         omega_est = s[10:13].copy()
-        omega_est[2] *= -1.0
         return omega_est.astype(np.float32)
 
     def _obs_base_lin_vel(self, x_current: np.ndarray) -> np.ndarray:
@@ -73,9 +72,9 @@ class HoveringExperiment:
         Rotated with the same sim body attitude as gravity / waypoint obs.
         """
         s = np.asarray(x_current, dtype=float).reshape(STATE_DIM)
-        vel_w = s[3:6]
+        vel_w = np.array([s[3], s[4], s[5]], dtype=float)
         vel_b = self._body_rot_world_to_sim(x_current).inv().apply(vel_w.astype(np.float32)).astype(np.float32)
-        return vel_b
+        return vel_w
 
     def _obs_waypoint_forward_body(
         self,
@@ -111,7 +110,7 @@ class HoveringExperiment:
         Policy inference → drone-frame rate commands for Betaflight / MSP.
         """
         if self.policy is None:
-            raise RuntimeError("Policy not loaded. Call load_policy() first.")
+            raise RuntimeError("Policy not* ANG_COMMAND_SCALE loaded. Call load_policy() first.")
 
         obs_t = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
         raw = self.policy.inference(obs_t).squeeze(0).cpu().numpy().clip(-1.0, 1.0)

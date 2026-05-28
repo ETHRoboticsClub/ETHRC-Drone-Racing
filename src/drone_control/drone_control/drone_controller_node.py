@@ -64,6 +64,7 @@ class DroneController(Node):
         self.declare_parameter('attitude_command_topic', 'drone_attitude_cmd')
         self.declare_parameter('goal_topic', 'drone_goal')
         self.declare_parameter('controller_rate', 100.0)
+        self.declare_parameter('observation_topic', 'drone_observation')
 
         # Watchdog: max age of the latest state before we stop publishing.
         self.declare_parameter('state_timeout_sec', 0.1)
@@ -82,6 +83,7 @@ class DroneController(Node):
         goal_topic = self.get_parameter('goal_topic').get_parameter_value().string_value
         control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
         self.state_timeout_sec = self.get_parameter('state_timeout_sec').get_parameter_value().double_value
+        observation_topic = self.get_parameter('observation_topic').get_parameter_value().string_value
 
         self.goal_bounds = (
             np.array([
@@ -113,6 +115,8 @@ class DroneController(Node):
             Point, goal_topic, self.goal_cb, 10)
         self.attitude_command_publisher = self.create_publisher(
             Float64MultiArray, attitude_command_topic, 10)
+        self.observation_publisher = self.create_publisher(
+            Float64MultiArray, observation_topic, 10)
 
         self.create_timer(1.0 / control_rate, self.control_loop)
 
@@ -198,6 +202,12 @@ class DroneController(Node):
             float(attitude_cmd.thrust_value),
         ]
         self.attitude_command_publisher.publish(cmd_msg)
+
+        # Publish observation vector if available
+        if getattr(self.controller, 'last_observation', None) is not None:
+            obs_msg = Float64MultiArray()
+            obs_msg.data = [float(val) for val in self.controller.last_observation]
+            self.observation_publisher.publish(obs_msg)
 
 
 def main(args=None):
