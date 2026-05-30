@@ -33,8 +33,11 @@ rosbag/
 *.bag
 *.mcap
 
+# Bags: ignore data, keep tools + top-level README.
 bags/*
-!bags/plot_vicon_path.py
+!bags/tools/
+!bags/README.md
+bags/tools/__pycache__/
 
 # Project Specific
 get-docker.sh

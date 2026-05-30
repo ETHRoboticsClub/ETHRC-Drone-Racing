@@ -7,6 +7,13 @@
 #   "matplotlib>=3.7",
 # ]
 # ///
+
+# TODO
+#################################################
+# This file exists for backwards compatibility. #
+# Use tools/plot_vicon_path.py instead.         #
+#################################################
+
 """
 Plot Vicon XY trajectory and body +X / +Y axes from a ROS 2 bag.
 
