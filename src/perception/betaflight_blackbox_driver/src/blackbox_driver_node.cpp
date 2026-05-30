@@ -46,6 +46,9 @@ public:
         this->declare_parameter("rpm_topic", "/motor_rpm");
         this->declare_parameter("battery_topic", "/battery");
         this->declare_parameter("vbat_scale", 0.01); // Betaflight vbat is usually 10mV/unit
+        this->declare_parameter("motor_topic", "/motor_commands");
+        this->declare_parameter("joystick_topic", "/joystick_inputs");
+        this->declare_parameter("min_battery_voltage", 14.0);
         this->declare_parameter("use_blackbox_time_for_stamp", false);
         this->declare_parameter("validate_imu_stream", true);
         this->declare_parameter("reject_zero_imu", true);
@@ -77,6 +80,9 @@ public:
         motor_poles_ = this->get_parameter("motor_poles").as_int();
         std::string rpm_topic = this->get_parameter("rpm_topic").as_string();
         std::string battery_topic = this->get_parameter("battery_topic").as_string();
+        std::string motor_topic = this->get_parameter("motor_topic").as_string();
+        std::string joystick_topic = this->get_parameter("joystick_topic").as_string();
+        min_battery_voltage_ = this->get_parameter("min_battery_voltage").as_double();
         vbat_scale_ = this->get_parameter("vbat_scale").as_double();
         use_blackbox_time_for_stamp_ = this->get_parameter("use_blackbox_time_for_stamp").as_bool();
         validate_imu_stream_ = this->get_parameter("validate_imu_stream").as_bool();
@@ -104,6 +110,8 @@ public:
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic_, qos_profile);
         rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, qos_profile);
         battery_pub_ = this->create_publisher<sensor_msgs::msg::BatteryState>(battery_topic, qos_profile);
+        motor_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(motor_topic, qos_profile);
+        rc_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(joystick_topic, qos_profile);
         diag_pub_ = this->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(diagnostics_topic, 10);
         
         if (enable_msp_control) {
@@ -213,6 +221,7 @@ private:
         int32_t motor[4];
         int32_t erpm[4];
         int32_t vbat;
+        int32_t rc_command[4];
     };
 
     enum class ParseState { SYNC, HEADER, INTRA, INTER, MSP_V1, MSP_V2 };
@@ -234,6 +243,7 @@ private:
         int motor_idx[4] = {-1, -1, -1, -1};
         int erpm_idx[4] = {-1, -1, -1, -1};
         int vbat_idx = -1;
+        int rc_command_idx[4] = {-1, -1, -1, -1};
         int total_fields = 0;
     };
 
@@ -282,6 +292,8 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr rpm_pub_;
     rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr battery_pub_;
     rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motor_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr rc_pub_;
     rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr att_sub_;
     rclcpp::TimerBase::SharedPtr watchdog_timer_;
     rclcpp::TimerBase::SharedPtr imu_publish_timer_;
@@ -294,8 +306,11 @@ private:
     bool has_erpm_mapped_ = false;
     bool has_motor_mapped_ = false;
     bool has_vbat_mapped_ = false;
+    bool has_rc_command_mapped_ = false;
     bool erpm_valid_ = false;
     double vbat_scale_ = 0.01;
+    double min_battery_voltage_ = 14.0;
+    std::atomic<bool> battery_critical_{false};
     bool use_blackbox_time_for_stamp_ = false;
     std::mutex timestamp_mutex_;
     std::mutex imu_mutex_;
@@ -765,6 +780,15 @@ private:
             }
         }
 
+        for (int rc = 0; rc < 4; rc++) {
+            if (has_rc_command_mapped_ && i_map_.rc_command_idx[rc] >= 0) {
+                if (!readMappedField(frame, total_fields, i_map_.rc_command_idx[rc], candidate.rc_command[rc])) {
+                    reason = "rcCommand I-frame index out of range";
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 
@@ -853,6 +877,20 @@ private:
             const int pred = getPPredictor(p_map_.vbat_idx);
             candidate.vbat = applyPredictor(pred, wire_val,
                 last_frame_.vbat, prev_frame_.vbat);
+        }
+
+        // rcCommand: uses per-field predictor
+        for (int rc = 0; rc < 4; rc++) {
+            if (has_rc_command_mapped_ && p_map_.rc_command_idx[rc] >= 0) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.rc_command_idx[rc], wire_val)) {
+                    reason = "rcCommand P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.rc_command_idx[rc]);
+                candidate.rc_command[rc] = applyPredictor(pred, wire_val,
+                    last_frame_.rc_command[rc], prev_frame_.rc_command[rc]);
+            }
         }
 
         return true;
@@ -949,6 +987,8 @@ private:
         publishIMU();
         publishRPM();
         publishBattery();
+        publishMotors();
+        publishRCCommands();
     }
 
     void processData() {
@@ -1330,17 +1370,50 @@ private:
         msg.header.stamp = this->now();
         msg.header.frame_id = "imu_link";
         msg.voltage = last_frame_.vbat * (float)vbat_scale_;
+        
+        if (msg.voltage < min_battery_voltage_) {
+            battery_critical_ = true;
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000,
+                "LOW BATTERY DETECTED! Current voltage: %.2f V, Minimum: %.2f V", msg.voltage, min_battery_voltage_);
+        } else {
+            battery_critical_ = false;
+        }
+
         msg.current = std::numeric_limits<float>::quiet_NaN();
         msg.charge = std::numeric_limits<float>::quiet_NaN();
         msg.capacity = std::numeric_limits<float>::quiet_NaN();
         msg.design_capacity = std::numeric_limits<float>::quiet_NaN();
         msg.percentage = std::numeric_limits<float>::quiet_NaN();
         msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_UNKNOWN;
-        msg.power_supply_health = sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_UNKNOWN;
+        msg.power_supply_health = battery_critical_ 
+            ? sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_DEAD 
+            : sensor_msgs::msg::BatteryState::POWER_SUPPLY_HEALTH_GOOD;
         msg.power_supply_technology = sensor_msgs::msg::BatteryState::POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
         msg.present = true;
 
         battery_pub_->publish(msg);
+    }
+
+    void publishMotors() {
+        if (!has_motor_mapped_) return;
+
+        auto msg = std_msgs::msg::Float64MultiArray();
+        msg.data.resize(4);
+        for (int i = 0; i < 4; i++) {
+            msg.data[i] = static_cast<double>(last_frame_.motor[i]);
+        }
+        motor_pub_->publish(msg);
+    }
+
+    void publishRCCommands() {
+        if (!has_rc_command_mapped_) return;
+
+        auto msg = std_msgs::msg::Float64MultiArray();
+        msg.data.resize(4);
+        for (int i = 0; i < 4; i++) {
+            msg.data[i] = static_cast<double>(last_frame_.rc_command[i]);
+        }
+        rc_pub_->publish(msg);
     }
 
     void rpmHealthCheck() {
@@ -1457,7 +1530,10 @@ private:
         const double reject_pct = total_decoded > 0
             ? (100.0 * rejected / total_decoded) : 0.0;
 
-        if (!headers_locked_) {
+        if (battery_critical_) {
+            status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+            status.message = "Low battery voltage!";
+        } else if (!headers_locked_) {
             status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
             status.message = "Awaiting header dictionary";
         } else if (reject_pct > 10.0) {
@@ -1488,6 +1564,8 @@ private:
         status.values.push_back(kv("has_first_intra", has_first_intra_ ? "true" : "false"));
         status.values.push_back(kv("headers_locked", headers_locked_ ? "true" : "false"));
         status.values.push_back(kv("consecutive_rejects", std::to_string(consecutive_rejects_)));
+        status.values.push_back(kv("battery_critical", battery_critical_ ? "true" : "false"));
+        status.values.push_back(kv("battery_voltage", std::to_string(last_frame_.vbat * vbat_scale_) + " V"));
 
         diag_msg.status.push_back(status);
         diag_pub_->publish(diag_msg);
@@ -1531,6 +1609,9 @@ private:
         if (i_map_.motor_idx[0] != -1) {
             has_motor_mapped_ = true;
         }
+        if (i_map_.rc_command_idx[0] != -1) {
+            has_rc_command_mapped_ = true;
+        }
 
         if (i_map_.total_fields > 0 && !headers_locked_) {
             // BF 4.5+ doesn't send "Field P name:" — P frames use the same field layout
@@ -1546,6 +1627,11 @@ private:
             
             if (i_map_.vbat_idx != -1) {
                 RCLCPP_INFO(this->get_logger(), "vbat field mapped (index: %d)", i_map_.vbat_idx);
+            }
+
+            if (has_rc_command_mapped_) {
+                RCLCPP_INFO(this->get_logger(), "rcCommand fields mapped (indices: %d,%d,%d,%d)",
+                            i_map_.rc_command_idx[0], i_map_.rc_command_idx[1], i_map_.rc_command_idx[2], i_map_.rc_command_idx[3]);
             }
 
             if (!has_gyro_mapped_) RCLCPP_WARN(this->get_logger(), "Gyro fields not found in header");
@@ -1622,6 +1708,10 @@ private:
             else if (f == "eRPM[2]")  map.erpm_idx[2] = local_idx;
             else if (f == "eRPM[3]")  map.erpm_idx[3] = local_idx;
             else if (f == "vbatLatest" || f == "vbat") map.vbat_idx = local_idx;
+            else if (f == "rcCommand[0]") map.rc_command_idx[0] = local_idx;
+            else if (f == "rcCommand[1]") map.rc_command_idx[1] = local_idx;
+            else if (f == "rcCommand[2]") map.rc_command_idx[2] = local_idx;
+            else if (f == "rcCommand[3]") map.rc_command_idx[3] = local_idx;
             
             map.total_fields++;
         }
