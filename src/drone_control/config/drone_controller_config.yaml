@@ -23,7 +23,7 @@
     position_command_topic: "/drone_position_cmd"
 
     # ── Control loop ──────────────────────────────────────────────────
-    controller_rate: 30.0   # Hz
+    controller_rate: 50.0   # Hz
     speed_report_interval_sec: 5.0
 
     # ── Waypoint-reached thresholds ───────────────────────────────────

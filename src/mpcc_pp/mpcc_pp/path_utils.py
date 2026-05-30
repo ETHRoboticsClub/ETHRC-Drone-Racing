@@ -63,15 +63,20 @@ class RacingPath:
                         contouring weight is increased. Defaults to
                         waypoints themselves.
         sigma:          Gaussian half-width for the dynamic qc weight [m].
+        lookup_resolution_m:
+                        Arc-length spacing [m] for the p_ref/t_ref lookup table.
     """
 
     def __init__(self, waypoints: np.ndarray,
                  gate_positions: np.ndarray = None,
-                 sigma: float = 0.5):
+                 sigma: float = 0.5,
+                 lookup_resolution_m: float = 0.05):
         assert waypoints.ndim == 2 and waypoints.shape[1] == 3
         assert waypoints.shape[0] >= 2
 
         self._sigma = sigma
+        self._lookup_resolution_m = self._validate_lookup_resolution(
+            lookup_resolution_m)
         self._gates = (gate_positions if gate_positions is not None
                        else waypoints.copy())
 
@@ -90,6 +95,7 @@ class RacingPath:
         self._cs_dx = self._cs_x.derivative()
         self._cs_dy = self._cs_y.derivative()
         self._cs_dz = self._cs_z.derivative()
+        self._build_lookup_table()
 
     # ------------------------------------------------------------------
     # Core path evaluation
@@ -121,7 +127,7 @@ class RacingPath:
     # Dynamic contouring weight (Section IV-C)
     # ------------------------------------------------------------------
 
-    def contouring_weight(self, theta: float,
+    def contouring_weight(self, pd: np.ndarray,
                           qc_nom: float = 0.5,
                           qc_gate: float = 10.0) -> float:
         """
@@ -130,46 +136,25 @@ class RacingPath:
         qc → qc_gate near a gate (tracking is critical),
         qc → qc_nom on straight segments (progress dominates).
         """
-        pd = self.position(theta)
-        sigma2 = self._sigma ** 2
-        weight = 0.0
-        for gp in self._gates:
-            diff = pd - gp
-            weight += float(np.exp(-0.5 * np.dot(diff, diff) / sigma2))
-        # Normalise so that a single Gaussian peaks at 1
-        weight = np.clip(weight, 0.0, 1.0)
-        return qc_nom + (qc_gate - qc_nom) * weight
+        return float(self.contouring_weights(
+            np.asarray(pd, dtype=np.float64).reshape(1, 3),
+            qc_nom,
+            qc_gate,
+        )[0])
 
-    # ------------------------------------------------------------------
-    # Horizon parameter construction (called every control step)
-    # ------------------------------------------------------------------
-
-    def get_horizon_params(self, theta: float, n_stages: int, dt: float,
-                           vtheta_guess: float = 3.0,
+    def contouring_weights(self, pds: np.ndarray,
                            qc_nom: float = 0.5,
                            qc_gate: float = 10.0) -> np.ndarray:
-        """
-        Pre-compute ACADOS stage parameters for all n_stages of the OCP.
+        """Vectorized dynamic contouring weights for sampled path points."""
+        pds = np.asarray(pds, dtype=np.float64).reshape(-1, 3)
+        sigma2 = self._sigma ** 2
+        diffs = pds[:, np.newaxis, :] - self._gates[np.newaxis, :, :]
+        sq_dists = np.sum(diffs * diffs, axis=2)
+        weights = np.sum(np.exp(-0.5 * sq_dists / sigma2), axis=1)
+        weights = np.clip(weights, 0.0, 1.0)
+        return qc_nom + (qc_gate - qc_nom) * weights
 
-        In the RTI loop (Algorithm 1) the predicted θ from the previous
-        solution is used to evaluate C(θk). Here we approximate those
-        predicted thetas by propagating θ forward at `vtheta_guess` m/s.
-
-        Returns:
-            params: (n_stages, 7) — columns [px, py, pz, tx, ty, tz, qc].
-        """
-        params = np.zeros((n_stages, 7))
-        th = theta
-        for k in range(n_stages):
-            pd = self.position(th)
-            td = self.tangent(th)
-            qc = self.contouring_weight(th, qc_nom, qc_gate)
-            params[k, :3] = pd
-            params[k, 3:6] = td
-            params[k, 6] = qc
-            # Advance θ by guessed progress speed
-            th = min(th + vtheta_guess * dt, self.total_length)
-        return params
+    # ------------------------------------------------------------------
 
     def get_tunnel_params(self, theta: float, n_stages: int, dt: float,
                           vtheta_guess: float = 3.0,
@@ -178,7 +163,7 @@ class RacingPath:
                           W_default: float = 1000.0,
                           H_default: float = 1000.0) -> np.ndarray:
         """
-        15-column geometry parameters for the Track-Constraint OCP.
+        16-column geometry parameters for the Track-Constraint OCP.
 
         This default implementation uses very large W and H (1000 m) so the
         track constraint is inactive.  GatedRacingPath overrides this method
@@ -186,35 +171,35 @@ class RacingPath:
         before passing the full parameter matrix to ACADOS.
 
         Returns:
-            params: (n_stages, 15) — columns:
-              [0:3]   p_ref  reference position
+            params: (n_stages, 16) — columns:
+              [0:3]   p_ref  nominal reference position p^d(theta_ref)
               [3:6]   t_ref  unit tangent
               [6]     qc     contouring weight
               [7:10]  n_ref  horizontal tunnel normal  (right direction)
               [10:13] b_ref  vertical   tunnel normal  (up direction)
               [13]    W      tunnel half-width
               [14]    H      tunnel half-height
+              [15]    theta_ref nominal progress used for p_ref update
         """
-        params = np.zeros((n_stages, 15))
-        th = theta
-        for k in range(n_stages):
-            pd = self.position(th)
-            td = self.tangent(th)
-            qc = self.contouring_weight(th, qc_nom, qc_gate)
-            # Default local frame
+        params = np.zeros((n_stages, 16))
+        thetas = self._horizon_thetas(theta, n_stages, dt, vtheta_guess)
+        pds, tds = self._lookup_position_tangent_many(thetas)
+        qcs = self.contouring_weights(pds, qc_nom, qc_gate)
+
+        for k, td in enumerate(tds):
             horiz = np.array([-td[1], td[0], 0.0])
             norm = np.linalg.norm(horiz)
             n = horiz / norm if norm > 1e-8 else np.array([1.0, 0.0, 0.0])
             b = np.array([0.0, 0.0, -1.0])
 
-            params[k,  0:3]  = pd
+            params[k,  0:3]  = pds[k]
             params[k,  3:6]  = td
-            params[k,  6]    = qc
+            params[k,  6]    = qcs[k]
             params[k,  7:10] = n
             params[k, 10:13] = b
             params[k, 13]    = W_default
             params[k, 14]    = H_default
-            th = min(th + vtheta_guess * dt, self.total_length)
+            params[k, 15]    = thetas[k]
         return params
 
     # ------------------------------------------------------------------
@@ -246,6 +231,73 @@ class RacingPath:
     # Private
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _validate_lookup_resolution(value: float) -> float:
+        resolution = float(value)
+        if not np.isfinite(resolution) or resolution <= 0.0:
+            raise ValueError('lookup_resolution_m must be a finite positive value')
+        return resolution
+
+    def _build_lookup_table(self) -> None:
+        n_samples = max(
+            2,
+            int(np.ceil(self.total_length / self._lookup_resolution_m)) + 1,
+        )
+        theta = np.linspace(0.0, self.total_length, n_samples)
+        positions = np.column_stack([
+            self._cs_x(theta),
+            self._cs_y(theta),
+            self._cs_z(theta),
+        ]).astype(np.float64)
+        raw_tangents = np.column_stack([
+            self._cs_dx(theta),
+            self._cs_dy(theta),
+            self._cs_dz(theta),
+        ]).astype(np.float64)
+        norms = np.linalg.norm(raw_tangents, axis=1)
+        tangents = np.zeros_like(raw_tangents)
+        valid = norms > 1e-8
+        tangents[valid] = raw_tangents[valid] / norms[valid, np.newaxis]
+        tangents[~valid] = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+
+        self._lut_theta = theta
+        self._lut_position = positions
+        self._lut_tangent = tangents
+
+    def _lookup_position_tangent_many(self, theta_values: np.ndarray) -> tuple:
+        thetas = np.clip(
+            np.asarray(theta_values, dtype=np.float64).reshape(-1),
+            0.0,
+            self.total_length,
+        )
+        positions = np.column_stack([
+            np.interp(thetas, self._lut_theta, self._lut_position[:, axis])
+            for axis in range(3)
+        ])
+        tangents = np.column_stack([
+            np.interp(thetas, self._lut_theta, self._lut_tangent[:, axis])
+            for axis in range(3)
+        ])
+        norms = np.linalg.norm(tangents, axis=1)
+        valid = norms > 1e-8
+        tangents[valid] = tangents[valid] / norms[valid, np.newaxis]
+        tangents[~valid] = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+        return positions, tangents
+
+    def _lookup_position_tangent(self, theta: float) -> tuple:
+        positions, tangents = self._lookup_position_tangent_many(
+            np.array([theta], dtype=np.float64))
+        return positions[0], tangents[0]
+
+    def _horizon_thetas(self, theta: float, n_stages: int, dt: float,
+                        vtheta_guess: float) -> np.ndarray:
+        theta0 = self._clip(theta)
+        step = float(vtheta_guess) * float(dt)
+        return np.minimum(
+            theta0 + step * np.arange(n_stages, dtype=np.float64),
+            self.total_length,
+        )
+
     def _clip(self, theta: float) -> float:
         return float(np.clip(theta, 0.0, self.total_length))
 
@@ -262,7 +314,7 @@ class GatedRacingPath(RacingPath):
       - Gate positions, yaw angles, and inner aperture dimensions.
       - Arc-length-varying tunnel half-extents W(θ) and H(θ).
       - Local tunnel frame n(θ), b(θ) for halfspace constraints.
-      - get_tunnel_params() returning the 15-column geometry matrix that the
+      - get_tunnel_params() returning the 16-column geometry matrix that the
         controller extends with runtime cost weights.
 
     Track Constraint (mpcc_pp paper, Section IV-A, eq. 7):
@@ -310,6 +362,8 @@ class GatedRacingPath(RacingPath):
         sigma_gate:  Gaussian σ for W/H transitions [m].
         sigma_qc:    Gaussian σ for contouring-weight transitions [m].
         tau_scale:   Global tunnel scale factor in [0, 1].
+        lookup_resolution_m:
+                     Arc-length spacing [m] for the p_ref/t_ref lookup table.
     """
 
     def __init__(self, gates: list,
@@ -318,9 +372,12 @@ class GatedRacingPath(RacingPath):
                  sigma_gate: float = 2.0,
                  sigma_qc: float = 0.5,
                  tau_scale: float = tau,
-                 start_position: np.ndarray = None):
+                 start_position: np.ndarray = None,
+                 lookup_resolution_m: float = 0.05):
 
         assert len(gates) >= 2, "At least 2 gates required."
+
+        self.idxprint = 0
 
         # Gate centre positions (NED)
         positions = np.array(
@@ -378,8 +435,14 @@ class GatedRacingPath(RacingPath):
             self._gate_thetas = arc[:-1].copy()    # shape (n_gates,)
 
         # Initialise parent with closed positions; gate centres used for qc.
-        super().__init__(positions_closed, gate_positions=positions, sigma=sigma_qc)
+        super().__init__(
+            positions_closed,
+            gate_positions=positions,
+            sigma=sigma_qc,
+            lookup_resolution_m=lookup_resolution_m,
+        )
         self._fit_yaw_constrained_splines(arc, positions_closed, tangents_closed)
+        self._build_lookup_table()
 
     # ------------------------------------------------------------------
     # Tunnel geometry
@@ -435,10 +498,16 @@ class GatedRacingPath(RacingPath):
         theta = self._clip(theta)
         L = self.total_length
         W = self._W_n
-        for th_g, W_g in zip(self._gate_thetas, self._gate_half_widths):
-            d = theta - th_g
-            d -= L * round(d / L)   # shortest periodic distance
-            W += (W_g - self._W_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
+        # for th_g, W_g in zip(self._gate_thetas, self._gate_half_widths):
+        #     d = theta - th_g
+        #     d -= L * round(d / L)   # shortest periodic distance
+        #     W += (W_g - self._W_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
+        # use numpz vectorization for speedup:
+        d = theta - self._gate_thetas  # (n_gates,)
+        d -= L * np.round(d / L)       # shortest periodic distance (n_gates,)
+        W += np.sum((self._gate_half_widths - self._W_n) *
+                    np.exp(-0.5 * d * d / (self._sigma_gate ** 2)))
+
         return self._tau * float(np.clip(W, self._min_gate_half_w, self._W_n))
 
     def tunnel_height(self, theta: float) -> float:
@@ -448,13 +517,49 @@ class GatedRacingPath(RacingPath):
         theta = self._clip(theta)
         L = self.total_length
         H = self._H_n
-        for th_g, H_g in zip(self._gate_thetas, self._gate_half_heights):
-            d = theta - th_g
-            d -= L * round(d / L)
-            H += (H_g - self._H_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
+        # for th_g, H_g in zip(self._gate_thetas, self._gate_half_heights):
+        #     d = theta - th_g
+        #     d -= L * round(d / L)
+        #     H += (H_g - self._H_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
+        # use numpz vectorization for speedup:
+        d = theta - self._gate_thetas  # (n_gates,)
+        d -= L * np.round(d / L)       # shortest periodic distance (n_gates,)
+        H += np.sum((self._gate_half_heights - self._H_n) *
+                    np.exp(-0.5 * d * d / (self._sigma_gate ** 2)))
+
         return self._tau * float(np.clip(H, self._min_gate_half_h, self._H_n))
 
-    def normal_binormal(self, theta: float) -> tuple:
+    def tunnel_widths(self, theta_values: np.ndarray) -> np.ndarray:
+        thetas = np.clip(
+            np.asarray(theta_values, dtype=np.float64).reshape(-1),
+            0.0,
+            self.total_length,
+        )
+        d = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
+        d -= self.total_length * np.round(d / self.total_length)
+        W = self._W_n + np.sum(
+            (self._gate_half_widths - self._W_n)[np.newaxis, :]
+            * np.exp(-0.5 * d * d / (self._sigma_gate ** 2)),
+            axis=1,
+        )
+        return self._tau * np.clip(W, self._min_gate_half_w, self._W_n)
+
+    def tunnel_heights(self, theta_values: np.ndarray) -> np.ndarray:
+        thetas = np.clip(
+            np.asarray(theta_values, dtype=np.float64).reshape(-1),
+            0.0,
+            self.total_length,
+        )
+        d = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
+        d -= self.total_length * np.round(d / self.total_length)
+        H = self._H_n + np.sum(
+            (self._gate_half_heights - self._H_n)[np.newaxis, :]
+            * np.exp(-0.5 * d * d / (self._sigma_gate ** 2)),
+            axis=1,
+        )
+        return self._tau * np.clip(H, self._min_gate_half_h, self._H_n)
+
+    def normal_binormal(self, theta: float, t: np.ndarray = None) -> tuple:
         """
         Local tunnel frame at arc-length θ.
 
@@ -467,7 +572,9 @@ class GatedRacingPath(RacingPath):
         direction is ill-defined, so we use the nearest gate's yaw-defined
         width axis.  The final basis is orthogonalized against the tangent.
         """
-        t = self.tangent(theta)
+        if t is None:
+            t = self.tangent(theta)
+        
         horiz = np.array([-t[1], t[0], 0.0])
         norm = np.linalg.norm(horiz)
         if norm < 1e-8:
@@ -494,7 +601,7 @@ class GatedRacingPath(RacingPath):
         return n, b
 
     # ------------------------------------------------------------------
-    # 15-column geometry horizon parameters (overrides RacingPath default)
+    # 16-column geometry horizon parameters (overrides RacingPath default)
     # ------------------------------------------------------------------
 
     def get_tunnel_params(self, theta: float, n_stages: int, dt: float,
@@ -506,34 +613,35 @@ class GatedRacingPath(RacingPath):
         Pre-compute ACADOS stage parameters including tunnel geometry.
 
         Returns:
-            params: (n_stages, 15) with columns:
-              [0:3]   p_ref  — reference path position     p^d(θ)
-              [3:6]   t_ref  — unit tangent                t(θ)
-              [6]     qc     — dynamic contouring weight   qc(θ)
-              [7:10]  n_ref  — horizontal tunnel normal    n(θ)
-              [10:13] b_ref  — vertical   tunnel normal    b(θ)
-              [13]    W      — tunnel half-width           W(θ)
-              [14]    H      — tunnel half-height          H(θ)
+            params: (n_stages, 16) with columns:
+              [0:3]   p_ref  — nominal path position       p^d(theta_ref)
+              [3:6]   t_ref  — unit tangent                t(theta_ref)
+              [6]     qc     — dynamic contouring weight   qc(theta_ref)
+              [7:10]  n_ref  — horizontal tunnel normal    n(theta_ref)
+              [10:13] b_ref  — vertical   tunnel normal    b(theta_ref)
+              [13]    W      — tunnel half-width           W(theta_ref)
+              [14]    H      — tunnel half-height          H(theta_ref)
+              [15]    theta_ref — nominal progress for symbolic p_ref update
         """
-        params = np.zeros((n_stages, 15))
-        th = theta
-        for k in range(n_stages):
-            pd = self.position(th)
-            td = self.tangent(th)
-            qc = self.contouring_weight(th, qc_nom, qc_gate)
-            n, b = self.normal_binormal(th)
-            W = self.tunnel_width(th)
-            H = self.tunnel_height(th)
+        params = np.zeros((n_stages, 16))
+        thetas = self._horizon_thetas(theta, n_stages, dt, vtheta_guess)
+        pds, tds = self._lookup_position_tangent_many(thetas)
+        qcs = self.contouring_weights(pds, qc_nom, qc_gate)
+        widths = self.tunnel_widths(thetas)
+        heights = self.tunnel_heights(thetas)
 
-            params[k,  0:3]  = pd
+        for k, (th, td) in enumerate(zip(thetas, tds)):
+            n, b = self.normal_binormal(th, td)
+
+            params[k,  0:3]  = pds[k]
             params[k,  3:6]  = td
-            params[k,  6]    = qc
+            params[k,  6]    = qcs[k]
             params[k,  7:10] = n
             params[k, 10:13] = b
-            params[k, 13]    = W
-            params[k, 14]    = H
+            params[k, 13]    = widths[k]
+            params[k, 14]    = heights[k]
+            params[k, 15]    = th
 
-            th = min(th + vtheta_guess * dt, self.total_length)
         return params
 
     # ------------------------------------------------------------------

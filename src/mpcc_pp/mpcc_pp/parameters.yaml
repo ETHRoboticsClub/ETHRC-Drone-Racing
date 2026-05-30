@@ -39,6 +39,10 @@ controller:
   max_attitude_rate_deg_s: 120.0
 
 path:
+  # Arc-length spacing [m] for the lookup table used by get_tunnel_params.
+  # Smaller values track the spline more closely; larger values are faster.
+  lookup_resolution_m: 0.03
+
   contouring:
     # Nominal contouring weight qc between gates.
     # Increase when the drone cuts corners or stays too far from the spline.
@@ -137,18 +141,18 @@ model:
 
   constraints:
     # Body-rate state bound [rad/s].
-    body_rate_max_rad_s: 2.0
+    body_rate_max_rad_s: 3.141592653589793
 
     # Per-rotor thrust-rate control bound [N/s].
-    rotor_thrust_rate_max_nps: 12.0
+    rotor_thrust_rate_max_nps: 20.0
 
     # Progress velocity state bounds [m/s].
     progress_velocity_min_mps: 0.0
-    progress_velocity_max_mps: 4.0
+    progress_velocity_max_mps: 10.0
 
     # Progress acceleration control bounds [m/s^2].
-    progress_acceleration_min_mps2: -3.0
-    progress_acceleration_max_mps2: 3.0
+    progress_acceleration_min_mps2: -10.0
+    progress_acceleration_max_mps2: 10.0
 
 solver:
   # ACADOS solver settings. These affect numerical behavior and can trigger

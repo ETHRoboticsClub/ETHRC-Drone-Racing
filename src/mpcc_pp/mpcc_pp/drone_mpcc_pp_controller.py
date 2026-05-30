@@ -125,6 +125,7 @@ class DroneMpccPpController(ControllerInterface):
         self._parameters = apply_legacy_track_overrides(profiled_parameters, tp)
 
         controller_cfg = get_section(self._parameters, 'controller')
+        path_cfg = get_section(self._parameters, 'path')
         contour_cfg = get_section(self._parameters, 'path', 'contouring')
         tunnel_cfg = get_section(self._parameters, 'path', 'tunnel')
         cost_cfg = get_section(self._parameters, 'cost')
@@ -196,6 +197,8 @@ class DroneMpccPpController(ControllerInterface):
             DroneOptimizerMpccPp._validate_terminal_cost_multiplier(
                 terminal_multiplier))
         self._solver_options = get_section(self._parameters, 'solver')
+        self._lookup_resolution_m = float(
+            path_cfg.get('lookup_resolution_m', 0.05))
 
         # Save gates config for deferred path rebuild with drone start position
         self._gates_config  = gates
@@ -220,13 +223,17 @@ class DroneMpccPpController(ControllerInterface):
                 sigma_gate = self._sigma_gate,
                 sigma_qc   = self._sigma_qc,
                 tau_scale  = self._tunnel_tau,
+                lookup_resolution_m = self._lookup_resolution_m,
             )
         elif waypoints is not None:
             # ── Waypoints fallback: Track Constraint inactive (W=H=1000) ──
             waypoint_sigma = self._sigma_qc if sigma is None else sigma
-            self._path = RacingPath(waypoints,
-                                    gate_positions=gate_positions,
-                                    sigma=waypoint_sigma)
+            self._path = RacingPath(
+                waypoints,
+                gate_positions=gate_positions,
+                sigma=waypoint_sigma,
+                lookup_resolution_m=self._lookup_resolution_m,
+            )
         else:
             raise ValueError(
                 "DroneMpccPpController requires either 'gates' or 'waypoints'.")
@@ -574,9 +581,10 @@ class DroneMpccPpController(ControllerInterface):
         """
         Core mpcc_pp step shared by controller_update and mpcc_pp_update.
 
-        Uses get_tunnel_params() for the 15-column path/tunnel geometry, then
+        Uses get_tunnel_params() for the 16-column path/tunnel geometry, then
         appends runtime tuning weights and per-stage cost discounts expected
-        by the OCP.  For plain
+        by the OCP.  The final geometry column is theta_ref; ACADOS uses it
+        to update p_ref symbolically from the optimized theta state.  For plain
         RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
@@ -592,6 +600,7 @@ class DroneMpccPpController(ControllerInterface):
                 sigma_qc      = self._sigma_qc,
                 tau_scale     = self._tunnel_tau,
                 start_position = drone_pos,
+                lookup_resolution_m = self._lookup_resolution_m,
             )
             self._theta   = 0.0
             self._vtheta  = 0.0
@@ -648,14 +657,24 @@ class DroneMpccPpController(ControllerInterface):
             mean_force = np.array([np.mean(f_raw)], dtype=np.float64)
             thrust_raw = float(
                 self._model.rotor_forces_to_motor_controls(mean_force)[0])
-            print(f"[DEBUG] mpcc_pp solver: theta={self._theta:.3f} m, "
-                  f"vtheta={self._vtheta:.3f} m/s, lap={self._lap}, "
-                  f"f_rotor={np.round(f_raw, 3).tolist()}, "
-                  f"motor_norm={thrust_raw:.3f}")
+            # print(f"[DEBUG] mpcc_pp solver: theta={self._theta:.3f} m, "
+            #       f"vtheta={self._vtheta:.3f} m/s, lap={self._lap}, "
+            #       f"f_rotor={np.round(f_raw, 3).tolist()}, "
+            #       f"motor_norm={thrust_raw:.3f}")
 
+        # print the linear velocity norm of every step
+        # v_pred = x_pred[:, 7:10]
+        # v_norm = np.linalg.norm(v_pred, axis=1)
+        # print(f"[DEBUG] mpcc_pp predicted velocity norms: {np.round(v_norm, 3).tolist()}")
+        # print the progress velocity at every step
+        # vtheta_pred = x_pred[:, 18]
+        # print(f"[DEBUG] mpcc_pp predicted progress velocities: {np.round(vtheta_pred, 3).tolist()}")
+        
         # Update internal f-state from predicted next step
+        # print(f"[DEBUG] Updating internal f_state from x_pred: {x_pred[1, 13:17]}")
         self._f_state = np.clip(
             x_pred[1, 13:17], self._model.F_MIN, self._model.F_MAX)
+        # print(f"[DEBUG] Updated internal f_state: {self._f_state}\n\n")
 
         # Advance θ and vθ using the first optimal control Δvθ
         delta_vt = float(u_opt[0])

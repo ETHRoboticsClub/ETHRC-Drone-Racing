@@ -193,7 +193,7 @@ class DroneMpccModel:
 
         # Progress velocity [m/s] — index 18
         constraint.vt_min = 0.0
-        constraint.vt_max = 8.0
+        constraint.vt_max = 20.0
 
         # Progress acceleration [m/s²] — control 0
         dvt_rate = 10.0

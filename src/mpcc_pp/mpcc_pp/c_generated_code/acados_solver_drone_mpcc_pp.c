@@ -415,13 +415,13 @@ void drone_mpcc_pp_acados_create_set_default_parameters(drone_mpcc_pp_solver_cap
     const int N = capsule->nlp_solver_plan->N;
     // initialize parameters to nominal value
     double* p = calloc(NP, sizeof(double));
-    p[15] = 4;
-    p[16] = 0.004;
-    p[17] = 0.35;
-    p[18] = 0.015;
-    p[19] = 0.2;
-    p[20] = 8;
-    p[21] = 1;
+    p[16] = 4;
+    p[17] = 0.004;
+    p[18] = 0.35;
+    p[19] = 0.015;
+    p[20] = 0.2;
+    p[21] = 8;
+    p[22] = 1;
 
     for (int i = 0; i <= N; i++) {
         drone_mpcc_pp_acados_update_params(capsule, i, p, NP);
@@ -632,16 +632,16 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     double* lubu = calloc(2*NBU, sizeof(double));
     double* lbu = lubu;
     double* ubu = lubu + NBU;
-    lbu[0] = -3;
-    ubu[0] = 3;
-    lbu[1] = -12;
-    ubu[1] = 12;
-    lbu[2] = -12;
-    ubu[2] = 12;
-    lbu[3] = -12;
-    ubu[3] = 12;
-    lbu[4] = -12;
-    ubu[4] = 12;
+    lbu[0] = -10;
+    ubu[0] = 10;
+    lbu[1] = -20;
+    ubu[1] = 20;
+    lbu[2] = -20;
+    ubu[2] = 20;
+    lbu[3] = -20;
+    ubu[3] = 20;
+    lbu[4] = -20;
+    ubu[4] = 20;
 
     for (int i = 0; i < N; i++)
     {
@@ -672,17 +672,17 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     double* lubx = calloc(2*NBX, sizeof(double));
     double* lbx = lubx;
     double* ubx = lubx + NBX;
-    lbx[0] = -2;
-    ubx[0] = 2;
-    lbx[1] = -2;
-    ubx[1] = 2;
-    lbx[2] = -2;
-    ubx[2] = 2;
+    lbx[0] = -3.141592653589793;
+    ubx[0] = 3.141592653589793;
+    lbx[1] = -3.141592653589793;
+    ubx[1] = 3.141592653589793;
+    lbx[2] = -3.141592653589793;
+    ubx[2] = 3.141592653589793;
     ubx[3] = 7.7;
     ubx[4] = 7.7;
     ubx[5] = 7.7;
     ubx[6] = 7.7;
-    ubx[7] = 4;
+    ubx[7] = 20;
 
     for (int i = 1; i < N; i++)
     {
@@ -721,17 +721,17 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     double* lubx_e = calloc(2*NBXN, sizeof(double));
     double* lbx_e = lubx_e;
     double* ubx_e = lubx_e + NBXN;
-    lbx_e[0] = -2;
-    ubx_e[0] = 2;
-    lbx_e[1] = -2;
-    ubx_e[1] = 2;
-    lbx_e[2] = -2;
-    ubx_e[2] = 2;
+    lbx_e[0] = -3.141592653589793;
+    ubx_e[0] = 3.141592653589793;
+    lbx_e[1] = -3.141592653589793;
+    ubx_e[1] = 3.141592653589793;
+    lbx_e[2] = -3.141592653589793;
+    ubx_e[2] = 3.141592653589793;
     ubx_e[3] = 7.7;
     ubx_e[4] = 7.7;
     ubx_e[5] = 7.7;
     ubx_e[6] = 7.7;
-    ubx_e[7] = 4;
+    ubx_e[7] = 20;
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "idxbx", idxbx_e);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "lbx", lbx_e);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "ubx", ubx_e);
@@ -1065,7 +1065,7 @@ int drone_mpcc_pp_acados_update_params(drone_mpcc_pp_solver_capsule* capsule, in
 {
     int solver_status = 0;
 
-    int casadi_np = 22;
+    int casadi_np = 23;
     if (casadi_np != np) {
         printf("acados_update_params: trying to set %i parameters for external functions."
             " External function has %i parameters. Exiting.\n", np, casadi_np);
