@@ -26,6 +26,7 @@ FROM ${PERCEPTION_CONTROLS_BASE} AS perception
 USER drone_dev
 
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
+COPY --chown=drone_dev:drone_dev src/msp ${WORKSPACE}/src/msp
 COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-vicon-receiver
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev src/h264_image_transport ${WORKSPACE}/src/h264_image_transport
