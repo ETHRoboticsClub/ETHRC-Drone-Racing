@@ -8,7 +8,7 @@ Interfaces
 controller_update(x, goal)          → AttitudeRate  (attitude-rate output mode,
                                         used by drone_controller_node)
 trajectory_controller_update(x, T)  → AttitudeRate  (same, ignores trajectory)
-mpcc_pp_update(x)                   → ndarray (4,)  (normalised per-rotor thrust,
+mpcc_pp_update(x)                   → ndarray (4,)  (PX4/Gazebo motor-speed commands,
                                         used by the standalone race node)
 
 State convention mapping
@@ -242,6 +242,7 @@ class DroneMpccPpController(ControllerInterface):
         self._solver_fail_count: int = 0
         self._solver_status_counts: dict[int, int] = {}
         self._last_solve_info: dict | None = None
+        self._last_u_opt: np.ndarray | None = None
 
         # Set to True after path rebuild (lead-in); node can check and republish.
         self.path_updated: bool = False
@@ -249,9 +250,9 @@ class DroneMpccPpController(ControllerInterface):
         # Debug flag — set externally (e.g. from drone_controller_node via VERBOSE_INPUT)
         self.verbose: bool = False
 
-        # Normalised hover thrust for fallback commands
-        self._hover_thrust_norm = float(
-            self._model.MASS * self._model.G / (4.0 * self._model.F_MAX))
+        # Normalized PX4 motor-speed command for fallback hover.
+        self._hover_thrust_norm = float(np.mean(
+            self._model.rotor_forces_to_motor_controls(self._model.f_hover)))
 
     # ------------------------------------------------------------------
     # ControllerInterface — required abstract methods
@@ -284,6 +285,7 @@ class DroneMpccPpController(ControllerInterface):
         self._lap = 0
         self._debug_counter = 0
         self._last_x_pred = None
+        self._last_u_opt = None
         self.reset_episode_stats()
         self.path_updated = False
         if self._gates_config is not None:
@@ -336,11 +338,11 @@ class DroneMpccPpController(ControllerInterface):
             x_ext: 13-dim drone state [p(3), v(3), q(4), ω(3)].
 
         Returns:
-            u_norm: (4,) normalised per-rotor thrust in [0, 1].
+            u_norm: (4,) normalized PX4/Gazebo motor-speed commands in [0, 1].
         """
         _, x_pred, _ = self._run_step(x_ext)
         f_next = np.clip(x_pred[1, 13:17], self._model.F_MIN, self._model.F_MAX)
-        return f_next / self._model.F_MAX
+        return self._model.rotor_forces_to_motor_controls(f_next)
 
     # ------------------------------------------------------------------
     # Properties
@@ -353,6 +355,22 @@ class DroneMpccPpController(ControllerInterface):
         if pred is None:
             return None
         return pred[:, 0:3]
+
+    @property
+    def last_control_input(self) -> 'np.ndarray | None':
+        """Last optimal mpcc_pp input [delta_vtheta, delta_f0..3], or None."""
+        u_opt = getattr(self, '_last_u_opt', None)
+        if u_opt is None:
+            return None
+        return u_opt.copy()
+
+    def sync_augmented_state(self, x_aug: np.ndarray) -> None:
+        """Sync internal thrust estimate from a 19-dim simulated MPCC++ state."""
+        x_aug = np.asarray(x_aug, dtype=np.float64).reshape(-1)
+        if x_aug.shape != (19,) or not np.isfinite(x_aug).all():
+            return
+        self._f_state = np.clip(
+            x_aug[13:17], self._model.F_MIN, self._model.F_MAX)
 
     def sample_reference_path(self, n: int = None) -> np.ndarray:
         """Return (n, 3) NED positions sampled uniformly along the reference spline."""
@@ -617,16 +635,19 @@ class DroneMpccPpController(ControllerInterface):
         # Solve mpcc_pp OCP
         u_opt, x_pred, info = self._opt.solve(x_aug, stage_params)
         self._record_solver_info(info)
+        self._last_u_opt = np.asarray(u_opt, dtype=np.float64).copy()
         self._last_x_pred = x_pred   # expose for debug / visualisation
 
         self._debug_counter += 1
         if self.verbose and self._debug_counter % self._debug_log_interval == 0:
             f_raw = x_pred[1, 13:17]
-            thrust_raw = float(np.sum(f_raw) / (4.0 * self._model.F_MAX))
+            mean_force = np.array([np.mean(f_raw)], dtype=np.float64)
+            thrust_raw = float(
+                self._model.rotor_forces_to_motor_controls(mean_force)[0])
             print(f"[DEBUG] mpcc_pp solver: theta={self._theta:.3f} m, "
                   f"vtheta={self._vtheta:.3f} m/s, lap={self._lap}, "
                   f"f_rotor={np.round(f_raw, 3).tolist()}, "
-                  f"thrust_norm={thrust_raw:.3f}")
+                  f"motor_norm={thrust_raw:.3f}")
 
         # Update internal f-state from predicted next step
         self._f_state = np.clip(
@@ -642,6 +663,8 @@ class DroneMpccPpController(ControllerInterface):
         self._theta = min(
             self._theta + self._vtheta * self._dt,
             self._path.total_length)
+
+        # print(f"\n\n x_pred[0]: {x_pred[0]}\n u_opt: {u_opt}\n x_pred[1]: {x_pred[1]}\n\n")
 
         return u_opt, x_pred, info
 
@@ -682,7 +705,7 @@ class DroneMpccPpController(ControllerInterface):
         Convert mpcc_pp predicted next state to an AttitudeRate command.
 
         Body rates  : x_pred[1, 10:13]  [rad/s]  → deg/s for MAVSDK
-        Total thrust: sum(x_pred[1, 13:17]) / (4 * F_MAX)  → normalised [0, 1]
+        Total thrust: mean rotor force → Gazebo motor-speed command.
         """
         omega_next = x_pred[1, 10:13]
         roll_deg_s = float(np.clip(
@@ -693,8 +716,9 @@ class DroneMpccPpController(ControllerInterface):
             np.degrees(omega_next[2]), -self._max_rate_deg, self._max_rate_deg))
 
         f_next = np.clip(x_pred[1, 13:17], self._model.F_MIN, self._model.F_MAX)
-        thrust_norm = float(np.clip(
-            np.sum(f_next) / (4.0 * self._model.F_MAX), 0.0, 1.0))
+        mean_force = np.array([np.mean(f_next)], dtype=np.float64)
+        thrust_norm = float(
+            self._model.rotor_forces_to_motor_controls(mean_force)[0])
 
         if self.verbose and self._debug_counter % self._debug_log_interval == 0:
             print(f"[DEBUG] mpcc_pp AttitudeRate: thrust={thrust_norm:.3f}, "

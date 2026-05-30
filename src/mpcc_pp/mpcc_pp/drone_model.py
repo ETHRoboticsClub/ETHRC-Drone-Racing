@@ -63,6 +63,11 @@ class DroneMpccPpModel:
     F_MIN = 0.0
     F_MAX = 7.7                # N
 
+    # Gazebo motor model / PX4 actuator output range for Zephyros.
+    MOTOR_CONSTANT = 3.422e-6  # N / (rad/s)^2
+    MOTOR_SPEED_MIN = 100.0    # rad/s
+    MOTOR_SPEED_MAX = 1500.0   # rad/s
+
     # Rotor geometry in FRD body frame (from Zephyros airframe 4023_gz_zephyros)
     # Positions from SolidWorks URDF (x-forward, y-right).
     # KM sign: + = CCW (looking from above), - = CW.
@@ -98,6 +103,16 @@ class DroneMpccPpModel:
 
         self.F_MIN = float(physical.get('rotor_thrust_min_n', self.F_MIN))
         self.F_MAX = float(physical.get('rotor_thrust_max_n', self.F_MAX))
+        self.MOTOR_CONSTANT = float(
+            physical.get('motor_constant_n_per_rad2_s2', self.MOTOR_CONSTANT))
+        self.MOTOR_SPEED_MIN = float(
+            physical.get('motor_speed_min_radps', self.MOTOR_SPEED_MIN))
+        self.MOTOR_SPEED_MAX = float(
+            physical.get('motor_speed_max_radps', self.MOTOR_SPEED_MAX))
+        if self.MOTOR_CONSTANT <= 0.0:
+            raise ValueError('model.physical.motor_constant_n_per_rad2_s2 must be positive')
+        if self.MOTOR_SPEED_MAX <= self.MOTOR_SPEED_MIN:
+            raise ValueError('model.physical.motor_speed_max_radps must be larger than motor_speed_min_radps')
         self.ROTOR_PX = _array_param(
             physical.get('rotor_x_m'), self.ROTOR_PX, 4,
             'model.physical.rotor_x_m')
@@ -254,6 +269,9 @@ class DroneMpccPpModel:
             'inertia_kg_m2': [self.I_XX, self.I_YY, self.I_ZZ],
             'rotor_thrust_min_n': self.F_MIN,
             'rotor_thrust_max_n': self.F_MAX,
+            'motor_constant_n_per_rad2_s2': self.MOTOR_CONSTANT,
+            'motor_speed_min_radps': self.MOTOR_SPEED_MIN,
+            'motor_speed_max_radps': self.MOTOR_SPEED_MAX,
             'rotor_x_m': self.ROTOR_PX.tolist(),
             'rotor_y_m': self.ROTOR_PY.tolist(),
             'rotor_km': self.ROTOR_KM.tolist(),
@@ -263,3 +281,17 @@ class DroneMpccPpModel:
         print(f"DroneMpccPpModel: nx={self.nx}, nu={self.nu}")
         print(f"  f_hover per rotor: {self.f_hover[0]:.3f} N  "
               f"(total {self.f_hover.sum():.2f} N ≈ {self.MASS}×{self.G:.2f} N)")
+
+    def rotor_forces_to_motor_controls(self, forces_n: np.ndarray) -> np.ndarray:
+        """
+        Convert per-rotor force [N] to PX4/Gazebo motor-speed commands [0, 1].
+
+        Zephyros Gazebo uses F = motorConstant * omega^2, while PX4 sends a
+        normalized motor speed over SIM_GZ_EC_MIN..MAX when THR_MDL_FAC=0.
+        """
+        forces = np.clip(
+            np.asarray(forces_n, dtype=np.float64), self.F_MIN, self.F_MAX)
+        omega = np.sqrt(forces / self.MOTOR_CONSTANT)
+        controls = ((omega - self.MOTOR_SPEED_MIN)
+                    / (self.MOTOR_SPEED_MAX - self.MOTOR_SPEED_MIN))
+        return np.clip(controls, 0.0, 1.0)

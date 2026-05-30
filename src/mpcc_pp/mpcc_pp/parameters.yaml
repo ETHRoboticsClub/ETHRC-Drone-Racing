@@ -25,7 +25,7 @@ controller:
 
   # Minimum speed used to roll reference parameters forward along the horizon
   # when vtheta is still small. This mostly affects takeoff/lead-in behavior.
-  min_prediction_speed: 1.0
+  min_prediction_speed: 0.6
 
   # When remaining arc length is below this threshold, theta wraps to the
   # circuit start for the next lap.
@@ -36,21 +36,21 @@ controller:
   debug_log_interval: 50
 
   # Safety clip applied to attitude-rate commands sent to MAVSDK/PX4 [deg/s].
-  max_attitude_rate_deg_s: 200.0
+  max_attitude_rate_deg_s: 120.0
 
 path:
   contouring:
     # Nominal contouring weight qc between gates.
     # Increase when the drone cuts corners or stays too far from the spline.
-    qc_nom: 8.04235713578984 # was 5.0
+    qc_nom: 20.0 # was 5.0
 
     # Contouring weight qc near gate centers.
     # Increase when gate traversal accuracy matters more than speed.
-    qc_gate: 318.17562144715026 # was 18.0
+    qc_gate: 160.0 # was 18.0
 
     # Gaussian width [m] for the gate-centered qc increase.
     # Larger values make the high-tracking region start earlier and last longer.
-    sigma_qc: 0.5
+    sigma_qc: 1.2
 
   tunnel:
     # Publish the MPCC++ tunnel MarkerArray in RViz.
@@ -77,24 +77,24 @@ path:
 cost:
   # Lag error weight. Penalizes being ahead/behind the reference point along
   # the tangent direction.
-  ql: 0.2402287068709523 # was 9.0
+  ql: 4.0 # was 9.0
 
   # Body-rate regularization. Increase to reduce aggressive rotations.
-  Qw: 8.073111842970231e-05 # was 0.0001
+  Qw: 0.004 # was 0.0001
 
   # Progress-acceleration cost. Increase to make vtheta and the RViz progress
   # point move more smoothly; decrease for faster acceleration along the path.
-  r_dvt: 0.08987911840588622 # was 0.0002
+  r_dvt: 0.35 # was 0.0002
 
   # Rotor thrust-rate cost. Increase to smooth rotor commands.
-  R_df: 0.0011621720782828086 # was 0.0003
+  R_df: 0.015 # was 0.0003
 
   # Progress reward. Increase for faster racing; decrease when tracking and
   # stability should dominate.
-  mu: 1.6682705460206881 # was 10
+  mu: 0.2 # was 10
 
   # Soft-barrier weight for tunnel halfspace violations.
-  track_weight: 3.2437217958780518 # was 10
+  track_weight: 8.0 # was 10
 
   # Horizon cost discount base gamma. 1.0 disables discounting; lower values
   # make later shooting stages matter less than near-term stages.
@@ -121,6 +121,12 @@ model:
     rotor_thrust_min_n: 0.0
     rotor_thrust_max_n: 7.7
 
+    # Gazebo/PX4 motor model used to convert rotor force [N] to the
+    # normalized motor-speed command sent through MAVSDK/PX4.
+    motor_constant_n_per_rad2_s2: 3.422e-6
+    motor_speed_min_radps: 100.0
+    motor_speed_max_radps: 1500.0
+
     # Rotor geometry in FRD body frame [m] and yaw moment coefficients.
     rotor_x_m: [0.0884, -0.0822, 0.0886, -0.0818]
     rotor_y_m: [0.0720, -0.0680, -0.0680, 0.0718]
@@ -131,18 +137,18 @@ model:
 
   constraints:
     # Body-rate state bound [rad/s].
-    body_rate_max_rad_s: 3.141592653589793
+    body_rate_max_rad_s: 2.0
 
     # Per-rotor thrust-rate control bound [N/s].
-    rotor_thrust_rate_max_nps: 20.0
+    rotor_thrust_rate_max_nps: 12.0
 
     # Progress velocity state bounds [m/s].
     progress_velocity_min_mps: 0.0
-    progress_velocity_max_mps: 8.0
+    progress_velocity_max_mps: 4.0
 
     # Progress acceleration control bounds [m/s^2].
-    progress_acceleration_min_mps2: -10.0
-    progress_acceleration_max_mps2: 10.0
+    progress_acceleration_min_mps2: -3.0
+    progress_acceleration_max_mps2: 3.0
 
 solver:
   # ACADOS solver settings. These affect numerical behavior and can trigger
