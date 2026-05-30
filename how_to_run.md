@@ -16,7 +16,7 @@ The default launch now uses the lightweight simulator built from the exact
 ```bash
 cd ~/ros_ws
 source install/setup.bash
-ros2 launch drone_control sim.launch.py
+ros2 launch drone_control sim.launch.py own_simulator:=true use_mavsdk:=false
 ```
 
 This starts:
@@ -33,8 +33,8 @@ Useful options:
 |---|---|---|
 | `controller_type` | `mpc`, `mpcc`, `mpcc_pp`, `mpc_rotor`, `position_ned`, `rl` | `mpcc_pp` |
 | `waypoints_file` | path to `.yaml` | `gates_config.yaml` |
-| `own_simulator` | `true` / `false` | `true` |
-| `use_mavsdk` | `true` / `false` | `false` |
+| `own_simulator` | `true` / `false` | `false` |
+| `use_mavsdk` | `true` / `false` | `true` |
 | `rviz` | `true` / `false` | `true` |
 | `plotjuggler` | `true` / `false` | `false` |
 

@@ -682,7 +682,7 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     ubx[4] = 7.7;
     ubx[5] = 7.7;
     ubx[6] = 7.7;
-    ubx[7] = 20;
+    ubx[7] = 8;
 
     for (int i = 1; i < N; i++)
     {
@@ -731,7 +731,7 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     ubx_e[4] = 7.7;
     ubx_e[5] = 7.7;
     ubx_e[6] = 7.7;
-    ubx_e[7] = 20;
+    ubx_e[7] = 8;
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "idxbx", idxbx_e);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "lbx", lbx_e);
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, nlp_out, N, "ubx", ubx_e);

@@ -148,7 +148,7 @@ model:
 
     # Progress velocity state bounds [m/s].
     progress_velocity_min_mps: 0.0
-    progress_velocity_max_mps: 10.0
+    progress_velocity_max_mps: 4.0
 
     # Progress acceleration control bounds [m/s^2].
     progress_acceleration_min_mps2: -10.0

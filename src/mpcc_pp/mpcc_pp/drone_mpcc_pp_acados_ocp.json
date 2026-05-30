@@ -202,7 +202,7 @@
             7.7,
             7.7,
             7.7,
-            20.0
+            8.0
         ],
         "ubx_0": [
             0.0,
@@ -233,7 +233,7 @@
             7.7,
             7.7,
             7.7,
-            20.0
+            8.0
         ],
         "ug": [],
         "ug_e": [],
@@ -367,7 +367,7 @@
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.c",
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.c"
     ],
-    "hash": "04d998609c02601d864b2b4a2af3beca",
+    "hash": "d224b8ea4fac86921367d0b948c9a72e",
     "model": {
         "con_h_expr": [],
         "con_h_expr_0": [],
