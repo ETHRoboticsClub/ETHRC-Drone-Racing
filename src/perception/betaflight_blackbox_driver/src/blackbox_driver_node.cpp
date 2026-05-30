@@ -37,6 +37,7 @@ public:
         this->declare_parameter("port", "/dev/ttyTHS1");
         this->declare_parameter("baud", 1500000);
         this->declare_parameter("imu_topic", "/imu0");
+        this->declare_parameter("imu_filtered_topic", "/imu_filtered");
         this->declare_parameter("target_hz", 150);
         this->declare_parameter("intra_skip_fields", 13);
         this->declare_parameter("debug_raw", false);
@@ -107,7 +108,9 @@ public:
 
         auto qos_profile = rclcpp::SensorDataQoS();
         qos_profile.keep_last(1);
+        std::string imu_filtered_topic = this->get_parameter("imu_filtered_topic").as_string();
         imu_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_topic_, qos_profile);
+        imu_filtered_pub_ = this->create_publisher<sensor_msgs::msg::Imu>(imu_filtered_topic, qos_profile);
         rpm_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(rpm_topic, qos_profile);
         battery_pub_ = this->create_publisher<sensor_msgs::msg::BatteryState>(battery_topic, qos_profile);
         motor_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(motor_topic, qos_profile);
@@ -222,6 +225,8 @@ private:
         int32_t erpm[4];
         int32_t vbat;
         int32_t rc_command[4];
+        int32_t gyro_filtered[3];
+        int32_t accel_filtered[3];
     };
 
     enum class ParseState { SYNC, HEADER, INTRA, INTER, MSP_V1, MSP_V2 };
@@ -244,6 +249,8 @@ private:
         int erpm_idx[4] = {-1, -1, -1, -1};
         int vbat_idx = -1;
         int rc_command_idx[4] = {-1, -1, -1, -1};
+        int gyro_filtered_idx[3] = {-1, -1, -1};
+        int accel_filtered_idx[3] = {-1, -1, -1};
         int total_fields = 0;
     };
 
@@ -289,6 +296,7 @@ private:
 
     struct sp_port* port_ = nullptr;
     rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_filtered_pub_;
     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr rpm_pub_;
     rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr battery_pub_;
     rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub_;
@@ -307,6 +315,8 @@ private:
     bool has_motor_mapped_ = false;
     bool has_vbat_mapped_ = false;
     bool has_rc_command_mapped_ = false;
+    bool has_gyro_filtered_mapped_ = false;
+    bool has_accel_filtered_mapped_ = false;
     bool erpm_valid_ = false;
     double vbat_scale_ = 0.01;
     double min_battery_voltage_ = 14.0;
@@ -789,6 +799,21 @@ private:
             }
         }
 
+        for (int axis = 0; axis < 3; axis++) {
+            if (has_gyro_filtered_mapped_ && i_map_.gyro_filtered_idx[axis] >= 0) {
+                if (!readMappedField(frame, total_fields, i_map_.gyro_filtered_idx[axis], candidate.gyro_filtered[axis])) {
+                    reason = "gyro_filtered I-frame index out of range";
+                    return false;
+                }
+            }
+            if (has_accel_filtered_mapped_ && i_map_.accel_filtered_idx[axis] >= 0) {
+                if (!readMappedField(frame, total_fields, i_map_.accel_filtered_idx[axis], candidate.accel_filtered[axis])) {
+                    reason = "accel_filtered I-frame index out of range";
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 
@@ -890,6 +915,30 @@ private:
                 const int pred = getPPredictor(p_map_.rc_command_idx[rc]);
                 candidate.rc_command[rc] = applyPredictor(pred, wire_val,
                     last_frame_.rc_command[rc], prev_frame_.rc_command[rc]);
+            }
+        }
+
+        // Filtered gyro/accel: use per-field predictor
+        for (int axis = 0; axis < 3; axis++) {
+            if (has_gyro_filtered_mapped_ && p_map_.gyro_filtered_idx[axis] >= 0) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.gyro_filtered_idx[axis], wire_val)) {
+                    reason = "gyro_filtered P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.gyro_filtered_idx[axis]);
+                candidate.gyro_filtered[axis] = applyPredictor(pred, wire_val,
+                    last_frame_.gyro_filtered[axis], prev_frame_.gyro_filtered[axis]);
+            }
+            if (has_accel_filtered_mapped_ && p_map_.accel_filtered_idx[axis] >= 0) {
+                int32_t wire_val = 0;
+                if (!readMappedField(frame, total_fields, p_map_.accel_filtered_idx[axis], wire_val)) {
+                    reason = "accel_filtered P-frame index out of range";
+                    return false;
+                }
+                const int pred = getPPredictor(p_map_.accel_filtered_idx[axis]);
+                candidate.accel_filtered[axis] = applyPredictor(pred, wire_val,
+                    last_frame_.accel_filtered[axis], prev_frame_.accel_filtered[axis]);
             }
         }
 
@@ -1340,6 +1389,26 @@ private:
         msg.angular_velocity.z = frame.gyro[2] * GYRO_SCALE;
 
         imu_pub_->publish(msg);
+
+        if (has_gyro_filtered_mapped_) {
+            auto filtered_msg = sensor_msgs::msg::Imu();
+            filtered_msg.header = msg.header;
+            filtered_msg.header.frame_id = "imu_link";
+            
+            filtered_msg.angular_velocity.x = frame.gyro_filtered[0] * GYRO_SCALE;
+            filtered_msg.angular_velocity.y = frame.gyro_filtered[1] * GYRO_SCALE;
+            filtered_msg.angular_velocity.z = frame.gyro_filtered[2] * GYRO_SCALE;
+            
+            if (has_accel_filtered_mapped_) {
+                filtered_msg.linear_acceleration.x = frame.accel_filtered[0] * ACCEL_SCALE * G_TO_MS2;
+                filtered_msg.linear_acceleration.y = frame.accel_filtered[1] * ACCEL_SCALE * G_TO_MS2;
+                filtered_msg.linear_acceleration.z = frame.accel_filtered[2] * ACCEL_SCALE * G_TO_MS2;
+            } else {
+                filtered_msg.linear_acceleration = msg.linear_acceleration;
+            }
+            
+            imu_filtered_pub_->publish(filtered_msg);
+        }
     }
 
     void publishRPM() {
@@ -1603,6 +1672,12 @@ private:
             has_gyro_mapped_ = true;
             has_accel_mapped_ = true;
         }
+        if (i_map_.gyro_filtered_idx[0] != -1) {
+            has_gyro_filtered_mapped_ = true;
+        }
+        if (i_map_.accel_filtered_idx[0] != -1) {
+            has_accel_filtered_mapped_ = true;
+        }
         if (i_map_.erpm_idx[0] != -1) {
             has_erpm_mapped_ = true;
         }
@@ -1632,6 +1707,12 @@ private:
             if (has_rc_command_mapped_) {
                 RCLCPP_INFO(this->get_logger(), "rcCommand fields mapped (indices: %d,%d,%d,%d)",
                             i_map_.rc_command_idx[0], i_map_.rc_command_idx[1], i_map_.rc_command_idx[2], i_map_.rc_command_idx[3]);
+            }
+
+            if (has_gyro_filtered_mapped_ || has_accel_filtered_mapped_) {
+                RCLCPP_INFO(this->get_logger(), "Filtered IMU fields mapped (Gyro: %s, Accel: %s)",
+                            has_gyro_filtered_mapped_ ? "YES" : "NO",
+                            has_accel_filtered_mapped_ ? "YES" : "NO");
             }
 
             if (!has_gyro_mapped_) RCLCPP_WARN(this->get_logger(), "Gyro fields not found in header");
@@ -1693,12 +1774,18 @@ private:
             f.erase(f.find_last_not_of(" \n\r\t") + 1);
 
             int local_idx = i - start_idx;
-            if (f == "gyroADC[0]" || f == "gyroRaw[0]" || f == "gyroUnfilt[0]" || f == "gi[0]") map.gyro_idx[0] = local_idx;
-            else if (f == "gyroADC[1]" || f == "gyroRaw[1]" || f == "gyroUnfilt[1]" || f == "gi[1]") map.gyro_idx[1] = local_idx;
-            else if (f == "gyroADC[2]" || f == "gyroRaw[2]" || f == "gyroUnfilt[2]" || f == "gi[2]") map.gyro_idx[2] = local_idx;
-            else if (f == "accelADC[0]" || f == "accSmooth[0]" || f == "accelRaw[0]" || f == "ai[0]") map.accel_idx[0] = local_idx;
-            else if (f == "accelADC[1]" || f == "accSmooth[1]" || f == "accelRaw[1]" || f == "ai[1]") map.accel_idx[1] = local_idx;
-            else if (f == "accelADC[2]" || f == "accSmooth[2]" || f == "accelRaw[2]" || f == "ai[2]") map.accel_idx[2] = local_idx;
+            if (f == "gyroUnfilt[0]" || f == "gyroRaw[0]" || f == "gi[0]") map.gyro_idx[0] = local_idx;
+            else if (f == "gyroUnfilt[1]" || f == "gyroRaw[1]" || f == "gi[1]") map.gyro_idx[1] = local_idx;
+            else if (f == "gyroUnfilt[2]" || f == "gyroRaw[2]" || f == "gi[2]") map.gyro_idx[2] = local_idx;
+            else if (f == "gyroADC[0]") { if (map.gyro_idx[0] == -1) map.gyro_idx[0] = local_idx; }
+            else if (f == "gyroADC[1]") { if (map.gyro_idx[1] == -1) map.gyro_idx[1] = local_idx; }
+            else if (f == "gyroADC[2]") { if (map.gyro_idx[2] == -1) map.gyro_idx[2] = local_idx; }
+            else if (f == "accelRaw[0]" || f == "ai[0]") map.accel_idx[0] = local_idx;
+            else if (f == "accelRaw[1]" || f == "ai[1]") map.accel_idx[1] = local_idx;
+            else if (f == "accelRaw[2]" || f == "ai[2]") map.accel_idx[2] = local_idx;
+            else if (f == "accelADC[0]" || f == "accSmooth[0]") { if (map.accel_idx[0] == -1) map.accel_idx[0] = local_idx; }
+            else if (f == "accelADC[1]" || f == "accSmooth[1]") { if (map.accel_idx[1] == -1) map.accel_idx[1] = local_idx; }
+            else if (f == "accelADC[2]" || f == "accSmooth[2]") { if (map.accel_idx[2] == -1) map.accel_idx[2] = local_idx; }
             else if (f == "motor[0]") map.motor_idx[0] = local_idx;
             else if (f == "motor[1]") map.motor_idx[1] = local_idx;
             else if (f == "motor[2]") map.motor_idx[2] = local_idx;
