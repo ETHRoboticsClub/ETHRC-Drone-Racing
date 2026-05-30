@@ -10,7 +10,7 @@
 """
 Plot Vicon XY trajectory and body +X / +Y axes from a ROS 2 bag.
 
-Reads /vicon/zephyrus/zephyrus (geometry_msgs/PoseStamped) directly from
+Reads /vicon/boreas/boreas (geometry_msgs/PoseStamped) directly from
 the bag — no need to run ``ros2 bag play`` in another terminal.
 
 Usage
@@ -36,7 +36,7 @@ from rosbags.typesys import Stores, get_typestore
 BAGS_DIR = Path(__file__).resolve().parent
 DEFAULT_BAG_NAME = "2026-05-17-zephyrus-multi-gate2"
 DEFAULT_BAG = BAGS_DIR / DEFAULT_BAG_NAME
-DEFAULT_TOPIC = "/vicon/zephyrus/zephyrus"
+DEFAULT_TOPIC = "/vicon/boreas/boreas"
 
 RED_BLUE_CMAP = LinearSegmentedColormap.from_list(
     "red_blue", ["#ff0000", "#0000ff"]

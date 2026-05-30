@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Filter a rosbag to /vicon/zephyrus/zephyrus + /imu0, then build a
+"""Filter a rosbag to /vicon/boreas/boreas + /imu0, then build a
 synchronized trajectory pickle with finite-difference linear_velocity.
 
 Usage:
@@ -31,7 +31,7 @@ import rosbag2_py
 from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
 
-VICON_TOPIC = "/vicon/zephyrus/zephyrus"
+VICON_TOPIC = "/vicon/boreas/boreas"
 IMU_TOPIC = "/imu0"
 
 
