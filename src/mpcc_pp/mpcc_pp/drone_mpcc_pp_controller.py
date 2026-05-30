@@ -620,6 +620,8 @@ class DroneMpccPpController(ControllerInterface):
             self._opt._warm = False   # force cold start after lap wrap
 
         # Compute path + tunnel geometry and append runtime cost parameters.
+        # import time
+        # tic = time.time()
         stage_params = self._path.get_tunnel_params(
             theta        = self._theta,
             n_stages     = self.Nnodes + 1,
@@ -630,6 +632,8 @@ class DroneMpccPpController(ControllerInterface):
             W_default    = self._disabled_W,
             H_default    = self._disabled_H,
         )
+        # tac = time.time()
+        # print(f"Took {tac - tic:.5f} s")
         stage_params = self._append_cost_params(stage_params)
 
         # Solve mpcc_pp OCP

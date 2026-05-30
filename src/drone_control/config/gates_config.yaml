@@ -2,9 +2,10 @@
 # Multi-track configuration — NED frame (z negative = altitude above ground)
 #
 # To select a track, change the value of active_track:
-#   active_track: horizontal   → straight constant-altitude row with lead-in
-#   active_track: vertical     → straight climbing row with lead-in
-#   active_track: circular     → 8 gates equally spaced on an offset circle
+#   active_track: horizontal        → straight constant-altitude row with lead-in
+#   active_track: wavy_horizontal   → straight row with gentle altitude waves
+#   active_track: vertical          → straight climbing row with lead-in
+#   active_track: circular          → 8 gates equally spaced on an offset circle
 #   active_track: SplitS       → circuit with one Split-S maneuver:
 #                                G4 (entry) directly above G5 (exit), 3.5 m lower,
 #                                yaw reversed 180° — drone rolls inverted and
@@ -29,7 +30,7 @@
 #   track_weight penalty weight for track-constraint soft barrier in OCP cost
 #   SHOW_TUNNEL  publish the MPCC tunnel in RViz
 
-active_track: horizontal  # horizontal, vertical, circular, or SplitS
+active_track: SplitS  # horizontal, wavy_horizontal, vertical, circular, or SplitS
 
 tracks:
 
@@ -109,6 +110,88 @@ tracks:
         x: 64.0
         y:  0.0
         z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+
+  # ──────────────────────────────────────────────────────────────────
+  # WAVY_HORIZONTAL — straight row with gentle altitude waves.
+  # x increases like the horizontal track, y stays centred, and z oscillates
+  # around -3.0 m so the drone flies a mild up/down profile.
+  # ──────────────────────────────────────────────────────────────────
+  wavy_horizontal:
+    track:
+      SHOW_TUNNEL:   true
+      W_nominal:    4.0
+      H_nominal:    4.0
+      sigma_gate:   3.0
+      qc_nom:       3.0
+      qc_gate:      15.0
+      sigma_qc:     0.5
+      track_weight: 10.0
+    gates:
+      # G1-G8 — horizontal line with small altitude oscillations
+      - name: G1
+        x:  8.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G2
+        x: 16.0
+        y:  0.0
+        z: -3.8
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G3
+        x: 24.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G4
+        x: 32.0
+        y:  0.0
+        z: -2.2
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G6
+        x: 48.0
+        y:  0.0
+        z: -3.8
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G7
+        x: 56.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G8
+        x: 64.0
+        y:  0.0
+        z: -2.2
         yaw_deg:   0.0
         width:  2.0
         height: 2.0
