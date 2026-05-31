@@ -1,4 +1,4 @@
 output_bags:
   - uri: bags/bag/filtered
     storage_id: sqlite3
-    topics: [/vicon/boreas/boreas, /imu0]
+    topics: [/vicon/boreas/boreas, /imu0, /joystick_inputs]

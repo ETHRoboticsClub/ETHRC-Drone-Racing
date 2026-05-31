@@ -12,7 +12,14 @@ The output pickle contains a dict of numpy arrays:
       'orientation':      (N, 4)  xyzw
       'linear_velocity':  (N, 3)
       'angular_velocity': (N, 3)
+      'rc_command':       (N, 4)  raw Betaflight rcCommand [roll, pitch, yaw, throttle]
+                                  (present only if /joystick_inputs was recorded;
+                                   time-aligned to the trajectory via the IMU clock)
     }
+
+The joystick topic is headerless (bag-receive time), on a different clock than
+the Vicon/IMU header stamps. It is aligned onto the trajectory clock using the
+IMU as a shared reference before resampling (see align_joystick_time).
 """
 from __future__ import annotations
 
@@ -33,11 +40,15 @@ from rosidl_runtime_py.utilities import get_message
 
 VICON_TOPIC = "/vicon/boreas/boreas"
 IMU_TOPIC = "/imu0"
+# Pilot stick demands reconstructed from the Betaflight blackbox stream
+# (betaflight_blackbox_driver). std_msgs/Float64MultiArray, 4 floats:
+# rcCommand = [roll, pitch, yaw, throttle]. Headerless -> stamped by bag time.
+JOYSTICK_TOPIC = "/joystick_inputs"
 
 
 def run_filter(input_bag: Path, output_bag: Path) -> None:
     """Invoke `ros2 bag convert` with a generated yaml that keeps only the
-    Vicon + IMU topics."""
+    Vicon + IMU + joystick topics."""
     if output_bag.exists():
         shutil.rmtree(output_bag)
 
@@ -46,7 +57,7 @@ def run_filter(input_bag: Path, output_bag: Path) -> None:
             "output_bags:\n"
             f"  - uri: {output_bag}\n"
             "    storage_id: sqlite3\n"
-            f"    topics: [{VICON_TOPIC}, {IMU_TOPIC}]\n"
+            f"    topics: [{VICON_TOPIC}, {IMU_TOPIC}, {JOYSTICK_TOPIC}]\n"
         )
         yaml_path = f.name
 
@@ -60,7 +71,7 @@ def run_filter(input_bag: Path, output_bag: Path) -> None:
 
 
 def read_streams(bag_dir: Path):
-    """Read Vicon and IMU streams from a bag directory."""
+    """Read Vicon, IMU, and (optional) joystick streams from a bag directory."""
     storage = rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id="sqlite3")
     converter = rosbag2_py.ConverterOptions("", "")
     reader = rosbag2_py.SequentialReader()
@@ -68,12 +79,13 @@ def read_streams(bag_dir: Path):
 
     type_map = {t.name: t.type for t in reader.get_all_topics_and_types()}
 
-    vicon = []  # (t, pos[3], quat[4])
-    imu = []  # (t, omega[3])
+    vicon = []  # (header_t, pos[3], quat[4])
+    imu = []  # (header_t, bag_t, omega[3])
+    joy = []  # (bag_t, rc_command[4])
 
     while reader.has_next():
-        topic, raw, _t_ns = reader.read_next()
-        if topic not in (VICON_TOPIC, IMU_TOPIC):
+        topic, raw, t_ns = reader.read_next()
+        if topic not in (VICON_TOPIC, IMU_TOPIC, JOYSTICK_TOPIC):
             continue
         msg_cls = get_message(type_map[topic])
         msg = deserialize_message(raw, msg_cls)
@@ -82,21 +94,33 @@ def read_streams(bag_dir: Path):
             p = msg.pose.position
             q = msg.pose.orientation
             vicon.append((t, [p.x, p.y, p.z], [q.x, q.y, q.z, q.w]))
-        else:
+        elif topic == IMU_TOPIC:
+            # Keep BOTH clocks: the header stamp defines the trajectory
+            # timeline, and the bag-receive time (t_ns) is the shared clock the
+            # headerless joystick is stamped on. Their offset aligns the two.
             t = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
             w = msg.angular_velocity
-            imu.append((t, [w.x, w.y, w.z]))
+            imu.append((t, t_ns * 1e-9, [w.x, w.y, w.z]))
+        else:  # JOYSTICK_TOPIC — Float64MultiArray has no header; use bag time.
+            if len(msg.data) < 4:
+                continue
+            joy.append((t_ns * 1e-9, [float(d) for d in msg.data[:4]]))
 
     vicon.sort(key=lambda x: x[0])
     imu.sort(key=lambda x: x[0])
+    joy.sort(key=lambda x: x[0])
 
     v_t = np.array([v[0] for v in vicon])
     v_p = np.array([v[1] for v in vicon])
     v_q = np.array([v[2] for v in vicon])
 
     i_t = np.array([v[0] for v in imu])
-    i_w = np.array([v[1] for v in imu])
-    return v_t, v_p, v_q, i_t, i_w
+    i_bag = np.array([v[1] for v in imu])
+    i_w = np.array([v[2] for v in imu])
+
+    j_bag = np.array([v[0] for v in joy])
+    j_rc = np.array([v[1] for v in joy]) if joy else np.empty((0, 4))
+    return v_t, v_p, v_q, i_t, i_w, i_bag, j_bag, j_rc
 
 
 def vicon_velocity(v_t: np.ndarray, v_p: np.ndarray) -> np.ndarray:
@@ -144,7 +168,35 @@ def lerp_batch(t_src: np.ndarray, y_src: np.ndarray, t_tgt: np.ndarray) -> np.nd
     return out
 
 
-def resample(v_t, v_p, v_q, v_v, i_t, i_w, rate_hz: float):
+def zoh_batch(t_src: np.ndarray, y_src: np.ndarray, t_tgt: np.ndarray) -> np.ndarray:
+    """Zero-order hold: each target sample takes the most recent source value.
+
+    Used for discrete command signals (rcCommand) where linear interpolation
+    would invent stick positions the pilot never held. Targets before the first
+    source sample hold the first value; after the last, hold the last value.
+    """
+    idx = np.searchsorted(t_src, t_tgt, side="right") - 1
+    idx = np.clip(idx, 0, len(t_src) - 1)
+    return y_src[idx]
+
+
+def align_joystick_time(i_t: np.ndarray, i_bag: np.ndarray, j_bag: np.ndarray):
+    """Map joystick bag-receive timestamps onto the trajectory (header-stamp) clock.
+
+    ``/joystick_inputs`` is a headerless Float64MultiArray, so it is stamped with
+    bag-receive time, whereas the Vicon/IMU trajectory uses sensor header stamps
+    — two different clock epochs that do NOT start together. ``/imu0`` and
+    ``/joystick_inputs`` are published by the same node (betaflight_blackbox_driver),
+    so the IMU carries both clocks per message; the median ``header - bag`` offset
+    converts joystick bag time into the trajectory clock.
+
+    Returns ``(j_t_in_header_clock, offset_seconds)``.
+    """
+    offset = float(np.median(i_t - i_bag))
+    return j_bag + offset, offset
+
+
+def resample(v_t, v_p, v_q, v_v, i_t, i_w, j_t, j_rc, rate_hz: float):
     dt = 1.0 / rate_hz
     t0 = max(v_t[0], i_t[0])
     t1 = min(v_t[-1], i_t[-1])
@@ -155,7 +207,18 @@ def resample(v_t, v_p, v_q, v_v, i_t, i_w, rate_hz: float):
     vel = lerp_batch(v_t, v_v, t_grid)
     quat = slerp_batch(v_t, v_q, t_grid)
     omega = lerp_batch(i_t, i_w, t_grid)
-    return t_grid - t_grid[0], pos, quat, vel, omega
+    # rcCommand is a discrete command stream -> zero-order hold (not lerp).
+    # j_t must already be on the trajectory clock (see align_joystick_time);
+    # ZOH then pairs each grid sample with the most recent pilot command.
+    # coverage = fraction of the grid actually spanned by joystick data; the
+    # remainder is end-clamped (held) and is NOT real pilot input.
+    rc = None
+    coverage = None
+    if len(j_t) > 0:
+        rc = zoh_batch(j_t, j_rc, t_grid)
+        in_range = (t_grid >= j_t[0]) & (t_grid <= j_t[-1])
+        coverage = float(np.count_nonzero(in_range)) / len(t_grid)
+    return t_grid - t_grid[0], pos, quat, vel, omega, rc, coverage
 
 
 def main():
@@ -182,23 +245,44 @@ def main():
         run_filter(input_bag, filtered)
 
     print(f"[2/2] reading + computing linear_velocity", flush=True)
-    v_t, v_p, v_q, i_t, i_w = read_streams(filtered)
+    v_t, v_p, v_q, i_t, i_w, i_bag, j_bag, j_rc = read_streams(filtered)
     if len(v_t) < 2 or len(i_t) < 2:
         sys.exit(f"insufficient samples (vicon={len(v_t)}, imu={len(i_t)})")
+
+    # Put the headerless joystick stream onto the trajectory clock using the IMU
+    # as a shared time reference (both come from betaflight_blackbox_driver).
+    if len(j_bag) == 0:
+        print(f"  WARNING: no '{JOYSTICK_TOPIC}' messages found; 'rc_command' "
+              "will be omitted and actions will be empty downstream.", flush=True)
+        j_t = np.empty((0,))
+    else:
+        j_t, offset = align_joystick_time(i_t, i_bag, j_bag)
+        print(f"  joystick: {len(j_t)} rcCommand samples "
+              f"(bag->trajectory clock offset {offset:+.3f}s)", flush=True)
+
     v_v = vicon_velocity(v_t, v_p)
 
-    t, pos, quat, vel, omega = resample(v_t, v_p, v_q, v_v, i_t, i_w, args.rate)
+    t, pos, quat, vel, omega, rc, coverage = resample(
+        v_t, v_p, v_q, v_v, i_t, i_w, j_t, j_rc, args.rate)
+    if coverage is not None and coverage < 0.999:
+        print(f"  WARNING: joystick covers only {coverage*100:.1f}% of the "
+              "trajectory time span; out-of-range samples are end-clamped "
+              "(held), not real pilot input.", flush=True)
+
+    out = {
+        "t": t,
+        "position": pos,
+        "orientation": quat,
+        "linear_velocity": vel,
+        "angular_velocity": omega,
+        "rate_hz": args.rate,
+    }
+    if rc is not None:
+        out["rc_command"] = rc
 
     out_pkl = (args.out_pkl or input_bag.parent / f"{input_bag.name}_traj.pkl").resolve()
     with open(out_pkl, "wb") as f:
-        pickle.dump({
-            "t": t,
-            "position": pos,
-            "orientation": quat,
-            "linear_velocity": vel,
-            "angular_velocity": omega,
-            "rate_hz": args.rate,
-        }, f)
+        pickle.dump(out, f)
     print(f"wrote {out_pkl}  ({len(t)} samples @ {args.rate} Hz)")
 
 
