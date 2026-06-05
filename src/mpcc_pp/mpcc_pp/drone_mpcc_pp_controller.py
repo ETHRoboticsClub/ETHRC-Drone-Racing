@@ -631,6 +631,7 @@ class DroneMpccPpController(ControllerInterface):
         # Compute path + tunnel geometry and append runtime cost parameters.
         # import time
         # tic = time.time()
+        theta_values = self._warm_start_theta_values(self.Nnodes + 1)
         stage_params = self._path.get_tunnel_params(
             theta        = self._theta,
             n_stages     = self.Nnodes + 1,
@@ -640,6 +641,7 @@ class DroneMpccPpController(ControllerInterface):
             qc_gate      = self._qc_gate,
             W_default    = self._disabled_W,
             H_default    = self._disabled_H,
+            theta_values = theta_values,
         )
         # tac = time.time()
         # print(f"Took {tac - tic:.5f} s")
@@ -698,6 +700,32 @@ class DroneMpccPpController(ControllerInterface):
         if not np.isfinite(converted) or converted <= 0.0:
             raise ValueError(f"{name} must be a finite positive value")
         return converted
+
+    def _warm_start_theta_values(self, n_stages: int) -> np.ndarray | None:
+        """Shift the previous optimized theta trajectory for path geometry."""
+        if self._opt is None or not getattr(self._opt, '_warm', False):
+            return None
+
+        x_pred = getattr(self, '_last_x_pred', None)
+        if x_pred is None:
+            return None
+        x_pred = np.asarray(x_pred, dtype=np.float64)
+        if x_pred.ndim != 2 or x_pred.shape[0] < 2 or x_pred.shape[1] <= 17:
+            return None
+
+        source = x_pred[1:, 17]
+        theta_values = np.empty(n_stages, dtype=np.float64)
+        n_copy = min(n_stages, source.size)
+        theta_values[:n_copy] = source[:n_copy]
+        if n_copy < n_stages:
+            theta_values[n_copy:] = source[-1]
+
+        if not np.isfinite(theta_values).all():
+            return None
+
+        theta_values += self._theta - theta_values[0]
+        theta_values = np.maximum.accumulate(theta_values)
+        return np.clip(theta_values, 0.0, self._path.total_length)
 
     def _append_cost_params(self, stage_params: np.ndarray) -> np.ndarray:
         """Append runtime cost weights and discounts to stage parameters."""

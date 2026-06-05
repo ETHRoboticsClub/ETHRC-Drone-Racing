@@ -161,7 +161,8 @@ class RacingPath:
                           qc_nom: float = 0.5,
                           qc_gate: float = 10.0,
                           W_default: float = 1000.0,
-                          H_default: float = 1000.0) -> np.ndarray:
+                          H_default: float = 1000.0,
+                          theta_values: np.ndarray = None) -> np.ndarray:
         """
         16-column geometry parameters for the Track-Constraint OCP.
 
@@ -182,7 +183,8 @@ class RacingPath:
               [15]    theta_ref nominal progress used for p_ref update
         """
         params = np.zeros((n_stages, 16))
-        thetas = self._horizon_thetas(theta, n_stages, dt, vtheta_guess)
+        thetas = self._resolve_horizon_thetas(
+            theta, n_stages, dt, vtheta_guess, theta_values)
         pds, tds = self._lookup_position_tangent_many(thetas)
         qcs = self.contouring_weights(pds, qc_nom, qc_gate)
 
@@ -297,6 +299,20 @@ class RacingPath:
             theta0 + step * np.arange(n_stages, dtype=np.float64),
             self.total_length,
         )
+
+    def _resolve_horizon_thetas(self, theta: float, n_stages: int, dt: float,
+                                vtheta_guess: float,
+                                theta_values: np.ndarray = None) -> np.ndarray:
+        if theta_values is None:
+            return self._horizon_thetas(theta, n_stages, dt, vtheta_guess)
+
+        thetas = np.asarray(theta_values, dtype=np.float64).reshape(-1)
+        if thetas.size == 0 or not np.isfinite(thetas).all():
+            return self._horizon_thetas(theta, n_stages, dt, vtheta_guess)
+        if thetas.size < n_stages:
+            thetas = np.pad(thetas, (0, n_stages - thetas.size),
+                            mode='edge')
+        return np.clip(thetas[:n_stages], 0.0, self.total_length)
 
     def _clip(self, theta: float) -> float:
         return float(np.clip(theta, 0.0, self.total_length))
@@ -608,6 +624,7 @@ class GatedRacingPath(RacingPath):
                           vtheta_guess: float = 3.0,
                           qc_nom: float = 0.5,
                           qc_gate: float = 10.0,
+                          theta_values: np.ndarray = None,
                           **kwargs) -> np.ndarray:
         """
         Pre-compute ACADOS stage parameters including tunnel geometry.
@@ -624,7 +641,8 @@ class GatedRacingPath(RacingPath):
               [15]    theta_ref — nominal progress for symbolic p_ref update
         """
         params = np.zeros((n_stages, 16))
-        thetas = self._horizon_thetas(theta, n_stages, dt, vtheta_guess)
+        thetas = self._resolve_horizon_thetas(
+            theta, n_stages, dt, vtheta_guess, theta_values)
         pds, tds = self._lookup_position_tangent_many(thetas)
         qcs = self.contouring_weights(pds, qc_nom, qc_gate)
         widths = self.tunnel_widths(thetas)
