@@ -241,7 +241,7 @@ class DroneMpccPpModel:
         constraint.f_max = np.full(4, self.F_MAX)
 
         # Per-rotor thrust rate [N/s] — controls 1:5
-        df_rate = float(constraint_params.get('rotor_thrust_rate_max_nps', 20.0))
+        df_rate = float(constraint_params.get('rotor_thrust_rate_max_nps', 4.0))
         constraint.df_min = np.full(4, -df_rate)
         constraint.df_max = np.full(4,  df_rate)
 
@@ -253,9 +253,9 @@ class DroneMpccPpModel:
 
         # Progress acceleration [m/s²] — control 0
         constraint.dvt_min = float(
-            constraint_params.get('progress_acceleration_min_mps2', -10.0))
+            constraint_params.get('progress_acceleration_min_mps2', -1.5))
         constraint.dvt_max = float(
-            constraint_params.get('progress_acceleration_max_mps2', 10.0))
+            constraint_params.get('progress_acceleration_max_mps2', 1.5))
 
         self.model      = model
         self.constraint = constraint

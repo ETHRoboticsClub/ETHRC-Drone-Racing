@@ -417,8 +417,8 @@ void drone_mpcc_pp_acados_create_set_default_parameters(drone_mpcc_pp_solver_cap
     double* p = calloc(NP, sizeof(double));
     p[16] = 4;
     p[17] = 0.004;
-    p[18] = 0.35;
-    p[19] = 0.015;
+    p[18] = 2;
+    p[19] = 0.08;
     p[20] = 0.2;
     p[21] = 8;
     p[22] = 1;
@@ -632,16 +632,16 @@ void drone_mpcc_pp_acados_setup_nlp_in(drone_mpcc_pp_solver_capsule* capsule, co
     double* lubu = calloc(2*NBU, sizeof(double));
     double* lbu = lubu;
     double* ubu = lubu + NBU;
-    lbu[0] = -10;
-    ubu[0] = 10;
-    lbu[1] = -20;
-    ubu[1] = 20;
-    lbu[2] = -20;
-    ubu[2] = 20;
-    lbu[3] = -20;
-    ubu[3] = 20;
-    lbu[4] = -20;
-    ubu[4] = 20;
+    lbu[0] = -1.5;
+    ubu[0] = 1.5;
+    lbu[1] = -4;
+    ubu[1] = 4;
+    lbu[2] = -4;
+    ubu[2] = 4;
+    lbu[3] = -4;
+    ubu[3] = 4;
+    lbu[4] = -4;
+    ubu[4] = 4;
 
     for (int i = 0; i < N; i++)
     {

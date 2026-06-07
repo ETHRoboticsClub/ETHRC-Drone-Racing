@@ -88,10 +88,10 @@ cost:
 
   # Progress-acceleration cost. Increase to make vtheta and the RViz progress
   # point move more smoothly; decrease for faster acceleration along the path.
-  r_dvt: 0.35 # was 0.0002
+  r_dvt: 2.0 # was 0.35
 
   # Rotor thrust-rate cost. Increase to smooth rotor commands.
-  R_df: 0.015 # was 0.0003
+  R_df: 0.08 # was 0.015
 
   # Progress reward. Increase for faster racing; decrease when tracking and
   # stability should dominate.
@@ -144,15 +144,15 @@ model:
     body_rate_max_rad_s: 3.141592653589793
 
     # Per-rotor thrust-rate control bound [N/s].
-    rotor_thrust_rate_max_nps: 20.0
+    rotor_thrust_rate_max_nps: 4.0
 
     # Progress velocity state bounds [m/s].
     progress_velocity_min_mps: 0.0
     progress_velocity_max_mps: 4.0
 
     # Progress acceleration control bounds [m/s^2].
-    progress_acceleration_min_mps2: -10.0
-    progress_acceleration_max_mps2: 10.0
+    progress_acceleration_min_mps2: -1.5
+    progress_acceleration_max_mps2: 1.5
 
 solver:
   # ACADOS solver settings. These affect numerical behavior and can trigger

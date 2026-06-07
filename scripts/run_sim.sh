@@ -25,6 +25,15 @@ PX4_DIR="$REPO_ROOT/px4/PX4-Autopilot"
 
 cd "$PX4_DIR"
 
+XRCE_AGENT_PID=""
+cleanup() {
+    if [[ -n "$XRCE_AGENT_PID" ]] && kill -0 "$XRCE_AGENT_PID" 2>/dev/null; then
+        kill "$XRCE_AGENT_PID" 2>/dev/null || true
+        wait "$XRCE_AGENT_PID" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT INT TERM
+
 echo ""
 echo "====================================================="
 echo "Launching PX4 SITL"
@@ -32,6 +41,33 @@ echo "  Model : $MODEL"
 echo "  World : $WORLD"
 echo "====================================================="
 echo ""
+
+if command -v MicroXRCEAgent >/dev/null 2>&1; then
+    if ! pgrep -f "MicroXRCEAgent.*udp4.*-p 8888" >/dev/null 2>&1; then
+        echo "Starting Micro XRCE-DDS Agent on UDP port 8888..."
+        MicroXRCEAgent udp4 -p 8888 >/tmp/micro_xrce_agent_8888.log 2>&1 &
+        XRCE_AGENT_PID=$!
+        sleep 1
+        if ! kill -0 "$XRCE_AGENT_PID" 2>/dev/null; then
+            echo "ERROR: MicroXRCEAgent exited immediately. See /tmp/micro_xrce_agent_8888.log"
+            exit 1
+        fi
+    else
+        echo "Micro XRCE-DDS Agent already running on UDP port 8888."
+    fi
+else
+    cat <<'EOF'
+ERROR: MicroXRCEAgent is not installed or not in PATH.
+
+PX4 SITL starts uxrce_dds_client on UDP port 8888, but ROS 2 will not see
+/fmu/out/... topics unless the Micro XRCE-DDS Agent is running.
+
+Install eProsima Micro XRCE-DDS Agent, then run again:
+  MicroXRCEAgent udp4 -p 8888
+
+EOF
+    exit 1
+fi
 
 BUILD_NINJA="$PX4_DIR/build/px4_sitl_default/build.ninja"
 if [[ -f "$BUILD_NINJA" ]] && ! grep -q "build $MODEL:" "$BUILD_NINJA"; then

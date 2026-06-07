@@ -185,8 +185,8 @@ int drone_mpcc_pp_acados_sim_create(drone_mpcc_pp_sim_solver_capsule * capsule)
     
     p[16] = 4;
     p[17] = 0.004;
-    p[18] = 0.35;
-    p[19] = 0.015;
+    p[18] = 2;
+    p[19] = 0.08;
     p[20] = 0.2;
     p[21] = 8;
     p[22] = 1;

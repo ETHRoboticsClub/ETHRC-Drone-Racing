@@ -137,6 +137,7 @@ class DroneController(Node):
     mpcc_ref_path_publisher: Publisher
     mpcc_tunnel_publisher: Publisher
     mpcc_horizon_publisher: Publisher
+    mpcc_rotor_thrust_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
 
@@ -276,6 +277,8 @@ class DroneController(Node):
             MarkerArray, '/mpcc/predicted_horizon', 10)
         self.mpcc_progress_point_publisher = self.create_publisher(
             MarkerArray, '/mpcc/progress_point', 10)
+        self.mpcc_rotor_thrust_publisher = self.create_publisher(
+            Float64MultiArray, '/mpcc/optimized_rotor_thrust', 10)
         self._mpcc_pub_counter = 0
 
         # ── Controller instantiation via registry ──────────────────────────
@@ -772,6 +775,7 @@ class DroneController(Node):
             self._publish_mpcc_horizon()
             self._publish_mpcc_progress_point()
             self._publish_mpcc_simulator_action()
+            self._publish_mpcc_rotor_thrust()
 
         if self._verbose:
             self._publish_debug_counter += 1
@@ -816,6 +820,24 @@ class DroneController(Node):
         msg = Float64MultiArray()
         msg.data = [float(v) for v in u_opt]
         self.simulator_action_publisher.publish(msg)
+
+    def _publish_mpcc_rotor_thrust(self) -> None:
+        """Publish the MPCC++ optimized next-step per-rotor thrust [N]."""
+        x_pred = getattr(self.controller, '_last_x_pred', None)
+        if x_pred is None:
+            return
+
+        x_pred = np.asarray(x_pred, dtype=np.float64)
+        if x_pred.ndim != 2 or x_pred.shape[0] < 2 or x_pred.shape[1] < 17:
+            return
+
+        rotor_thrust = x_pred[1, 13:17]
+        if rotor_thrust.shape != (4,) or not np.isfinite(rotor_thrust).all():
+            return
+
+        msg = Float64MultiArray()
+        msg.data = [float(v) for v in rotor_thrust]
+        self.mpcc_rotor_thrust_publisher.publish(msg)
 
     def _record_speed_sample(self, current_state: np.ndarray) -> None:
         """Accumulate speed stats and print them every fixed interval."""
