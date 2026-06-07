@@ -88,17 +88,25 @@ cost:
 
   # Progress-acceleration cost. Increase to make vtheta and the RViz progress
   # point move more smoothly; decrease for faster acceleration along the path.
-  r_dvt: 2.0 # was 0.35
+  r_dvt: 0.6 # was 0.5 — smoother vtheta response, less eager acceleration
 
   # Rotor thrust-rate cost. Increase to smooth rotor commands.
   R_df: 0.08 # was 0.015
 
   # Progress reward. Increase for faster racing; decrease when tracking and
   # stability should dominate.
-  mu: 0.2 # was 10
+  mu: 10.0 # was 14.0 — back to the historical reference pace
 
   # Soft-barrier weight for tunnel halfspace violations.
   track_weight: 8.0 # was 10
+
+  # Regularization tying the optimized progress state theta_k to its
+  # linearisation point theta_ref (a soft trust region, analogous to
+  # Liniger's s_trust_region). Keeps the 2nd-order Taylor expansion of
+  # p_ref — and the tunnel error derived from it — valid around theta_ref.
+  # Increase if the solver lets theta_k drift far from theta_ref between
+  # RTI steps; decrease if it limits progress unnecessarily.
+  r_theta_dev: 1.0
 
   # Horizon cost discount base gamma. 1.0 disables discounting; lower values
   # make later shooting stages matter less than near-term stages.
@@ -148,11 +156,13 @@ model:
 
     # Progress velocity state bounds [m/s].
     progress_velocity_min_mps: 0.0
-    progress_velocity_max_mps: 4.0
+    progress_velocity_max_mps: 10.0 # was 4.0 — raised the speed ceiling; triggers an ACADOS rebuild
 
     # Progress acceleration control bounds [m/s^2].
-    progress_acceleration_min_mps2: -1.5
-    progress_acceleration_max_mps2: 1.5
+    # Raised alongside the velocity ceiling so the OCP can actually reach/use
+    # it within the horizon (at +-1.5 m/s^2 it would take ~13s to span 0-20 m/s).
+    progress_acceleration_min_mps2: -4.0 # was -1.5
+    progress_acceleration_max_mps2: 4.0  # was 1.5
 
 solver:
   # ACADOS solver settings. These affect numerical behavior and can trigger

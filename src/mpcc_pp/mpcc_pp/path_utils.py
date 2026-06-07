@@ -48,6 +48,12 @@ from scipy.interpolate import CubicHermiteSpline, CubicSpline
 # Values outside [0, 1] are clipped when GatedRacingPath is built.
 tau = 0.95
 
+# Number of columns in the geometry parameter matrix returned by
+# get_tunnel_params(). Must match DroneOptimizerMpccPp.GEOMETRY_NP in
+# drone_opt.py (p_ref[3] + t_ref[3] + qc[1] + n_ref[3] + b_ref[3] +
+# W[1] + H[1] + theta_ref[1] + c_ref[3] = 19).
+GEOMETRY_NP = 19
+
 
 class RacingPath:
     """
@@ -95,6 +101,12 @@ class RacingPath:
         self._cs_dx = self._cs_x.derivative()
         self._cs_dy = self._cs_y.derivative()
         self._cs_dz = self._cs_z.derivative()
+
+        # Second derivatives w.r.t. arc length — curvature vector p^{d''}(θ),
+        # used for the 2nd-order Taylor correction of the path reference.
+        self._cs_d2x = self._cs_x.derivative(2)
+        self._cs_d2y = self._cs_y.derivative(2)
+        self._cs_d2z = self._cs_z.derivative(2)
         self._build_lookup_table()
 
     # ------------------------------------------------------------------
@@ -164,7 +176,7 @@ class RacingPath:
                           H_default: float = 1000.0,
                           theta_values: np.ndarray = None) -> np.ndarray:
         """
-        16-column geometry parameters for the Track-Constraint OCP.
+        19-column geometry parameters for the Track-Constraint OCP.
 
         This default implementation uses very large W and H (1000 m) so the
         track constraint is inactive.  GatedRacingPath overrides this method
@@ -172,20 +184,24 @@ class RacingPath:
         before passing the full parameter matrix to ACADOS.
 
         Returns:
-            params: (n_stages, 16) — columns:
+            params: (n_stages, 19) — columns:
               [0:3]   p_ref  nominal reference position p^d(theta_ref)
-              [3:6]   t_ref  unit tangent
+              [3:6]   t_ref  unit tangent               p^{d'}(theta_ref)
               [6]     qc     contouring weight
               [7:10]  n_ref  horizontal tunnel normal  (right direction)
               [10:13] b_ref  vertical   tunnel normal  (up direction)
               [13]    W      tunnel half-width
               [14]    H      tunnel half-height
               [15]    theta_ref nominal progress used for p_ref update
+              [16:19] c_ref  curvature vector           p^{d''}(theta_ref),
+                             used for the 2nd-order Taylor correction of
+                             p_ref (curvature-aware linearisation, cf.
+                             Liniger's getSecondDerivative/getRefPoint)
         """
-        params = np.zeros((n_stages, 16))
+        params = np.zeros((n_stages, GEOMETRY_NP))
         thetas = self._resolve_horizon_thetas(
             theta, n_stages, dt, vtheta_guess, theta_values)
-        pds, tds = self._lookup_position_tangent_many(thetas)
+        pds, tds, cds = self._lookup_path_many(thetas)
         qcs = self.contouring_weights(pds, qc_nom, qc_gate)
 
         for k, td in enumerate(tds):
@@ -202,6 +218,7 @@ class RacingPath:
             params[k, 13]    = W_default
             params[k, 14]    = H_default
             params[k, 15]    = thetas[k]
+            params[k, 16:19] = cds[k]
         return params
 
     # ------------------------------------------------------------------
@@ -262,11 +279,22 @@ class RacingPath:
         tangents[valid] = raw_tangents[valid] / norms[valid, np.newaxis]
         tangents[~valid] = np.array([1.0, 0.0, 0.0], dtype=np.float64)
 
+        # Curvature vector p^{d''}(θ) = d²p/dθ² (raw, unnormalised — pairs
+        # with the raw first derivative in the 2nd-order Taylor expansion
+        # of the path reference; analogous to Liniger's getSecondDerivative).
+        curvatures = np.column_stack([
+            self._cs_d2x(theta),
+            self._cs_d2y(theta),
+            self._cs_d2z(theta),
+        ]).astype(np.float64)
+
         self._lut_theta = theta
         self._lut_position = positions
         self._lut_tangent = tangents
+        self._lut_curvature = curvatures
 
-    def _lookup_position_tangent_many(self, theta_values: np.ndarray) -> tuple:
+    def _lookup_path_many(self, theta_values: np.ndarray) -> tuple:
+        """Vectorized lookup of position, unit tangent, and curvature vector."""
         thetas = np.clip(
             np.asarray(theta_values, dtype=np.float64).reshape(-1),
             0.0,
@@ -280,10 +308,18 @@ class RacingPath:
             np.interp(thetas, self._lut_theta, self._lut_tangent[:, axis])
             for axis in range(3)
         ])
+        curvatures = np.column_stack([
+            np.interp(thetas, self._lut_theta, self._lut_curvature[:, axis])
+            for axis in range(3)
+        ])
         norms = np.linalg.norm(tangents, axis=1)
         valid = norms > 1e-8
         tangents[valid] = tangents[valid] / norms[valid, np.newaxis]
         tangents[~valid] = np.array([1.0, 0.0, 0.0], dtype=np.float64)
+        return positions, tangents, curvatures
+
+    def _lookup_position_tangent_many(self, theta_values: np.ndarray) -> tuple:
+        positions, tangents, _ = self._lookup_path_many(theta_values)
         return positions, tangents
 
     def _lookup_position_tangent(self, theta: float) -> tuple:
@@ -330,7 +366,7 @@ class GatedRacingPath(RacingPath):
       - Gate positions, yaw angles, and inner aperture dimensions.
       - Arc-length-varying tunnel half-extents W(θ) and H(θ).
       - Local tunnel frame n(θ), b(θ) for halfspace constraints.
-      - get_tunnel_params() returning the 16-column geometry matrix that the
+      - get_tunnel_params() returning the 19-column geometry matrix that the
         controller extends with runtime cost weights.
 
     Track Constraint (mpcc_pp paper, Section IV-A, eq. 7):
@@ -504,6 +540,10 @@ class GatedRacingPath(RacingPath):
         self._cs_dy = self._cs_y.derivative()
         self._cs_dz = self._cs_z.derivative()
 
+        self._cs_d2x = self._cs_x.derivative(2)
+        self._cs_d2y = self._cs_y.derivative(2)
+        self._cs_d2z = self._cs_z.derivative(2)
+
     def tunnel_width(self, theta: float) -> float:
         """
         W(θ): tunnel half-width at arc-length θ.
@@ -617,7 +657,7 @@ class GatedRacingPath(RacingPath):
         return n, b
 
     # ------------------------------------------------------------------
-    # 16-column geometry horizon parameters (overrides RacingPath default)
+    # 19-column geometry horizon parameters (overrides RacingPath default)
     # ------------------------------------------------------------------
 
     def get_tunnel_params(self, theta: float, n_stages: int, dt: float,
@@ -630,7 +670,7 @@ class GatedRacingPath(RacingPath):
         Pre-compute ACADOS stage parameters including tunnel geometry.
 
         Returns:
-            params: (n_stages, 16) with columns:
+            params: (n_stages, 19) with columns:
               [0:3]   p_ref  — nominal path position       p^d(theta_ref)
               [3:6]   t_ref  — unit tangent                t(theta_ref)
               [6]     qc     — dynamic contouring weight   qc(theta_ref)
@@ -639,11 +679,13 @@ class GatedRacingPath(RacingPath):
               [13]    W      — tunnel half-width           W(theta_ref)
               [14]    H      — tunnel half-height          H(theta_ref)
               [15]    theta_ref — nominal progress for symbolic p_ref update
+              [16:19] c_ref  — curvature vector            p^{d''}(theta_ref),
+                               2nd-order Taylor correction of p_ref
         """
-        params = np.zeros((n_stages, 16))
+        params = np.zeros((n_stages, GEOMETRY_NP))
         thetas = self._resolve_horizon_thetas(
             theta, n_stages, dt, vtheta_guess, theta_values)
-        pds, tds = self._lookup_position_tangent_many(thetas)
+        pds, tds, cds = self._lookup_path_many(thetas)
         qcs = self.contouring_weights(pds, qc_nom, qc_gate)
         widths = self.tunnel_widths(thetas)
         heights = self.tunnel_heights(thetas)
@@ -659,6 +701,7 @@ class GatedRacingPath(RacingPath):
             params[k, 13]    = widths[k]
             params[k, 14]    = heights[k]
             params[k, 15]    = th
+            params[k, 16:19] = cds[k]
 
         return params
 

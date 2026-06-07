@@ -37,7 +37,7 @@
 #define DRONE_MPCC_PP_NX     19
 #define DRONE_MPCC_PP_NZ     0
 #define DRONE_MPCC_PP_NU     5
-#define DRONE_MPCC_PP_NP     23
+#define DRONE_MPCC_PP_NP     27
 
 #ifdef __cplusplus
 extern "C" {

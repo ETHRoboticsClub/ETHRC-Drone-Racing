@@ -581,10 +581,11 @@ class DroneMpccPpController(ControllerInterface):
         """
         Core mpcc_pp step shared by controller_update and mpcc_pp_update.
 
-        Uses get_tunnel_params() for the 16-column path/tunnel geometry, then
+        Uses get_tunnel_params() for the 19-column path/tunnel geometry, then
         appends runtime tuning weights and per-stage cost discounts expected
-        by the OCP.  The final geometry column is theta_ref; ACADOS uses it
-        to update p_ref symbolically from the optimized theta state.  For plain
+        by the OCP.  Columns 15 and 16:19 are theta_ref and c_ref; ACADOS uses
+        them to update p_ref symbolically from the optimized theta state via
+        a 2nd-order (curvature-aware) Taylor expansion.  For plain
         RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
