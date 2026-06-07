@@ -291,7 +291,6 @@ class DroneMpccPpModel:
         """
         forces = np.clip(
             np.asarray(forces_n, dtype=np.float64), self.F_MIN, self.F_MAX)
-        omega = np.sqrt(forces / self.MOTOR_CONSTANT)
-        controls = ((omega - self.MOTOR_SPEED_MIN)
-                    / (self.MOTOR_SPEED_MAX - self.MOTOR_SPEED_MIN))
+        controls = ((forces - self.F_MIN)
+                    / (self.F_MAX - self.F_MIN))
         return np.clip(controls, 0.0, 1.0)

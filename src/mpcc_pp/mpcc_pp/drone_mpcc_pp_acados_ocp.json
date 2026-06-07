@@ -12,7 +12,7 @@
             "qpdunes": "",
             "qpoases": "-lqpOASES_e"
         },
-        "acados_version": "ec27dd94d",
+        "acados_version": "785a3ad0c",
         "code_export_directory": "/home/drone_dev/ros_ws/src/mpcc_pp/mpcc_pp/c_generated_code",
         "cython_include_dirs": [
             "/usr/local/lib/python3.10/dist-packages/numpy/core/include",
@@ -367,7 +367,7 @@
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac_hess.c",
         "drone_mpcc_pp_cost/drone_mpcc_pp_cost_ext_cost_e_fun_jac.c"
     ],
-    "hash": "f65108f262ad5b7d40e378c75a839caf",
+    "hash": "0eee213641656d4457a80eed98782d17",
     "model": {
         "con_h_expr": [],
         "con_h_expr_0": [],
