@@ -29,7 +29,7 @@
 #   track_weight penalty weight for track-constraint soft barrier in OCP cost
 #   SHOW_TUNNEL  publish the MPCC tunnel in RViz
 
-active_track: circular  # horizontal, vertical, circular, or SplitS
+active_track: horizontal  # horizontal, vertical, circular, or SplitS
 
 tracks:
 

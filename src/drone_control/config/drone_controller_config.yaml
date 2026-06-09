@@ -8,13 +8,13 @@
     #   'mpc_rotor'   — MPC with direct per-rotor thrust (bypasses PX4 attitude controller)
     #   'position_ned'— PX4 built-in position controller
     #   'rl'          — Reinforcement Learning policy
-    controller_type: "mpcc_pp"
+    controller_type: "mpc"
 
     # ── Waypoints file ─────────────────────────────────────────────────
     # Path to YAML file with waypoints for controllers that need a pre-defined path.
     # Required when controller_type is 'mpcc'. Ignored by other controllers.
     # Format: waypoints: [{x: 1.0, y: 0.0, z: -1.0}, ...]
-    waypoints_file: "/home/drone_dev/ros_ws/src/drone_control/config/waypoints.yaml"
+    waypoints_file: ""
 
     # ── Topics ────────────────────────────────────────────────────────
     state_topic: "drone_state_sim"

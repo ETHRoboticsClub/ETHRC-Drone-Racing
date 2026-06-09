@@ -19,7 +19,7 @@ def generate_launch_description():
         DeclareLaunchArgument('controller_type', default_value='mpcc_pp',
             description='Controller type: mpc, mpcc, mpcc_pp, mpc_rotor, position_ned, rl'),
         DeclareLaunchArgument('waypoints_file',
-            default_value=PathJoinSubstitution([pkg, 'config', 'gates_config.yaml']),
+            default_value=PathJoinSubstitution([pkg, 'config', 'waypoints.yaml']),
             description='Path to YAML file with gates (MPCC) or waypoints (MPC/other)'),
         DeclareLaunchArgument('plotjuggler', default_value='true' if ENABLE_PLOTJUGGLER else 'false',
             description='Launch PlotJuggler alongside the controller'),

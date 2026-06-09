@@ -9,6 +9,9 @@ from nav2_msgs.action import FollowWaypoints
 import sys
 import argparse
 import math
+import signal
+import threading
+import time
 
 # Define the delay for cancellation in seconds
 CANCEL_DELAY_SEC = 1.0
@@ -26,6 +29,8 @@ class DronePoseGoalClient(Node):
         
         self._goal_handle: ClientGoalHandle = None
         self._cancel_timer = None # Timer object for timed cancellation
+        self._goal_done_event = threading.Event()  # Event to signal goal completion
+        self._shutdown_requested = False  # Flag for graceful shutdown
         
         self.get_logger().info("Drone Pose Goal Client Initialized.")
         
@@ -83,10 +88,10 @@ class DronePoseGoalClient(Node):
         goal_handle = future.result()
         if not goal_handle.accepted:
             self.get_logger().warn('Goal rejected by server.')
-            rclpy.shutdown()
+            self._goal_done_event.set()
             return
 
-        self.get_logger().info('Goal accepted. Waiting for result...')
+        self.get_logger().info('Goal accepted by server. Waiting for completion...')
         self._goal_handle = goal_handle # Store the handle
         
         if mode == 'cancel':
@@ -115,8 +120,13 @@ class DronePoseGoalClient(Node):
         else:
             self.get_logger().info(f'Goal finished with status: {status}')
         
-        # Shutdown the node after result is final
-        rclpy.shutdown()
+        # Signal that goal is done (for interactive mode)
+        self._goal_done_event.set()
+        self._goal_handle = None
+        
+        # Only shutdown if requested
+        if self._shutdown_requested:
+            rclpy.shutdown()
 
 
     # --- Cancel Command (Called by Timer) ---
@@ -144,30 +154,109 @@ class DronePoseGoalClient(Node):
 # --- Main Execution ---
 
 def main(args=None):
+    """
+    Interactive mode: Prompts for pose goals in a loop, allowing sequential goal commands.
+    Press Ctrl+C at any time to cancel the current goal and exit.
+    """
     rclpy.init(args=args)
     
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Send a pose goal or cancel command to the drone.")
-    parser.add_argument('mode', choices=['goal_only', 'cancel'], help='Mode of operation: "goal_only" or "cancel".')
-    parser.add_argument('-x', type=float, default=1.0, help='Target X position (m).')
-    parser.add_argument('-y', type=float, default=0.0, help='Target Y position (m).')
-    parser.add_argument('-z', type=float, default=2.0, help='Target Z position (m).')
-    parser.add_argument('-yaw', type=float, default=90.0, help='Target Yaw angle (degrees).')
-    
-    ros_args = [arg for arg in sys.argv if not arg.startswith('__')]
-    parsed_args = parser.parse_args(ros_args[1:] if len(ros_args) > 1 else [])
-
     client = DronePoseGoalClient()
-
-    # Pass the mode argument to send_goal
-    client.send_goal(parsed_args.x, parsed_args.y, parsed_args.z, parsed_args.yaw, parsed_args.mode)
+    executor = rclpy.executors.SingleThreadedExecutor()
+    executor.add_node(client)
     
-    # Spin the node to process the action client futures and the cancellation timer
-    rclpy.spin(client) 
-        
-    client.destroy_node()
-    if rclpy.ok():
-        rclpy.shutdown()
+    def signal_handler(sig, frame):
+        """Handle Ctrl+C by setting shutdown flag."""
+        print('\n[INFO] Ctrl+C detected. Initiating shutdown...')
+        client._shutdown_requested = True
+        if client._goal_handle is not None:
+            try:
+                client.get_logger().info("Cancelling active goal...")
+                cancel_future = client._action_client._cancel_goal_async(client._goal_handle)
+            except Exception as e:
+                client.get_logger().warn(f'Error cancelling goal: {e}')
+    
+    # Register signal handler for Ctrl+C
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    try:
+        while rclpy.ok() and not client._shutdown_requested:
+            print("\n" + "="*60)
+            print("INTERACTIVE POSE GOAL SENDER")
+            print("="*60)
+            
+            try:
+                # Prompt for goal parameters
+                x_input = input("Enter X position (m) [default: 1.0]: ").strip()
+                x = float(x_input) if x_input else 1.0
+                
+                y_input = input("Enter Y position (m) [default: 0.0]: ").strip()
+                y = float(y_input) if y_input else 0.0
+                
+                z_input = input("Enter Z position (m) [default: 2.0]: ").strip()
+                z = float(z_input) if z_input else 2.0
+                
+                yaw_input = input("Enter Yaw angle (degrees) [default: 90.0]: ").strip()
+                yaw = float(yaw_input) if yaw_input else 90.0
+                
+                print(f"\n[INFO] Sending goal: x={x}, y={y}, z={z}, yaw={yaw}")
+                
+                # Reset event for new goal
+                client._goal_done_event.clear()
+                
+                # Send the goal
+                client.send_goal(x, y, z, yaw, "goal_only")
+                
+                # Wait for goal to complete by spinning executor while checking event
+                print("[INFO] Waiting for goal to complete...")
+                timeout_sec = 120
+                start_time = time.time()
+                while rclpy.ok() and not client._shutdown_requested:
+                    # Spin briefly to process callbacks
+                    executor.spin_once(timeout_sec=0.1)
+                    
+                    # Check if goal is done
+                    if client._goal_done_event.is_set():
+                        print("[INFO] Goal completed!")
+                        break
+                    
+                    # Added 09/06/2026
+                    # Check timeout
+                    elapsed = time.time() - start_time
+                    if elapsed > timeout_sec:
+                        print(f"[WARNING] Goal timeout after {timeout_sec}s")
+                        # Cancel the goal if it's still active
+                        if client._goal_handle is not None:
+                            client.get_logger().warn("Cancelling timed-out goal...")
+                            try:
+                                client._action_client._cancel_goal_async(client._goal_handle)
+                            except Exception as e:
+                                client.get_logger().warn(f"Error cancelling goal: {e}")
+                            # Spin a bit more to process cancellation
+                            for _ in range(10):
+                                executor.spin_once(timeout_sec=0.1)
+                        break
+                
+                if client._shutdown_requested:
+                    break
+                    
+            except ValueError as e:
+                print(f"[ERROR] Invalid input: {e}. Please enter numeric values.")
+                continue
+            except KeyboardInterrupt:
+                # Handle Ctrl+C during input
+                print("\n[INFO] Ctrl+C detected during input. Exiting...")
+                client._shutdown_requested = True
+                break
+    
+    finally:
+        # Cleanup
+        print("\n[INFO] Shutting down...")
+        client._shutdown_requested = True
+        client.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
+        print("[INFO] Done.")
+
 
 if __name__ == '__main__':
     main()

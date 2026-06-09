@@ -46,6 +46,18 @@ class DroneMpcControllerRotor(ControllerInterface):
             print(f"  Max single rotor thrust: {self.drone_model.maxSingleRotorThrust:.2f} N")
             print(f"{'='*60}\n")
 
+    @classmethod
+    def from_config(cls, config):
+        """
+        Factory method to instantiate DroneMpcControllerRotor from config dict.
+        
+        For MPC rotor mode, the config is typically empty (no waypoints required).
+        Uses default horizon and node parameters.
+        """
+        t_H = config.get('t_horizon', 1.5)
+        Nnodes = config.get('n_nodes', 15)
+        return cls(t_H=t_H, Nnodes=Nnodes)
+
     def initialize(self):
         """Initialize the optimizer. Constructor returns fast; this does the heavy work."""
         self.opt = DroneOptimizerRotor(
