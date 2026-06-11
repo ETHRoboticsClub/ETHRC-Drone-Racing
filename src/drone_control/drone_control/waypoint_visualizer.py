@@ -60,28 +60,31 @@ class WaypointVisualizer(Node):
         # ── Load gates or waypoints ───────────────────────────────────────
         self.declare_parameter('waypoints_file', '')
         wp_file = self.get_parameter('waypoints_file').get_parameter_value().string_value
-        if not wp_file:
-            wp_file = os.path.join(
-                get_package_share_directory('drone_control'),
-                'config', 'gates_config.yaml',
-            )
-        with open(wp_file) as f:
-            raw = yaml.safe_load(f)
 
-        if 'tracks' in raw:
-            active = raw.get('active_track', next(iter(raw['tracks'])))
-            if active not in raw['tracks']:
-                raise RuntimeError(
-                    f"Track '{active}' not found. Available: {list(raw['tracks'].keys())}")
-            self._gates: list[dict] = raw['tracks'][active].get('gates', [])
-            self._mode = 'gates'
-        elif 'gates' in raw:
-            self._gates: list[dict] = raw['gates']
-            self._mode = 'gates'
+        if not wp_file:
+            self._gates = []
+            self._mode = 'none'
         else:
-            # Legacy waypoints format — treat each point as a minimal gate dict
-            self._gates = raw['waypoints']
-            self._mode = 'waypoints'
+            with open(wp_file) as f:
+                raw = yaml.safe_load(f) or {}
+
+            if 'tracks' in raw:
+                active = raw.get('active_track', next(iter(raw['tracks'])))
+                if active not in raw['tracks']:
+                    raise RuntimeError(
+                        f"Track '{active}' not found. Available: {list(raw['tracks'].keys())}")
+                self._gates: list[dict] = raw['tracks'][active].get('gates', [])
+                self._mode = 'gates'
+            elif 'gates' in raw:
+                self._gates: list[dict] = raw['gates']
+                self._mode = 'gates'
+            elif 'waypoints' in raw:
+                # Legacy waypoints format — treat each point as a minimal gate dict
+                self._gates = raw['waypoints']
+                self._mode = 'waypoints'
+            else:
+                self._gates = []
+                self._mode = 'none'
 
         # ── Publishers ────────────────────────────────────────────────────
         self._pub = self.create_publisher(MarkerArray, '/waypoints/markers', 10)
@@ -228,40 +231,41 @@ class WaypointVisualizer(Node):
         markers = MarkerArray()
         mid = 0
 
-        if self._mode == 'gates':
-            # Gate frames + direction arrows + labels
-            for i, gate in enumerate(self._gates):
-                x, y, z = _ned_to_enu(gate['x'], gate['y'], gate['z'])
-                name = gate.get('name', f'G{i + 1}')
+        if self._gates:
+            if self._mode == 'gates':
+                # Gate frames + direction arrows + labels
+                for i, gate in enumerate(self._gates):
+                    x, y, z = _ned_to_enu(gate['x'], gate['y'], gate['z'])
+                    name = gate.get('name', f'G{i + 1}')
 
-                markers.markers.append(
-                    self._gate_frame('gate_frames', mid, now, gate))
-                mid += 1
+                    markers.markers.append(
+                        self._gate_frame('gate_frames', mid, now, gate))
+                    mid += 1
 
-                markers.markers.append(
-                    self._gate_arrow('gate_arrows', mid, now, gate))
-                mid += 1
+                    markers.markers.append(
+                        self._gate_arrow('gate_arrows', mid, now, gate))
+                    mid += 1
 
-                markers.markers.append(
-                    self._label('gate_labels', mid, now, x, y, z + 1.2, name))
-                mid += 1
-        else:
-            # Legacy: orange spheres + labels
-            for i, wp in enumerate(self._gates):
-                x, y, z = _ned_to_enu(wp['x'], wp['y'], wp['z'])
-                markers.markers.append(
-                    self._sphere('gates', mid, now, x, y, z, 1.0, 0.35, 0.0, 1.0))
-                mid += 1
-                markers.markers.append(
-                    self._label('gate_labels', mid, now, x, y, z + 0.75, f'G{i + 1}'))
-                mid += 1
+                    markers.markers.append(
+                        self._label('gate_labels', mid, now, x, y, z + 1.2, name))
+                    mid += 1
+            else:
+                # Legacy: orange spheres + labels
+                for i, wp in enumerate(self._gates):
+                    x, y, z = _ned_to_enu(wp['x'], wp['y'], wp['z'])
+                    markers.markers.append(
+                        self._sphere('gates', mid, now, x, y, z, 1.0, 0.35, 0.0, 1.0))
+                    mid += 1
+                    markers.markers.append(
+                        self._label('gate_labels', mid, now, x, y, z + 0.75, f'G{i + 1}'))
+                    mid += 1
 
-        # Planned circuit (closed loop through gate / waypoint centres)
-        loop = self._gates + [self._gates[0]]
-        pts = [_point(*_ned_to_enu(w['x'], w['y'], w['z'])) for w in loop]
-        markers.markers.append(
-            self._line('planned_circuit', mid, now, pts, 0.2, 0.8, 1.0, 0.9))
-        mid += 1
+            # Planned circuit (closed loop through gate / waypoint centres)
+            loop = self._gates + [self._gates[0]]
+            pts = [_point(*_ned_to_enu(w['x'], w['y'], w['z'])) for w in loop]
+            markers.markers.append(
+                self._line('planned_circuit', mid, now, pts, 0.2, 0.8, 1.0, 0.9))
+            mid += 1
 
         # Current active target
         if self._target_enu is not None:
