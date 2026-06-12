@@ -57,16 +57,28 @@ def setup_native():
     print(f"Detected ROS distro: {ros_distro}")
 
     # ROS 2 specific dependencies
-    sys_deps.extend([
+    ros_deps = [
         f"ros-{ros_distro}-mavros",
         f"ros-{ros_distro}-mavros-msgs",
-        f"ros-{ros_distro}-nav2-msgs",
         f"ros-{ros_distro}-camera-calibration-parsers",
         f"ros-{ros_distro}-cv-bridge",
         f"ros-{ros_distro}-image-transport",
         f"ros-{ros_distro}-diagnostic-updater",
         f"ros-{ros_distro}-foxglove-bridge",
-    ])
+    ]
+    if ros_distro != "rolling":
+        ros_deps.append(f"ros-{ros_distro}-nav2-msgs")
+
+    sys_deps.extend(ros_deps)
+
+    # Check if ROS Rolling needs nav2_msgs from source
+    if ros_distro == "rolling":
+        ws_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        if not os.path.exists(os.path.join(ws_root, "src/nav2_msgs")):
+            print("--- Cloning nav2_msgs for ROS Rolling ---")
+            run(f"git clone -b main --filter=blob:none --sparse https://github.com/ros-navigation/navigation2.git /tmp/navigation2 && "
+                f"cd /tmp/navigation2 && git sparse-checkout set nav2_msgs && "
+                f"cp -r nav2_msgs {ws_root}/src/ && rm -rf /tmp/navigation2")
 
     if arch == "aarch64":
         # Core NITROS dependencies (only on Jetson Orin / aarch64)
