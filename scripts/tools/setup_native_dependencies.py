@@ -71,6 +71,10 @@ def setup_native():
 
     sys_deps.extend(ros_deps)
 
+    if ros_distro in ["rolling", "jazzy"]:
+        if "libatlas-base-dev" in sys_deps:
+            sys_deps.remove("libatlas-base-dev")
+
     # Check if ROS Rolling needs nav2_msgs from source
     if ros_distro == "rolling":
         ws_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
