@@ -21,8 +21,9 @@ def generate_launch_description():
 
     # --- Paths for SITL ---
     os.environ['GZ_VERSION'] = 'harmonic'
-    if 'GZ_CONFIG_PATH' not in os.environ:
-        os.environ['GZ_CONFIG_PATH'] = '/usr/share/gz'
+    gz_config_path = os.environ.get('GZ_CONFIG_PATH', '')
+    if '/usr/share/gz' not in gz_config_path:
+        os.environ['GZ_CONFIG_PATH'] = f"/usr/share/gz:{gz_config_path}" if gz_config_path else '/usr/share/gz'
     models_dir = os.path.join(ws_root, 'sim', 'gazebo', 'models')
     gz_resource_path = os.environ.get('GZ_SIM_RESOURCE_PATH', '')
     if models_dir not in gz_resource_path:
