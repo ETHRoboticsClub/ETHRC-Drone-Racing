@@ -30,6 +30,8 @@ class DirectStateBridgeNode(Node):
         self.latest_quat = np.array([0.0, 0.0, 0.0, 1.0])
         self.latest_vel = np.zeros(3)
         self.latest_omega = np.zeros(3)
+        self.has_vicon_data = False
+        self.has_imu_data = False
         
         # Velocity estimation state
         self.prev_pos = None
@@ -74,6 +76,7 @@ class DirectStateBridgeNode(Node):
         
         self.prev_pos = curr_pos
         self.prev_time = curr_time
+        self.has_vicon_data = True
 
     def imu_callback(self, msg: Imu):
         # Extract angular velocity directly from high-rate IMU
@@ -82,8 +85,16 @@ class DirectStateBridgeNode(Node):
             msg.angular_velocity.y,
             msg.angular_velocity.z
         ])
+        self.has_imu_data = True
 
     def timer_callback(self):
+        if not self.has_vicon_data or not self.has_imu_data:
+            self.get_logger().warn(
+                f"Waiting for sensor data: Vicon={self.has_vicon_data}, IMU={self.has_imu_data}...",
+                throttle_duration_sec=2.0
+            )
+            return
+
         # Construct 13-element state: [p(3), v(3), q(4), w(3)]
         # Note: RL Controller expects [pos, vel, quat, omega] or [pos, quat, vel, omega]?
         # Earlier bridge used: [p(3), v(3), q(4), w(3)]

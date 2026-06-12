@@ -37,6 +37,7 @@ class HoveringExperiment:
         self._model_path = model_path
         self._model_type = model_type
         self.policy: PolicyModel | None = None
+        self.last_observation: np.ndarray | None = None
         self.load_policy(model_path, model_type)
 
     def load_policy(self, model_path: str, model_type: str) -> None:
@@ -74,7 +75,7 @@ class HoveringExperiment:
         s = np.asarray(x_current, dtype=float).reshape(STATE_DIM)
         vel_w = np.array([s[3], s[4], s[5]], dtype=float)
         vel_b = self._body_rot_world_to_sim(x_current).inv().apply(vel_w.astype(np.float32)).astype(np.float32)
-        return vel_w
+        return vel_b
 
     def _obs_waypoint_forward_body(
         self,
@@ -95,7 +96,7 @@ class HoveringExperiment:
         x_current: np.ndarray,
         goal_position: np.ndarray,
     ) -> np.ndarray:
-        return np.concatenate(
+        obs = np.concatenate(
             [
                 self._obs_projected_gravity_body(x_current),
                 self._obs_base_ang_vel(x_current),
@@ -104,13 +105,15 @@ class HoveringExperiment:
             ],
             dtype=np.float32,
         )
+        self.last_observation = obs.copy()
+        return obs
     
     def compute_actions(self, observation: np.ndarray) -> np.ndarray:
         """
         Policy inference → drone-frame rate commands for Betaflight / MSP.
         """
         if self.policy is None:
-            raise RuntimeError("Policy not* ANG_COMMAND_SCALE loaded. Call load_policy() first.")
+            raise RuntimeError("Policy not loaded. Call load_policy() first.")
 
         obs_t = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
         raw = self.policy.inference(obs_t).squeeze(0).cpu().numpy().clip(-1.0, 1.0)

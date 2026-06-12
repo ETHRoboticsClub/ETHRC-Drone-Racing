@@ -68,6 +68,7 @@ class DroneController(Node):
 
         # Watchdog: max age of the latest state before we stop publishing.
         self.declare_parameter('state_timeout_sec', 0.1)
+        self.declare_parameter('max_thrust_delta_per_tick', 0.05)
 
         # Workspace bounds (world frame, metres). A goal is rejected if any
         # axis falls outside [min, max]. Tune to your arena before flying.
@@ -84,6 +85,7 @@ class DroneController(Node):
         control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
         self.state_timeout_sec = self.get_parameter('state_timeout_sec').get_parameter_value().double_value
         observation_topic = self.get_parameter('observation_topic').get_parameter_value().string_value
+        self.max_thrust_delta_per_tick = self.get_parameter('max_thrust_delta_per_tick').get_parameter_value().double_value
 
         self.goal_bounds = (
             np.array([
@@ -108,6 +110,7 @@ class DroneController(Node):
         self.state[9] = 1.0  # quat w for identity rotation
         self.last_state_time: Optional[float] = None  # monotonic seconds
         self.goal: Optional[np.ndarray] = None
+        self.last_thrust: Optional[float] = None
 
         self.state_subscriber = self.create_subscription(
             Float64MultiArray, state_topic, self.drone_state_cb, 10)
@@ -194,12 +197,19 @@ class DroneController(Node):
             self.get_logger().error(f'Control Loop Error: {e}')
             return
 
+        thrust_cmd = float(attitude_cmd.thrust_value)
+        if self.last_thrust is not None:
+            delta = thrust_cmd - self.last_thrust
+            if abs(delta) > self.max_thrust_delta_per_tick:
+                thrust_cmd = self.last_thrust + np.sign(delta) * self.max_thrust_delta_per_tick
+        self.last_thrust = thrust_cmd
+
         cmd_msg = Float64MultiArray()
         cmd_msg.data = [
             float(attitude_cmd.roll_deg_s),
             float(attitude_cmd.pitch_deg_s),
             float(attitude_cmd.yaw_deg_s),
-            float(attitude_cmd.thrust_value),
+            thrust_cmd,
         ]
         self.attitude_command_publisher.publish(cmd_msg)
 

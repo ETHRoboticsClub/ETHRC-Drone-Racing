@@ -17,14 +17,17 @@ class DroneRLController(ControllerInterface):
     def __init__(self):
         super().__init__()
         self.experiment = HoveringExperiment(str(_POLICY_PATH))
-        self.velocity_limit = 15.0
         self._logger = self._build_logger()
         self._log_every_n = 10  # log 1 in N controller_update calls
         self._update_counter = 0
         self._logger.info(
-            "DroneRLController created pid=%d policy=%s velocity_limit=%.3f",
-            os.getpid(), _POLICY_PATH, self.velocity_limit,
+            "DroneRLController created pid=%d policy=%s",
+            os.getpid(), _POLICY_PATH,
         )
+
+    @property
+    def last_observation(self):
+        return self.experiment.last_observation
 
     @staticmethod
     def _build_logger() -> logging.Logger:

@@ -56,7 +56,7 @@ class PolicyModel():
         print(f"Loaded ONNX model: {model_path}")
 
     def _load_pytorch_policy(self, checkpoint_path: str) -> nn.Module:
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=True)
         policy_state = checkpoint.get("policy", checkpoint)
 
         prep = checkpoint.get("observation_preprocessor", checkpoint.get("state_preprocessor", None))
