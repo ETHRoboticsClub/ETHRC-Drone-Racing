@@ -32,7 +32,10 @@ def generate_launch_description():
             'sensor_mode', default_value='4',
             description='IMX219 sensor mode index (4 = 1280x720 high-speed mode)',
         ),
-        DeclareLaunchArgument('framerate', default_value='60'),
+        DeclareLaunchArgument(
+            'framerate', default_value='60',
+            description='Target FPS (requires 90Hz driver mod for >60)',
+        ),
         DeclareLaunchArgument('width', default_value='1280'),
         DeclareLaunchArgument('height', default_value='720'),
         DeclareLaunchArgument('sensor_id', default_value='0'),

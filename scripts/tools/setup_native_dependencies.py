@@ -66,14 +66,37 @@ def setup_native():
         f"ros-{ros_distro}-foxglove-bridge",
     ])
 
-    # Core NITROS dependencies (only on Jetson Orin / aarch64)
     if arch == "aarch64":
+        # Core NITROS dependencies (only on Jetson Orin / aarch64)
         sys_deps.extend([
             f"ros-{ros_distro}-isaac-ros-argus-camera",
             f"ros-{ros_distro}-isaac-ros-image-proc",
         ])
+        print("--- Adding Jetson CUDA, cuDNN and Profiling libraries ---")
+        sys_deps.extend([
+            "libcudnn9-cuda-12",
+            "cuda-cupti-12-6",
+            "cuda-libraries-12-6",
+            "cuda-libraries-dev-12-6"
+        ])
 
     run(f"sudo apt-get update || echo 'Warning: apt-get update failed' && sudo apt-get install -y {' '.join(sys_deps)}")
+
+    if arch == "aarch64":
+        print("--- Installing cuSPARSELt library on Jetson (aarch64) ---")
+        if not os.path.exists("/usr/lib/aarch64-linux-gnu/libcusparseLt.so.0"):
+            try:
+                run("cd /tmp && "
+                    "wget -q https://developer.download.nvidia.com/compute/cusparselt/redist/libcusparse_lt/linux-aarch64/libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive.tar.xz && "
+                    "tar xf libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive.tar.xz && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/include/* /usr/local/cuda/include/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/lib/* /usr/local/cuda/targets/aarch64-linux/lib/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/include/* /usr/local/cuda-12.6/include/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/lib/* /usr/local/cuda-12.6/targets/aarch64-linux/lib/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/lib/* /usr/lib/aarch64-linux-gnu/ && "
+                    "sudo ldconfig")
+            except Exception as e:
+                print(f"Warning: cuSPARSELt library setup failed: {e}")
 
     # Isaac ROS Compression is the preferred H.264 path for racing bringup.
     # h264_image_transport and jetson_h264_publisher remain in-tree as fallback/debug
@@ -153,8 +176,8 @@ def setup_native():
     run("pip3 uninstall -y serial || true")
     
     # Core dependencies
-    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "setuptools==58.2.0"]
-    
+    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "setuptools==58.2.0", "onnxruntime", "onnx"]
+
     # RL/Inference dependencies
     # On Jetson, we use the NVIDIA-optimized torch wheels for CUDA support
     if arch == "aarch64":
@@ -162,7 +185,7 @@ def setup_native():
         # Default for JetPack 6.2 (JP6.2 / CUDA 12.6)
         torch_url = "https://developer.download.nvidia.com/compute/redist/jp/v62/pytorch/torch-2.5.0a0+872d974e.nv24.08-cp310-cp310-linux_aarch64.whl"
         torchvision_url = "https://developer.download.nvidia.com/compute/redist/jp/v62/pytorch/torchvision-0.20.0a0+635759a-cp310-cp310-linux_aarch64.whl"
-        
+
         try:
             # Adding torch-tensorrt for maximum inference performance on Orin
             run(f"pip3 install --user {torch_url} {torchvision_url} torch-tensorrt")

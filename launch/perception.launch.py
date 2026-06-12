@@ -62,14 +62,14 @@ def generate_launch_description():
     )
 
     ov_config_path = PathJoinSubstitution(
-        [FindPackageShare("ov_msckf"), "config", "zephyrus_imx219_720p", "estimator_config.yaml"]
+        [FindPackageShare("ov_msckf"), "config", "zephyrus_real", "estimator_config.yaml"]
     )
     vio_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([FindPackageShare("ov_msckf"), "launch", "subscribe.launch.py"])
         ),
         launch_arguments={
-            "config": "zephyrus_imx219_720p",
+            "config": "zephyrus_real",
             "config_path": ov_config_path,
             "use_sim_time": use_sim,
             "use_stereo": "false",
