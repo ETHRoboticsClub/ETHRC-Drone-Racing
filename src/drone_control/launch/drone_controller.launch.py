@@ -17,9 +17,6 @@ def generate_launch_description():
     mavsdk_client_params = PathJoinSubstitution(
         [FindPackageShare('my_mavsdk'), "config", "mavsdk_client_config.yaml"]
     )
-    rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare('drone_control'), "rviz", "drone_racing.rviz"]
-    )
 
     controller_type = LaunchConfiguration('controller_type')
     waypoints_file = LaunchConfiguration('waypoints_file')
@@ -53,25 +50,14 @@ def generate_launch_description():
             output="screen",
         )
 
-        visualizer_node = Node(
-            package="drone_control",
-            executable="waypoint_visualizer",
-            name="waypoint_visualizer",
-            parameters=[{'waypoints_file': context.launch_configurations.get('waypoints_file', '')}],
-            output="screen",
-        )
-
         return [
             controller_node,
-            visualizer_node,
             TimerAction(period=3.0, actions=[mavsdk_node]),
         ]
 
     return LaunchDescription([
         DeclareLaunchArgument('plotjuggler', default_value='true',
             description='Launch PlotJuggler alongside the controller'),
-        DeclareLaunchArgument('rviz', default_value='true',
-            description='Launch RViz2 alongside the controller'),
         DeclareLaunchArgument('controller_type', default_value='',
             description='Controller type: mpc, mpcc, mpcc_pp, mpc_rotor, position_ned, rl; leave empty to use config file default'),
         DeclareLaunchArgument('waypoints_file', default_value='',
@@ -90,12 +76,4 @@ def generate_launch_description():
             condition=IfCondition(LaunchConfiguration('plotjuggler')),
         ),
 
-        Node(
-            package="rviz2",
-            executable="rviz2",
-            name="rviz2",
-            output="screen",
-            arguments=['-d', rviz_config_file],
-            condition=IfCondition(LaunchConfiguration('rviz')),
-        ),
     ])
