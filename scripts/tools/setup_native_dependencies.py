@@ -196,11 +196,21 @@ def setup_native():
         except Exception as e:
             print(f"Warning: Optimized Torch install failed: {e}. Falling back to standard pip.")
     
+    # Check if PEP 668 externally managed environment requires --break-system-packages
+    pip_extra = ""
+    try:
+        import glob
+        if sys.prefix == sys.base_prefix:
+            if glob.glob("/usr/lib/python3.*/EXTERNALLY-MANAGED") or os.path.exists("/usr/lib/EXTERNALLY-MANAGED"):
+                pip_extra = " --break-system-packages"
+    except Exception:
+        pass
+
     # Quote dependencies to prevent shell redirection (e.g., 'numpy<2.0')
     quoted_deps = [f"'{d}'" for d in py_deps]
     
-    run(f"pip3 install --user {' '.join(quoted_deps)}")
-    run(f"pip3 install --user -e {acados_path}/interfaces/acados_template")
+    run(f"pip3 install --user{pip_extra} {' '.join(quoted_deps)}")
+    run(f"pip3 install --user{pip_extra} -e {acados_path}/interfaces/acados_template")
 
     # 7. Environment Variables
     bashrc = os.path.expanduser("~/.bashrc")

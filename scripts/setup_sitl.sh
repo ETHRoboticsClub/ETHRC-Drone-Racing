@@ -325,7 +325,10 @@ build_ros_workspace() {
     require_cmd colcon
 
     log "Building ROS 2 workspace packages..."
-    (cd "$WORKSPACE_DIR" && colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges)
+    mkdir -p "$WORKSPACE_DIR/ext"
+    echo "# Tell colcon to ignore this directory" > "$WORKSPACE_DIR/ext/COLCON_IGNORE"
+
+    (cd "$WORKSPACE_DIR" && colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges rl interfaces)
 }
 
 main() {
