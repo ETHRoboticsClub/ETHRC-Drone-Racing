@@ -94,6 +94,45 @@ serial 0 128 1500000 57600 115200 1500000
 save
 ```
 
+## 🎯 PID & Rates Configuration for Autonomous Control
+
+When deploying autonomous controllers (e.g. RL or MPC) that command angular rates (deg/s) at high frequency (100Hz+), the flight controller's internal rate-tracking loop must be configured to act as a clean, linear actuator.
+
+### 1. Disable Feedforward (FF)
+By default, Betaflight uses Feedforward to speed up stick response for human pilots. However, step updates from a 100Hz companion computer will cause extreme motor spikes, motor heating, and potential desyncs.
+
+Disable feedforward on all axes in the CLI using the `f_` prefix:
+```bash
+set f_roll = 0
+set f_pitch = 0
+set f_yaw = 0
+```
+
+### 2. Configure Linear Rates
+The translation bridge (`msp_bridge`) assumes a linear mapping between high-level rate commands and RC channel stick deflections. You must disable expo and configure equal center/max rates.
+
+In the **`ACTUAL`** rate model, rates are configured in **units of 10 deg/s** (e.g. a value of `50` represents $500\text{ deg/s}$).
+Apply these commands to configure a linear $500\text{ deg/s}$ rate curve matching the default `max_rate_deg_s: 500.0` parameter in `msp_params.yaml`:
+```bash
+set rates_type = ACTUAL
+set roll_rc_rate = 50
+set roll_srate = 50
+set roll_expo = 0
+set pitch_rc_rate = 50
+set pitch_srate = 50
+set pitch_expo = 0
+set yaw_rc_rate = 50
+set yaw_srate = 50
+set yaw_expo = 0
+```
+
+### 3. Blackbox Bandwidth & Arming Sequence
+*   **Avoid Serial Overflows**: Do not set `blackbox_sample_rate = 1/1` on an 8kHz loop rate, as the resulting 8kHz telemetry stream requires ~2.16 Mbps, overflowing the 1.5 Mbps UART connection. Set it to `1/4` (2kHz) or `1/8` (1kHz) instead.
+*   **Dictionary Locking**: Keep `blackbox_mode = NORMAL`. Because Betaflight only streams the dictionary headers (`H` lines) at the beginning of a logging session, you must **arm the drone** to initiate the stream and allow the ROS `blackbox_driver_node` to lock onto the frame format definitions.
+*   **Allow Tilted Arming**: Set `small_angle = 180` to prevent arming failures or accidental disarms if the drone is tilted during takeoff or aggressive maneuvers.
+
+---
+
 ## 🛠️ Building Custom Betaflight Firmware (with CRC-8 Protection)
 
 To secure high-speed serial telemetry and eliminate transient UART noise or gyro spikes, we use a custom Betaflight firmware that appends a frame-level CRC-8 checksum to every Intraframe (I) and Interframe (P) packet. This custom firmware is maintained on a dedicated branch.
