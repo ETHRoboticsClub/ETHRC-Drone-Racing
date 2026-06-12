@@ -225,12 +225,12 @@ install_ros_gz_bridge() {
     local selected_package_array=()
     local selected_packages
 
-    apt_update_once
-
     if apt_package_installed "$versioned_bridge" || apt_package_installed "$generic_bridge"; then
         log "ROS/Gazebo bridge package is already installed."
         return
     fi
+
+    apt_update_once
 
     if ! selected_packages="$(select_first_available_package_set \
         "$versioned_bridge" "$versioned_sim" -- \
