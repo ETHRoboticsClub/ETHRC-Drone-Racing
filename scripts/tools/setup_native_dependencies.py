@@ -228,7 +228,7 @@ def setup_native():
     quoted_deps = [f"'{d}'" for d in py_deps]
     
     run(f"pip3 install --user{pip_extra} {' '.join(quoted_deps)}")
-    run(f"pip3 install --user{pip_extra} -e {acados_path}/interfaces/acados_template")
+    run(f"pip3 install --user{pip_extra} --use-pep517 -e {acados_path}/interfaces/acados_template")
 
     # 7. Environment Variables
     bashrc = os.path.expanduser("~/.bashrc")
