@@ -53,10 +53,18 @@ We provide a unified configuration script that automates package installation an
 ```
 
 This script will:
-1. Install **Gazebo Harmonic** and **`ros-humble-ros-gz`** package dependencies on your host.
+1. Install **Gazebo Harmonic** and the correct **`ros-humble-ros-gzharmonic-bridge`** and **`ros-humble-ros-gzharmonic-sim`** package dependencies on your host workstation. (Note: standard `ros-humble-ros-gz` is for Gazebo Fortress and will cause topic decoding failures like `Unknown message type [8]`).
 2. Clone and build the **`aeroloop_gazebo`** plugins (containing the C++ `BetaflightPlugin` system plugin).
 3. Compile the custom **Betaflight SITL binary** inside `ext/anemos-betaflight`.
-4. Run `colcon build` to compile the ROS 2 workspace packages.
+4. Run `colcon build --symlink-install` to compile the ROS 2 workspace packages (always use `--symlink-install` to prevent stale build copy errors in Python nodes).
+
+### 2. Python Dependencies (PyTorch)
+The `drone_controller_node` runs the neural network policy and requires PyTorch. You can run it either:
+* **Natively on the host**: Install CPU-only PyTorch:
+  ```bash
+  pip3 install --user torch --index-url https://download.pytorch.org/whl/cpu
+  ```
+* **Inside Docker**: Ensure you execute the launch commands inside the Docker environment (`docker compose exec dev bash`), where the full ML/RL stack is pre-configured.
 
 ---
 
@@ -82,7 +90,7 @@ gz sim -g
 
 ## 🎯 Verification: Testing the RL Hover Policy
 
-Once the simulation stack is running, you can deploy the RL policy to test hovering stability.
+The bringup command above starts `drone_controller_node` with `controller_type:=rl`, so the controller is already waiting for a state stream and a target goal.
 
 ### 1. Publish a Target Goal
 Instruct the drone to hover at a height of 1.5 meters:
@@ -91,20 +99,20 @@ Instruct the drone to hover at a height of 1.5 meters:
 ros2 topic pub /drone_goal geometry_msgs/msg/Point "{x: 0.0, y: 0.0, z: 1.5}" --once
 ```
 
-### 2. Launch the RL Controller
-Start the hovering experiment script:
-
-```bash
-python3 src/rl/rl/hovering_experiment.py
-```
-
-### 3. Verify Active Telemetry
+### 2. Verify Active Telemetry
 In a separate terminal, monitor the rates of the key control loop topics to ensure they are streaming at the target frequencies (~100Hz):
 
 ```bash
 ros2 topic hz /drone_state_sim
 ros2 topic hz /drone_observation
 ros2 topic hz /drone_attitude_cmd
+```
+
+You can also check the Gazebo sensor ingress topics:
+
+```bash
+ros2 topic hz /imu0
+ros2 topic hz /odometry
 ```
 
 ---

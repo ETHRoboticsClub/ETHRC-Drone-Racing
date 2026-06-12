@@ -20,6 +20,7 @@ def generate_launch_description():
     ws_root = os.path.abspath(os.path.join(pkg_drone_control, '../../../../'))
 
     # --- Paths for SITL ---
+    os.environ['GZ_VERSION'] = 'harmonic'
     models_dir = os.path.join(ws_root, 'sim', 'gazebo', 'models')
     gz_resource_path = os.environ.get('GZ_SIM_RESOURCE_PATH', '')
     if models_dir not in gz_resource_path:
@@ -512,7 +513,8 @@ def generate_launch_description():
             ])
         ),
         launch_arguments={
-            'gz_args': [gazebo_world_path, ' -s -r']
+            'gz_args': [gazebo_world_path, ' -s -r'],
+            'gz_version': '8'
         }.items(),
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
     )
@@ -531,6 +533,7 @@ def generate_launch_description():
     bf_sitl_bin = os.path.join(ws_root, 'ext', 'anemos-betaflight', 'obj', 'main', 'betaflight_SITL.elf')
     betaflight_sitl_process = ExecuteProcess(
         cmd=[bf_sitl_bin],
+        cwd=ws_root,
         output='screen',
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
     )

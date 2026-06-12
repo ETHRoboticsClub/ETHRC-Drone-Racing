@@ -35,6 +35,7 @@ Safety model:
 
 import threading
 import time
+import traceback
 from typing import Optional
 
 import numpy as np
@@ -194,7 +195,7 @@ class DroneController(Node):
         try:
             attitude_cmd = self.controller.controller_update(current_state, goal)
         except Exception as e:
-            self.get_logger().error(f'Control Loop Error: {e}')
+            self.get_logger().error(f'Control Loop Error: {e}\n{traceback.format_exc()}')
             return
 
         thrust_cmd = float(attitude_cmd.thrust_value)

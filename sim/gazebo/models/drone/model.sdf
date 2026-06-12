@@ -26,7 +26,7 @@
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-            <uri>model://drone_urdf/meshes/base_link.stl</uri>
+            <uri>model://drone/meshes/base_link.stl</uri>
           </mesh>
         </geometry>
       </visual>
@@ -35,7 +35,7 @@
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-            <uri>model://drone_urdf/meshes/base_link.stl</uri>
+            <uri>model://drone/meshes/base_link.stl</uri>
           </mesh>
         </geometry>
       </collision>

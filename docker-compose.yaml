@@ -44,6 +44,8 @@ services:
       - ./sim:/home/${CONTAINER_USERNAME:-drone_dev}/sim:rw
       # Mount .git 
       - ./.git:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/.git
+      # Mount ext directory containing external plugins
+      - ./ext:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/ext:rw
       # Mount scripts directory
       - ./scripts:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/scripts:rw
       # # Mount other useful directories

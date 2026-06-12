@@ -44,6 +44,7 @@ get-docker.sh
 repo_artifact/
 aws/
 ext/
+eeprom.bin
 
 awscliv2.zip
 CLAUDE.md

@@ -25,12 +25,12 @@ else
     echo "Gazebo Harmonic is already installed."
 fi
 
-if ! dpkg -l | grep -q "ros-humble-ros-gz"; then
-    echo "Installing ros-humble-ros-gz..."
+if ! dpkg -l | grep -q "ros-humble-ros-gzharmonic-bridge"; then
+    echo "Installing ros-humble-ros-gzharmonic-bridge and ros-humble-ros-gzharmonic-sim..."
     sudo apt-get update
-    sudo apt-get install -y ros-humble-ros-gz
+    sudo apt-get install -y ros-humble-ros-gzharmonic-bridge ros-humble-ros-gzharmonic-sim
 else
-    echo "ros-humble-ros-gz is already installed."
+    echo "ros-humble-ros-gzharmonic-bridge is already installed."
 fi
 
 # 2. Clone and build aeroloop_gazebo plugins
@@ -74,7 +74,20 @@ if [ -z "$SITL_BIN" ] || [ ! -x "$SITL_BIN" ]; then
 fi
 echo "Betaflight SITL binary compiled successfully at: $SITL_BIN"
 
-# 5. Build ROS 2 workspace packages
+# 5. Load Betaflight SITL CLI configuration to eeprom.bin in the workspace root
+echo "Loading Betaflight SITL configuration..."
+CONFIG_FILE="$WORKSPACE_DIR/docs/docs/files/betaflight_conf/sitl_config.txt"
+if [ -f "$CONFIG_FILE" ]; then
+    # Run the binary with --config and wait for it to save and exit.
+    # We execute it from the workspace root so that the eeprom.bin is created there.
+    cd "$WORKSPACE_DIR"
+    "$SITL_BIN" --config "$CONFIG_FILE"
+    echo "Betaflight SITL configuration loaded and saved to eeprom.bin."
+else
+    echo "Warning: Betaflight config file not found at $CONFIG_FILE"
+fi
+
+# 6. Build ROS 2 workspace packages
 echo "Building ROS 2 workspace packages..."
 cd "$WORKSPACE_DIR"
 colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges
