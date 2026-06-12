@@ -50,7 +50,9 @@ def setup_native():
     
     # ROS distro detection
     ros_distro = "humble"
-    if os.path.exists("/opt/ros/jazzy"):
+    if os.path.exists("/opt/ros/rolling"):
+        ros_distro = "rolling"
+    elif os.path.exists("/opt/ros/jazzy"):
         ros_distro = "jazzy"
     print(f"Detected ROS distro: {ros_distro}")
 
