@@ -142,11 +142,11 @@ class JetsonH264Publisher(Node):
             self.get_logger().error(f"GStreamer error: {err.message} ({dbg})")
             rclpy.shutdown()
         elif t == Gst.MessageType.EOS:
-            self.get_logger().warn("GStreamer EOS")
+            self.get_logger().warning("GStreamer EOS")
             rclpy.shutdown()
         elif t == Gst.MessageType.WARNING:
             err, dbg = message.parse_warning()
-            self.get_logger().warn(f"GStreamer warning: {err.message} ({dbg})")
+            self.get_logger().warning(f"GStreamer warning: {err.message} ({dbg})")
 
     def destroy_node(self):
         try:

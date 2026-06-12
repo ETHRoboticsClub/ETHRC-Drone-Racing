@@ -118,7 +118,7 @@ class SitlRcBridge(Node):
         except Exception as e:
             self._udp_failures += 1
             if now - self._last_warning_time >= self.rc_warning_interval_s:
-                self.get_logger().warn(
+                self.get_logger().warning(
                     f"Failed to send SITL RC UDP packet to {self.sitl_ip}:{self.sitl_rc_port} "
                     f"({self._udp_failures} failures): {e}"
                 )

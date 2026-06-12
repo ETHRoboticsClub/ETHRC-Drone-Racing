@@ -1,97 +1,363 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Setup script for Betaflight SITL + Gazebo Harmonic simulation verification
+# Setup script for Betaflight SITL + Gazebo Harmonic simulation verification.
 
-echo "=== Starting Betaflight SITL + Gazebo Setup ==="
+SCRIPT_NAME="$(basename "$0")"
+readonly SCRIPT_NAME
 
-# Get workspace root directory (parent of scripts/)
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-echo "Workspace directory: $WORKSPACE_DIR"
+readonly WORKSPACE_DIR
 
-# 1. Install dependencies (Gazebo Harmonic + ROS 2 bridges)
-if ! dpkg -l | grep -q "gz-harmonic"; then
-    echo "Installing Gazebo Harmonic..."
-    sudo apt-get update
-    sudo apt-get install -y lsb-release wget gnupg
-    
-    # Add OSRF package repository keys
-    sudo wget https://packages.osrfoundation.org/gazebo.gpg -O /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
-    echo "deb [signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
-    
-    sudo apt-get update
-    sudo apt-get install -y gz-harmonic
-else
-    echo "Gazebo Harmonic is already installed."
-fi
+SUDO=()
+APT_UPDATED=0
 
-if ! dpkg -l | grep -q "ros-humble-ros-gzharmonic-bridge"; then
-    echo "Installing ros-humble-ros-gzharmonic-bridge and ros-humble-ros-gzharmonic-sim..."
-    sudo apt-get update
-    sudo apt-get install -y ros-humble-ros-gzharmonic-bridge ros-humble-ros-gzharmonic-sim
-else
-    echo "ros-humble-ros-gzharmonic-bridge is already installed."
-fi
+log() {
+    echo "[$SCRIPT_NAME] $*" >&2
+}
 
-# 2. Clone and build aeroloop_gazebo plugins
-EXT_DIR="$WORKSPACE_DIR/ext"
-mkdir -p "$EXT_DIR"
-
-AEROLOOP_DIR="$EXT_DIR/aeroloop_gazebo"
-if [ ! -d "$AEROLOOP_DIR" ]; then
-    echo "Cloning aeroloop_gazebo..."
-    git clone -b gz https://github.com/betaflight/aeroloop_gazebo.git "$AEROLOOP_DIR"
-else
-    echo "aeroloop_gazebo repository already exists."
-fi
-
-echo "Building aeroloop_gazebo plugin..."
-cd "$AEROLOOP_DIR"
-./build_plugin.sh
-
-# 3. Build Betaflight SITL binary
-BF_DIR="$EXT_DIR/anemos-betaflight"
-if [ ! -d "$BF_DIR" ]; then
-    echo "Error: ext/anemos-betaflight not found. Please ensure custom betaflight source is cloned."
+die() {
+    echo "[$SCRIPT_NAME] Error: $*" >&2
     exit 1
-fi
+}
 
-echo "Building Betaflight SITL binary..."
-cd "$BF_DIR"
-# Clean and compile SITL target
-make clean TARGET=SITL || true
-make TARGET=SITL -j$(nproc)
+have_cmd() {
+    command -v "$1" >/dev/null 2>&1
+}
 
-# 4. Verify compilation output
-SITL_BIN=$(find "$BF_DIR/obj" -name "betaflight_*_SITL*" -type f | head -n 1)
-if [ -z "$SITL_BIN" ] || [ ! -x "$SITL_BIN" ]; then
-    # Try alternate location or binary name
-    SITL_BIN="$BF_DIR/obj/main/betaflight_SITL"
-    if [ ! -x "$SITL_BIN" ]; then
-         echo "Error: Betaflight SITL binary not found/executable after build."
-         exit 1
+sudo_cmd() {
+    if [ "$(id -u)" -eq 0 ]; then
+        SUDO=()
+    elif have_cmd sudo; then
+        SUDO=(sudo)
+    else
+        die "This script needs root privileges for apt operations. Re-run as root or install sudo."
     fi
-fi
-echo "Betaflight SITL binary compiled successfully at: $SITL_BIN"
+}
 
-# 5. Load Betaflight SITL CLI configuration to eeprom.bin in the workspace root
-echo "Loading Betaflight SITL configuration..."
-CONFIG_FILE="$WORKSPACE_DIR/docs/docs/files/betaflight_conf/sitl_config.txt"
-if [ -f "$CONFIG_FILE" ]; then
-    # Run the binary with --config and wait for it to save and exit.
-    # We execute it from the workspace root so that the eeprom.bin is created there.
-    cd "$WORKSPACE_DIR"
-    "$SITL_BIN" --config "$CONFIG_FILE"
-    echo "Betaflight SITL configuration loaded and saved to eeprom.bin."
-else
-    echo "Warning: Betaflight config file not found at $CONFIG_FILE"
-fi
+require_cmd() {
+    have_cmd "$1" || die "Required command '$1' was not found. Install it and re-run this script."
+}
 
-# 6. Build ROS 2 workspace packages
-echo "Building ROS 2 workspace packages..."
-cd "$WORKSPACE_DIR"
-colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges
+apt_update_once() {
+    if [ "$APT_UPDATED" -eq 0 ]; then
+        "${SUDO[@]}" apt-get update || log "Warning: apt-get update failed, but proceeding..."
+        APT_UPDATED=1
+    fi
+}
 
-echo "=== Setup Completed Successfully! ==="
-echo "Betaflight SITL binary path: $SITL_BIN"
-echo "To run SITL: ros2 launch drone_control racing_bringup.launch.py sitl:=true"
+apt_package_installed() {
+    dpkg-query -W -f='${Status}' "$1" 2>/dev/null | grep -q "install ok installed"
+}
+
+apt_package_available() {
+    apt-cache show "$1" >/dev/null 2>&1
+}
+
+install_apt_packages() {
+    local packages=()
+    local pkg
+
+    for pkg in "$@"; do
+        if ! apt_package_installed "$pkg"; then
+            packages+=("$pkg")
+        fi
+    done
+
+    if [ "${#packages[@]}" -eq 0 ]; then
+        log "Apt packages already installed: $*"
+        return
+    fi
+
+    apt_update_once
+    log "Installing apt packages: ${packages[*]}"
+    "${SUDO[@]}" apt-get install -y "${packages[@]}"
+}
+
+detect_os() {
+    if [ ! -r /etc/os-release ]; then
+        die "Cannot detect the operating system because /etc/os-release is missing."
+    fi
+
+    # shellcheck disable=SC1091
+    . /etc/os-release
+
+    OS_ID="${ID:-}"
+    OS_CODENAME="${VERSION_CODENAME:-}"
+
+    if [ -z "$OS_CODENAME" ] && have_cmd lsb_release; then
+        OS_CODENAME="$(lsb_release -cs)"
+    fi
+
+    if [ "$OS_ID" != "ubuntu" ]; then
+        die "Unsupported OS '$OS_ID'. This installer currently supports Ubuntu apt-based systems."
+    fi
+
+    [ -n "$OS_CODENAME" ] || die "Could not detect the Ubuntu/Debian codename."
+    log "Detected OS: $OS_ID $OS_CODENAME"
+}
+
+default_ros_distro_for_os() {
+    case "$OS_CODENAME" in
+        noble)
+            echo "jazzy"
+            ;;
+        jammy)
+            echo "humble"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+detect_ros_distro() {
+    local distro="${ROS_DISTRO:-}"
+    local default_distro
+
+    if [ -n "$distro" ]; then
+        echo "$distro"
+        return
+    fi
+
+    default_distro="$(default_ros_distro_for_os)"
+    if [ -n "$default_distro" ] && [ -d "/opt/ros/$default_distro" ]; then
+        echo "$default_distro"
+        return
+    fi
+
+    for distro in jazzy humble rolling iron; do
+        if [ -d "/opt/ros/$distro" ]; then
+            echo "$distro"
+            return
+        fi
+    done
+
+    echo "$default_distro"
+}
+
+source_ros_setup() {
+    ROS_DISTRO_DETECTED="$(detect_ros_distro)"
+
+    if [ -z "$ROS_DISTRO_DETECTED" ]; then
+        die "Could not infer a ROS 2 distro for $OS_CODENAME. Source ROS first or set ROS_DISTRO."
+    fi
+
+    if [ ! -r "/opt/ros/$ROS_DISTRO_DETECTED/setup.bash" ]; then
+        die "ROS 2 '$ROS_DISTRO_DETECTED' is not installed at /opt/ros/$ROS_DISTRO_DETECTED. Install ROS 2 first or set ROS_DISTRO to an installed distro."
+    fi
+
+    # shellcheck disable=SC1090
+    set +u
+    source "/opt/ros/$ROS_DISTRO_DETECTED/setup.bash"
+    set -u
+    log "Using ROS 2 distro: $ROS_DISTRO_DETECTED"
+}
+
+setup_osrf_repo() {
+    install_apt_packages ca-certificates gnupg lsb-release wget
+
+    if [ ! -s /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg ]; then
+        log "Adding OSRF package signing key..."
+        wget -qO- https://packages.osrfoundation.org/gazebo.gpg \
+            | "${SUDO[@]}" gpg --dearmor -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+    fi
+
+    log "Configuring OSRF Gazebo apt repository for $OS_CODENAME..."
+    echo "deb [signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable $OS_CODENAME main" \
+        | "${SUDO[@]}" tee /etc/apt/sources.list.d/gazebo-stable.list >/dev/null
+    APT_UPDATED=0
+    apt_update_once
+}
+
+install_gazebo_harmonic() {
+    if apt_package_installed gz-harmonic; then
+        log "Gazebo Harmonic is already installed."
+        return
+    fi
+
+    setup_osrf_repo
+
+    if ! apt_package_available gz-harmonic; then
+        die "gz-harmonic is not available for '$OS_CODENAME' from the configured OSRF repository."
+    fi
+
+    install_apt_packages gz-harmonic
+}
+
+select_first_available_package_set() {
+    local pkg
+
+    while [ "$#" -gt 0 ]; do
+        local packages=()
+
+        while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do
+            packages+=("$1")
+            shift
+        done
+
+        if [ "$#" -gt 0 ] && [ "$1" = "--" ]; then
+            shift
+        fi
+
+        local all_available=1
+        for pkg in "${packages[@]}"; do
+            if ! apt_package_available "$pkg"; then
+                all_available=0
+                break
+            fi
+        done
+
+        if [ "$all_available" -eq 1 ]; then
+            printf "%s\n" "${packages[@]}"
+            return
+        fi
+    done
+
+    return 1
+}
+
+install_ros_gz_bridge() {
+    local versioned_bridge="ros-$ROS_DISTRO_DETECTED-ros-gzharmonic-bridge"
+    local versioned_sim="ros-$ROS_DISTRO_DETECTED-ros-gzharmonic-sim"
+    local generic_bridge="ros-$ROS_DISTRO_DETECTED-ros-gz-bridge"
+    local generic_sim="ros-$ROS_DISTRO_DETECTED-ros-gz-sim"
+    local selected_package_array=()
+    local selected_packages
+
+    apt_update_once
+
+    if apt_package_installed "$versioned_bridge" || apt_package_installed "$generic_bridge"; then
+        log "ROS/Gazebo bridge package is already installed."
+        return
+    fi
+
+    if ! selected_packages="$(select_first_available_package_set \
+        "$versioned_bridge" "$versioned_sim" -- \
+        "$generic_bridge" "$generic_sim")"; then
+        die "No ROS/Gazebo Harmonic bridge package set found for ROS '$ROS_DISTRO_DETECTED'. Tried '$versioned_bridge $versioned_sim' and '$generic_bridge $generic_sim'."
+    fi
+
+    mapfile -t selected_package_array <<< "$selected_packages"
+    install_apt_packages "${selected_package_array[@]}"
+}
+
+clone_or_update_aeroloop() {
+    local aeroloop_dir="$WORKSPACE_DIR/ext/aeroloop_gazebo"
+
+    mkdir -p "$WORKSPACE_DIR/ext"
+
+    if [ -d "$aeroloop_dir/.git" ]; then
+        log "Updating aeroloop_gazebo..."
+        git -C "$aeroloop_dir" fetch --all --prune
+        git -C "$aeroloop_dir" checkout gz
+        git -C "$aeroloop_dir" pull --ff-only
+    elif [ -e "$aeroloop_dir" ] && [ "$(find "$aeroloop_dir" -mindepth 1 -maxdepth 1 | wc -l)" -gt 0 ]; then
+        die "$aeroloop_dir exists but is not a git checkout. Move it aside or clone betaflight/aeroloop_gazebo there."
+    else
+        rm -rf "$aeroloop_dir"
+        log "Cloning aeroloop_gazebo..."
+        git clone -b gz https://github.com/betaflight/aeroloop_gazebo.git "$aeroloop_dir"
+    fi
+
+    [ -x "$aeroloop_dir/build_plugin.sh" ] || die "Missing executable build_plugin.sh in $aeroloop_dir."
+
+    log "Building aeroloop_gazebo plugin..."
+    (cd "$aeroloop_dir" && ./build_plugin.sh)
+}
+
+clone_or_update_betaflight() {
+    local bf_dir="$WORKSPACE_DIR/ext/anemos-betaflight"
+
+    mkdir -p "$WORKSPACE_DIR/ext"
+
+    if [ -d "$bf_dir/.git" ]; then
+        log "Updating anemos-betaflight..."
+        git -C "$bf_dir" fetch --all --prune
+        git -C "$bf_dir" pull --ff-only
+    elif [ -e "$bf_dir" ] && [ "$(find "$bf_dir" -mindepth 1 -maxdepth 1 | wc -l)" -gt 0 ]; then
+        die "$bf_dir exists but is not a git checkout. Move it aside or clone ETHRoboticsClub/anemos-betaflight there."
+    else
+        rm -rf "$bf_dir"
+        log "Cloning anemos-betaflight..."
+        git clone https://github.com/ETHRoboticsClub/anemos-betaflight.git "$bf_dir"
+    fi
+}
+
+build_betaflight_sitl() {
+    local bf_dir="$WORKSPACE_DIR/ext/anemos-betaflight"
+    local sitl_bin
+
+    [ -d "$bf_dir" ] || die "ext/anemos-betaflight not found. Clone the custom Betaflight source into $bf_dir."
+    [ -f "$bf_dir/Makefile" ] || die "$bf_dir does not look like a Betaflight checkout because Makefile is missing."
+
+    log "Building Betaflight SITL binary..."
+    log "Initializing Betaflight submodules sequentially..."
+    (cd "$bf_dir" && git submodule update --init --recursive) >&2
+
+    (cd "$bf_dir"; make clean TARGET=SITL || true) >&2
+    (cd "$bf_dir" && make TARGET=SITL "-j$(nproc)") >&2
+
+    sitl_bin="$(find "$bf_dir/obj" -name "betaflight_*_SITL*" -type f -executable 2>/dev/null | head -n 1 || true)"
+    if [ -z "$sitl_bin" ]; then
+        sitl_bin="$bf_dir/obj/main/betaflight_SITL"
+    fi
+
+    [ -x "$sitl_bin" ] || die "Betaflight SITL binary not found or not executable after build."
+
+    echo "$sitl_bin"
+}
+
+load_betaflight_config() {
+    local sitl_bin="$1"
+    local config_file="$WORKSPACE_DIR/docs/docs/files/betaflight_conf/sitl_config.txt"
+
+    log "Loading Betaflight SITL configuration..."
+    if [ -f "$config_file" ]; then
+        (cd "$WORKSPACE_DIR" && "$sitl_bin" --config "$config_file")
+        log "Betaflight SITL configuration loaded and saved to eeprom.bin."
+    else
+        log "Warning: Betaflight config file not found at $config_file"
+    fi
+}
+
+build_ros_workspace() {
+    require_cmd colcon
+
+    log "Building ROS 2 workspace packages..."
+    (cd "$WORKSPACE_DIR" && colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges)
+}
+
+main() {
+    local sitl_bin
+
+    log "Starting Betaflight SITL + Gazebo setup."
+    log "Workspace directory: $WORKSPACE_DIR"
+
+    sudo_cmd
+    detect_os
+    source_ros_setup
+
+    require_cmd apt-cache
+    require_cmd apt-get
+    require_cmd dpkg-query
+    require_cmd git
+    require_cmd make
+    require_cmd nproc
+
+    install_apt_packages build-essential cmake
+    install_gazebo_harmonic
+    install_ros_gz_bridge
+
+    clone_or_update_aeroloop
+    clone_or_update_betaflight
+    sitl_bin="$(build_betaflight_sitl)"
+    load_betaflight_config "$sitl_bin"
+    build_ros_workspace
+
+    log "Setup completed successfully."
+    log "Betaflight SITL binary path: $sitl_bin"
+    log "To run SITL: ros2 launch drone_control racing_bringup.launch.py sitl:=true"
+}
+
+main "$@"

@@ -181,13 +181,13 @@ class DroneController(Node):
             last_state_time = self.last_state_time
 
         if last_state_time is None:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 "No state received yet; holding command.",
                 throttle_duration_sec=1.0)
             return
         age = time.monotonic() - last_state_time
         if age > self.state_timeout_sec:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 f"State stale ({age*1000:.0f} ms > {self.state_timeout_sec*1000:.0f} ms); holding command.",
                 throttle_duration_sec=1.0)
             return

@@ -133,7 +133,7 @@ class DirectStateBridgeNode(Node):
 
     def timer_callback(self):
         if not self.has_vicon_data or not self.has_imu_data:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 f"Waiting for sensor data: Vicon={self.has_vicon_data}, IMU={self.has_imu_data}...",
                 throttle_duration_sec=2.0
             )

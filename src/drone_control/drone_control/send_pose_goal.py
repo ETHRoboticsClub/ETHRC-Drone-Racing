@@ -82,7 +82,7 @@ class DronePoseGoalClient(Node):
     def goal_response_callback(self, future, mode):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().warn('Goal rejected by server.')
+            self.get_logger().warning('Goal rejected by server.')
             rclpy.shutdown()
             return
 
@@ -91,7 +91,7 @@ class DronePoseGoalClient(Node):
         
         if mode == 'cancel':
             # --- START CANCELLATION TIMER ---
-            self.get_logger().warn(f'Mode "cancel": Setting up timer to cancel in {CANCEL_DELAY_SEC} seconds.')
+            self.get_logger().warning(f'Mode "cancel": Setting up timer to cancel in {CANCEL_DELAY_SEC} seconds.')
             # Create a one-shot timer (period=delay, callback=send_cancel_action)
             self._cancel_timer = self.create_timer(CANCEL_DELAY_SEC, self.send_cancel_action)
 
@@ -109,7 +109,7 @@ class DronePoseGoalClient(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info(f'Goal SUCCEEDED! ✅')
         elif status == GoalStatus.STATUS_CANCELED:
-            self.get_logger().warn(f'Goal was CANCELED. 🛑')
+            self.get_logger().warning(f'Goal was CANCELED. 🛑')
         elif status == GoalStatus.STATUS_ABORTED:
             self.get_logger().error(f'Goal ABORTED. ❌')
         else:

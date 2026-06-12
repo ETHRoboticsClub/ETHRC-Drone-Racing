@@ -135,7 +135,7 @@ class MspBridge(Node):
                 pass
 
             if now - self._last_serial_warning_time >= self.serial_warning_interval_s:
-                self.get_logger().warn(
+                self.get_logger().warning(
                     f"MSP serial output is not draining on {self.port_name}; "
                     f"dropped stale TX buffer ({self._serial_write_failures} failures): {e}"
                 )
