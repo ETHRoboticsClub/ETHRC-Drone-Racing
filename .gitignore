@@ -43,6 +43,8 @@ bags/tools/__pycache__/
 get-docker.sh
 repo_artifact/
 aws/
+ext/
+
 awscliv2.zip
 CLAUDE.md
 
