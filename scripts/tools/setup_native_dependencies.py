@@ -194,7 +194,9 @@ def setup_native():
     run("pip3 uninstall -y serial || true")
     
     # Core dependencies
-    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "setuptools==58.2.0", "onnxruntime", "onnx"]
+    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "onnxruntime", "onnx"]
+    if ros_distro == "humble":
+        py_deps.append("setuptools==58.2.0")
 
     # RL/Inference dependencies
     # On Jetson, we use the NVIDIA-optimized torch wheels for CUDA support
