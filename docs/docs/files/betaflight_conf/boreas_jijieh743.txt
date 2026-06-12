@@ -55,20 +55,20 @@ set msp_override_channels_mask = 15
 set msp_override_failsafe = ON
 set blackbox_sample_rate = 1/8
 set blackbox_device = SERIAL
-set blackbox_disable_pids = ON
-set blackbox_disable_rc = ON
 set blackbox_disable_setpoint = ON
-set blackbox_disable_alt = ON
-set blackbox_disable_rssi = ON
 set blackbox_disable_debug = ON
-set blackbox_disable_motors = ON
-set blackbox_disable_gps = ON
+set motor_idle = 300
 set dshot_bidir = ON
 set motor_output_reordering = 1,0,3,2,4,5,6,7
 set small_angle = 70
 set craft_name = boreas
 
 profile 0
+
+# profile 0
+set f_pitch = 0
+set f_roll = 0
+set f_yaw = 0
 
 profile 1
 
@@ -98,7 +98,9 @@ rateprofile 3
 battery_profile 0
 
 # battery_profile 0
-set vbat_min_cell_voltage = 350
+set vbat_max_cell_voltage = 420
+set vbat_min_cell_voltage = 300
+set vbat_warning_cell_voltage = 320
 
 battery_profile 1
 
