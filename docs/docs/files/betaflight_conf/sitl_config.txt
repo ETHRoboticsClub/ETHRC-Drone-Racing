@@ -1,0 +1,21 @@
+# Betaflight SITL CLI Configuration
+batch start
+
+# Allow arming at any angle
+set small_angle = 180
+
+# Map AUX1 (channel 5) to ARM
+aux 0 0 0 1700 2100 0 0
+
+# Map AUX2 (channel 6) to MSP Override
+# Mode ID 50 is MSP_OVERRIDE
+aux 1 50 1 1700 2100 0 0
+
+# Enable MSP override for Roll, Pitch, Yaw, Throttle
+set msp_override_channels_mask = 15
+
+# Disable Rx failsafe check for SITL
+set rx_min_usec = 850
+set rx_max_usec = 2150
+
+save

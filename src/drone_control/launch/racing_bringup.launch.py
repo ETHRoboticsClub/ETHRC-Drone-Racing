@@ -2,7 +2,7 @@ import os
 import socket
 import launch.conditions
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
 from launch import LaunchDescription
 from launch.actions import GroupAction, IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, LogInfo
 from launch.launch_description_sources import PythonLaunchDescriptionSource, FrontendLaunchDescriptionSource
@@ -17,8 +17,38 @@ def generate_launch_description():
     
     # --- Packages ---
     pkg_drone_control = get_package_share_directory('drone_control')
+    ws_root = os.path.abspath(os.path.join(pkg_drone_control, '../../../../'))
+
+    # --- Paths for SITL ---
+    models_dir = os.path.join(ws_root, 'sim', 'gazebo', 'models')
+    gz_resource_path = os.environ.get('GZ_SIM_RESOURCE_PATH', '')
+    if models_dir not in gz_resource_path:
+        os.environ['GZ_SIM_RESOURCE_PATH'] = f"{models_dir}:{gz_resource_path}" if gz_resource_path else models_dir
+
+    plugins_dir = os.path.join(ws_root, 'ext', 'aeroloop_gazebo', 'plugins', 'build')
+    gz_plugin_path = os.environ.get('GZ_SIM_SYSTEM_PLUGIN_PATH', '')
+    if plugins_dir not in gz_plugin_path:
+        os.environ['GZ_SIM_SYSTEM_PLUGIN_PATH'] = f"{plugins_dir}:{gz_plugin_path}" if gz_plugin_path else plugins_dir
 
     # --- Arguments ---
+    arg_sitl = DeclareLaunchArgument('sitl', default_value='false',
+                                     description='Whether to run in SITL mode with Gazebo and Betaflight')
+
+    # Try to find NVIDIA Isaac ROS encoder/decoder package paths to avoid crashes on non-Jetson hosts
+    has_encoder = False
+    try:
+        get_package_share_directory('isaac_ros_h264_encoder')
+        has_encoder = True
+    except PackageNotFoundError:
+        pass
+
+    has_decoder = False
+    try:
+        get_package_share_directory('isaac_ros_h264_decoder')
+        has_decoder = True
+    except PackageNotFoundError:
+        pass
+
     default_imu_port = '/dev/ttyTHS1' if is_jetson else '/dev/ttyUSB0'
     default_msp_port = '/dev/ttyTCU0' if is_jetson else '/dev/ttyACM0'
 
@@ -140,7 +170,7 @@ def generate_launch_description():
             'outlier_sigma_k': 4.0,         # Sliding-window outlier detection (sigma)
         }],
         condition=launch.conditions.IfCondition(
-            PythonExpression(["'", LaunchConfiguration('imu_source'), "' == 'blackbox'"])
+            PythonExpression(["'", LaunchConfiguration('sitl'), "' == 'false' and '", LaunchConfiguration('imu_source'), "' == 'blackbox'"])
         ),
         output='screen'
     )
@@ -157,7 +187,7 @@ def generate_launch_description():
             'rpm_topic': '/motor_rpm',
         }],
         condition=launch.conditions.IfCondition(
-            PythonExpression(["'", LaunchConfiguration('imu_source'), "' == 'msp'"])
+            PythonExpression(["'", LaunchConfiguration('sitl'), "' == 'false' and '", LaunchConfiguration('imu_source'), "' == 'msp'"])
         ),
         output='screen'
     )
@@ -174,7 +204,8 @@ def generate_launch_description():
         }],
         condition=launch.conditions.IfCondition(
             PythonExpression([
-                "'", LaunchConfiguration('use_rc_sim'), "' == 'true' and '",
+                "'", LaunchConfiguration('sitl'), "' == 'false' and '",
+                LaunchConfiguration('use_rc_sim'), "' == 'true' and '",
                 LaunchConfiguration('msp_bench_mode'), "' == 'false'"
             ])
         ),
@@ -197,7 +228,9 @@ def generate_launch_description():
         cmd=['ros2', 'run', 'betaflight_msp_controller', 'load_bf_config', 
              selected_config_path, '--port', LaunchConfiguration('msp_port')],
         output='screen',
-        condition=launch.conditions.IfCondition(LaunchConfiguration('load_bf_config'))
+        condition=launch.conditions.IfCondition(
+            PythonExpression(["'", LaunchConfiguration('load_bf_config'), "' == 'true' and '", LaunchConfiguration('sitl'), "' == 'false'"])
+        )
     )
 
     # --- 3. VIDEO: Team-Standard Camera for perception ---
@@ -280,10 +313,12 @@ def generate_launch_description():
         )
     )
 
-    isaac_h264_encoder = GroupAction(
-        actions=[
-            SetRemap(src='image_raw', dst='/cam0/image_raw_nitros'),
-            SetRemap(src='image_compressed', dst='/cam0/image_h264'),
+    encoder_actions = [
+        SetRemap(src='image_raw', dst='/cam0/image_raw_nitros'),
+        SetRemap(src='image_compressed', dst='/cam0/image_h264'),
+    ]
+    if has_encoder:
+        encoder_actions.append(
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     PathJoinSubstitution([
@@ -297,8 +332,11 @@ def generate_launch_description():
                     'input_height': LaunchConfiguration('video_height'),
                     'config': 'pframe_cqp',
                 }.items(),
-            ),
-        ],
+            )
+        )
+
+    isaac_h264_encoder = GroupAction(
+        actions=encoder_actions,
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
@@ -343,10 +381,12 @@ def generate_launch_description():
         output='screen'
     )
 
-    isaac_h264_decoder = GroupAction(
-        actions=[
-            SetRemap(src='image_compressed', dst='/cam0/image_h264'),
-            SetRemap(src='image_uncompressed', dst='/image_decoded'),
+    decoder_actions = [
+        SetRemap(src='image_compressed', dst='/cam0/image_h264'),
+        SetRemap(src='image_uncompressed', dst='/image_decoded'),
+    ]
+    if has_decoder:
+        decoder_actions.append(
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(
                     PathJoinSubstitution([
@@ -355,8 +395,11 @@ def generate_launch_description():
                         'isaac_ros_h264_decoder.launch.py'
                     ])
                 )
-            ),
-        ],
+            )
+        )
+
+    isaac_h264_decoder = GroupAction(
+        actions=decoder_actions,
         condition=launch.conditions.IfCondition(
             PythonExpression([
                 "'", LaunchConfiguration('view_stream'), "' == 'true' and '",
@@ -399,6 +442,10 @@ def generate_launch_description():
         condition=launch.conditions.IfCondition(LaunchConfiguration('use_vio'))
     )
 
+    use_vicon_val = PythonExpression([
+        "'false' if '", LaunchConfiguration('sitl'), "' == 'true' else '", LaunchConfiguration('use_vicon'), "'"
+    ])
+
     vicon_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution(
@@ -406,7 +453,7 @@ def generate_launch_description():
             )
         ),
         launch_arguments={'hostname': '192.168.0.78'}.items(),
-        condition=launch.conditions.IfCondition(LaunchConfiguration('use_vicon'))
+        condition=launch.conditions.IfCondition(use_vicon_val)
     )
 
     # --- 4.1 EKF: State Estimation ---
@@ -430,7 +477,9 @@ def generate_launch_description():
         executable='state_bridge_node',
         name='state_estimator_bridge',
         parameters=[{
+            'pose_source': PythonExpression(["'odometry' if '", LaunchConfiguration('sitl'), "' == 'true' else 'vicon'"]),
             'vicon_topic': vicon_topic,
+            'odometry_topic': '/odometry',
             'imu_topic': '/imu0',
             'state_topic': 'drone_state_sim',
             'publish_rate': 100.0
@@ -451,7 +500,56 @@ def generate_launch_description():
         }.items() 
     )
 
+    # --- 6. SITL SPECIFIC LAUNCHES ---
+    gazebo_world_path = os.path.join(ws_root, 'sim', 'gazebo', 'worlds', 'sitl_racing.sdf')
+    
+    gazebo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('ros_gz_sim'),
+                'launch',
+                'gz_sim.launch.py'
+            ])
+        ),
+        launch_arguments={
+            'gz_args': [gazebo_world_path, ' -s -r']
+        }.items(),
+        condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
+    )
+
+    gz_bridges_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('gazebo_ros_bridges'),
+                'launch',
+                'bridge.launch.py'
+            ])
+        ),
+        condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
+    )
+
+    bf_sitl_bin = os.path.join(ws_root, 'ext', 'anemos-betaflight', 'obj', 'main', 'betaflight_SITL.elf')
+    betaflight_sitl_process = ExecuteProcess(
+        cmd=[bf_sitl_bin],
+        output='screen',
+        condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
+    )
+
+    sitl_rc_bridge_node = Node(
+        package='betaflight_msp_controller',
+        executable='sitl_rc_bridge',
+        name='sitl_rc_bridge',
+        parameters=[{
+            'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic'),
+            'sitl_ip': '127.0.0.1',
+            'sitl_rc_port': 9004
+        }],
+        condition=launch.conditions.IfCondition(LaunchConfiguration('sitl')),
+        output='screen'
+    )
+
     return LaunchDescription([
+        arg_sitl,
         arg_imu_port,
         arg_imu_source,
         arg_imu_baud,
@@ -505,4 +603,8 @@ def generate_launch_description():
         ekf_launch,
         state_bridge_node,
         control_launch,
+        gazebo_launch,
+        gz_bridges_launch,
+        betaflight_sitl_process,
+        sitl_rc_bridge_node,
     ])
