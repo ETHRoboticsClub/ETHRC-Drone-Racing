@@ -25,8 +25,10 @@ class PolicyVerifier(Node):
         self.goal_pub.publish(goal_msg)
         self.get_logger().info(f"Published goal {name}: [{x}, {y}, {z}]")
         
-        # Wait to gather commands
-        time.sleep(1.0)
+        # Spin the node to process callbacks for 1.0 second
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < 1.0:
+            rclpy.spin_once(self, timeout_sec=0.01)
         
         if not self.received_cmds:
             self.get_logger().warn("No commands received!")
@@ -45,8 +47,10 @@ def main():
     rclpy.init()
     node = PolicyVerifier()
     
-    # Give ROS 2 some time to connect subscriptions
-    time.sleep(2.0)
+    # Spin node for 2 seconds to allow network connections to establish
+    start_time = time.monotonic()
+    while time.monotonic() - start_time < 2.0:
+        rclpy.spin_once(node, timeout_sec=0.05)
     
     print("\n=== STARTING POLICY RESPONSE VERIFICATION ===\n")
     
