@@ -6,6 +6,7 @@
 # Used by any controller that requires a pre-defined path (e.g. MPCC).
 
 waypoints:
+  - {x:  0.0, y:  0.0, z: -6.0} # Safe takeoff waypoint
   - {x:  8.0, y:  8.0, z: -6.0}
   - {x:  16.0, y:  0.0, z: -6.0}
   - {x:  8.0, y: -8.0, z: -6.0}

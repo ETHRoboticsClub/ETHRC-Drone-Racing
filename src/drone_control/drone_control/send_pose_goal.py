@@ -69,7 +69,8 @@ class DronePoseGoalClient(Node):
         pose.header.stamp = self.get_clock().now().to_msg()
         pose.pose.position.x = float(x)
         pose.pose.position.y = float(y)
-        pose.pose.position.z = float(z)
+        # Apply a Z offset (-0.15m) to safely compensate for the controller's steady-state hover dropping
+        pose.pose.position.z = float(z) - 0.15
         pose.pose.orientation = q
         
         # 3. Assign to goal (FollowWaypoints expects a list of PoseStamped)
@@ -164,6 +165,9 @@ def main(args=None):
     executor = rclpy.executors.SingleThreadedExecutor()
     executor.add_node(client)
     
+    spin_thread = threading.Thread(target=executor.spin, daemon=True)
+    spin_thread.start()
+    
     def signal_handler(sig, frame):
         """Handle Ctrl+C by setting shutdown flag."""
         print('\n[INFO] Ctrl+C detected. Initiating shutdown...')
@@ -186,55 +190,37 @@ def main(args=None):
             
             try:
                 # Prompt for goal parameters
-                x_input = input("Enter X position (m) [default: 1.0]: ").strip()
-                x = float(x_input) if x_input else 1.0
+                x_input = input("Enter X position (m) [default: 0.0]: ").strip()
+                x = float(x_input) if x_input else 0.0
                 
                 y_input = input("Enter Y position (m) [default: 0.0]: ").strip()
                 y = float(y_input) if y_input else 0.0
                 
-                z_input = input("Enter Z position (m) [default: 2.0]: ").strip()
-                z = float(z_input) if z_input else 2.0
+                z_input = input("Enter Z position (m) [default: -2.0]: ").strip()
+                z = float(z_input) if z_input else -2.0
                 
                 yaw_input = input("Enter Yaw angle (degrees) [default: 90.0]: ").strip()
                 yaw = float(yaw_input) if yaw_input else 90.0
                 
                 print(f"\n[INFO] Sending goal: x={x}, y={y}, z={z}, yaw={yaw}")
                 
+                # Cancel previous goal if active
+                if client._goal_handle is not None and not client._goal_done_event.is_set():
+                    print("\n[INFO] Cancelling previous goal to set a new one...")
+                    try:
+                        client._action_client._cancel_goal_async(client._goal_handle)
+                        time.sleep(0.5)  # Wait briefly for server to abort previous goal
+                    except Exception as e:
+                        print(f"[WARNING] Cancel error: {e}")
+
                 # Reset event for new goal
                 client._goal_done_event.clear()
                 
                 # Send the goal
                 client.send_goal(x, y, z, yaw, "goal_only")
                 
-                # Wait for goal to complete by spinning executor while checking event
-                print("[INFO] Waiting for goal to complete...")
-                timeout_sec = 120
-                start_time = time.time()
-                while rclpy.ok() and not client._shutdown_requested:
-                    # Spin briefly to process callbacks
-                    executor.spin_once(timeout_sec=0.1)
-                    
-                    # Check if goal is done
-                    if client._goal_done_event.is_set():
-                        print("[INFO] Goal completed!")
-                        break
-                    
-                    # Added 09/06/2026
-                    # Check timeout
-                    elapsed = time.time() - start_time
-                    if elapsed > timeout_sec:
-                        print(f"[WARNING] Goal timeout after {timeout_sec}s")
-                        # Cancel the goal if it's still active
-                        if client._goal_handle is not None:
-                            client.get_logger().warn("Cancelling timed-out goal...")
-                            try:
-                                client._action_client._cancel_goal_async(client._goal_handle)
-                            except Exception as e:
-                                client.get_logger().warn(f"Error cancelling goal: {e}")
-                            # Spin a bit more to process cancellation
-                            for _ in range(10):
-                                executor.spin_once(timeout_sec=0.1)
-                        break
+                # Give a short delay to allow the server to accept before prompting again
+                time.sleep(0.1)
                 
                 if client._shutdown_requested:
                     break

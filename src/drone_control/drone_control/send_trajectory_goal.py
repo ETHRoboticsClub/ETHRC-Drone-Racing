@@ -91,8 +91,8 @@ class DroneWaypointGoalClient(Node):
         
         waypoints_list = []
         for wp in self.waypoints_data:
-            # 1. Convert Yaw to Quaternion
-            yaw_rad = math.radians(wp['yaw_deg'])
+            # 1. Convert Yaw to Quaternion (default to 0.0 if not specified)
+            yaw_rad = math.radians(wp.get('yaw_deg', 0.0))
             q = self.euler_to_quaternion(0.0, 0.0, yaw_rad)
             
             # 2. Create PoseStamped message
@@ -104,7 +104,7 @@ class DroneWaypointGoalClient(Node):
             # represented by a time offset. The time_from_beginning field 
             # is assumed to be in seconds.
             # We convert seconds to ROS 2 time message fields (sec, nanosec).
-            total_sec = wp['time_from_beginning']
+            total_sec = wp.get('time_from_beginning', 0.0)
             pose.header.stamp.sec = int(total_sec)
             pose.header.stamp.nanosec = int((total_sec - int(total_sec)) * 1e9)
             # The receiver (Action Server) must interpret this stamp as a desired
