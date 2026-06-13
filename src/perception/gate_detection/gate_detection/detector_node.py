@@ -138,6 +138,14 @@ class GateDetectorNode(Node):
         # the map and keeps _world_T_gate=identity (still a stub, but with the
         # historical [WARN] semantics). See config/parkour_map.yaml.
         self.declare_parameter("parkour_map_path", "")
+        # Initial gate id to bootstrap _select_world_T_gate's prior. MUST
+        # match where the drone actually starts (operator's responsibility).
+        # Defaults to 0 for race-start. A wrong value here creates a stable
+        # fixed point: the proximity matcher *cannot* recover on its own
+        # without an external pose signal, because the SE(3) chain
+        # telescopes (W_T_B_pub computed from the wrong gate then implies
+        # the same wrong gate every frame). See A1.1 reviewer finding #1.
+        self.declare_parameter("start_gate_id", 0)
         # Covariance values published on the pose message. Conservative
         # diagonals; the EKF can be tuned from there once we have real
         # PnP-residual statistics from the zephyrus rig.
@@ -247,6 +255,26 @@ class GateDetectorNode(Node):
         # Empty list = no map loaded (stub falls back to identity).
         self._parkour_gates: list[np.ndarray] = []
         self._load_parkour_map()
+
+        # ---- A1.1: gate-ID tracking state -------------------------------
+        # Last self-published world_T_body. Used as a prior to pick which
+        # gate in the parkour map the next detection corresponds to. None
+        # until the first successful publish; on first detection we
+        # bootstrap to `start_gate_id` (default 0 = race-start).
+        # Paired with a nanosecond timestamp so we can detect stale priors
+        # and force a re-bootstrap rather than silently mis-assign
+        # (A1.1 reviewer finding #2). If anyone ever switches the executor
+        # to MultiThreadedExecutor, the read-modify-write at the publish
+        # site needs a lock — currently safe under the default
+        # single-threaded rclpy.spin().
+        self._last_world_T_body: Optional[np.ndarray] = None
+        self._last_world_T_body_stamp_ns: Optional[int] = None
+        # One-shot WARN budgets for the gate-selection paths.
+        self._warned_select_bootstrap: bool = False
+        # The suspect-match WARN is rate-limited rather than one-shot: a
+        # persistent suspect condition every frame for many seconds is
+        # important to surface, not suppress (per CLAUDE.md §5).
+        self._last_select_far_match_warn_ns: int = 0
 
         self.get_logger().info(
             f"GateDetectorNode up: image={cam_topic} info={info_topic} "
@@ -381,9 +409,18 @@ class GateDetectorNode(Node):
         cam_T_gate = _se3(R_cam_gate, tvec.reshape(3))
         gate_T_cam = _invert_se3(cam_T_gate)
 
-        world_T_gate = self._world_T_gate_stub()
         cam_T_body = self._cam_T_body_stub()
+        world_T_gate = self._select_world_T_gate(cam_T_gate, cam_T_body)
         world_T_body = world_T_gate @ gate_T_cam @ cam_T_body
+        # Persist (with timestamp) for the next call's proximity-based
+        # gate selection (A1.1). The timestamp lets _select_world_T_gate
+        # detect a stale prior and force re-bootstrap rather than silently
+        # mis-assign (reviewer finding #2). Using the EKF's filtered
+        # output instead of our last self-published pose would be a
+        # tighter prior — left as a follow-up since it requires a
+        # /odometry/filtered subscription.
+        self._last_world_T_body = world_T_body
+        self._last_world_T_body_stamp_ns = self.get_clock().now().nanoseconds
 
         # ---- publish PoseWithCovarianceStamped ---------------------------
         pos = world_T_body[:3, 3]
@@ -554,44 +591,159 @@ class GateDetectorNode(Node):
             f"all_gates_same_orientation=True)"
         )
 
-    def _world_T_gate_stub(self, gate_id: int = 0) -> np.ndarray:
-        """Return ``world_T_gate`` for gate ``gate_id`` from the parkour map.
+    def _select_world_T_gate(
+        self,
+        cam_T_gate: np.ndarray,
+        cam_T_body: np.ndarray,
+    ) -> np.ndarray:
+        """Pick the parkour-map gate that best matches the current detection (A1.1).
 
-        Falls back to identity (with a [WARN]) when the map failed to load.
-        CLAUDE.md §5: even with the map loaded this is still a stub for the
-        autonomous-flight contract -- the deployment node has no gate-ID
-        tracking yet, so we default to ``gate_id=0`` regardless of which
-        gate the model is actually looking at. A follow-up needs to wire
-        the HybridSegNextGateTracker's gate-sequence counter to this call.
+        Algorithm:
+        1. If the map is empty -> defer to the legacy stub (identity) with
+           its own one-shot [WARN]. Drone pose stays gate-anchored.
+        2. If we have no fresh prior on world_T_body -> bootstrap to the
+           ``start_gate_id`` parameter (default 0). "No fresh prior" means
+           either we've never published (cold start) or the last publish
+           is older than ``PRIOR_MAX_AGE_NS``. The cold-start path emits a
+           one-shot [WARN]; the stale-prior path emits a rate-limited
+           [WARN] and treats the prior as missing.
+
+           IMPORTANT: a wrong start_gate_id creates a stable fixed point.
+           The SE(3) chain telescopes — once a wrong gate is picked, every
+           subsequent prediction lands exactly on that gate (residual 0)
+           and the matcher stays locked. There is no in-band recovery from
+           an incorrect bootstrap; the operator must set start_gate_id
+           correctly. See A1.1 reviewer finding #1.
+
+        3. Otherwise compute the predicted world-frame gate position via
+              predicted_world_T_gate = last_world_T_body @ body_T_cam @ cam_T_gate
+           and pick the parkour-map gate whose translation is closest. A
+           large residual (> SUSPECT_M) emits a rate-limited [WARN].
+           SUSPECT_M is below half the min inter-gate spacing on this map
+           so a true ambiguity cannot slip past silently.
+
+        Returns ``world_T_gate`` for the selected gate (4x4 float64).
         """
+        # SUSPECT_M < min_NN_spacing / 2. The min NN spacing on the current
+        # 6-gate course is 23.98 m (gates 4->5), so the disambiguation
+        # boundary between any two adjacent gates is ~12.0 m. 10 m leaves
+        # a 2 m safety margin. A future map with tighter gates should
+        # tighten this — todo.md follow-up to compute it from the loaded
+        # map at init time.
+        SUSPECT_M = 10.0
+        # Prior staleness threshold. 0.5 s = ~15 frames at the 30 Hz
+        # camera rate. Longer than that and we'd rather force a bootstrap
+        # than silently mis-assign on a stale prior whose math telescopes
+        # to zero residual on the now-wrong gate (A1.1 reviewer finding #2).
+        PRIOR_MAX_AGE_NS = int(0.5e9)
+        # WARN rate-limit for persistent conditions: at most one per second.
+        WARN_RATE_NS = int(1.0e9)
+        now_ns = self.get_clock().now().nanoseconds
+
         if not self._parkour_gates:
-            if not self._warned_stub_gate_world:
+            # Map not loaded -> defer to the existing stub which logs once
+            # that the world frame is identity. Same behaviour as before
+            # A1.1; we lose proximity matching, not safety.
+            return self._world_T_gate_stub(gate_id=0)
+
+        # Read start_gate_id every call -- cheap, and lets the operator
+        # change it without restarting the node if necessary.
+        start_gate_id = int(
+            self.get_parameter("start_gate_id").get_parameter_value().integer_value
+        )
+        if not (0 <= start_gate_id < len(self._parkour_gates)):
+            self.get_logger().warning(
+                f"[WARN] _select_world_T_gate: expected=start_gate_id in "
+                f"[0,{len(self._parkour_gates)}), got={start_gate_id}; "
+                f"fallback=clamping to 0"
+            )
+            start_gate_id = 0
+
+        # Stale-prior check: if the last publish is too old, treat the
+        # prior as missing and force the bootstrap path.
+        prior_is_fresh = (
+            self._last_world_T_body is not None
+            and self._last_world_T_body_stamp_ns is not None
+            and (now_ns - self._last_world_T_body_stamp_ns) <= PRIOR_MAX_AGE_NS
+        )
+        if (
+            self._last_world_T_body is not None
+            and self._last_world_T_body_stamp_ns is not None
+            and not prior_is_fresh
+        ):
+            age_s = (now_ns - self._last_world_T_body_stamp_ns) / 1e9
+            self.get_logger().warning(
+                f"[WARN] _select_world_T_gate: expected=prior age <= "
+                f"{PRIOR_MAX_AGE_NS/1e9:.2f}s, got={age_s:.2f}s; "
+                f"fallback=treating prior as missing and re-bootstrapping "
+                f"to gate {start_gate_id}. The stale prior would have "
+                f"telescoped to zero residual on the previously-selected "
+                f"gate regardless of current drone position."
+            )
+            # Drop the prior so we re-enter the bootstrap branch cleanly.
+            self._last_world_T_body = None
+            self._last_world_T_body_stamp_ns = None
+
+        if self._last_world_T_body is None:
+            # Cold-start or just-staled bootstrap.
+            if not self._warned_select_bootstrap:
                 self.get_logger().warning(
-                    "[WARN] world_T_gate=identity STUB in use (no parkour "
-                    "map loaded). Drone pose is published in a gate-anchored "
-                    "frame, NOT a true world frame. Wire up the parkour-map "
-                    "gate lookup before any autonomous flight."
+                    f"[WARN] _select_world_T_gate: expected=fresh "
+                    f"last_world_T_body prior, got=None; fallback=bootstrap "
+                    f"to start_gate_id={start_gate_id}. A wrong "
+                    f"start_gate_id is a STABLE FIXED POINT — the matcher "
+                    f"cannot self-correct. Verify the operator parameter "
+                    f"before flight."
                 )
-                self._warned_stub_gate_world = True
-            return np.eye(4, dtype=np.float64)
+                self._warned_select_bootstrap = True
+            return self._parkour_gates[start_gate_id]
+
+        # Proximity match. body_T_cam is the inverse of cam_T_body.
+        body_T_cam = _invert_se3(cam_T_body)
+        predicted_world_T_gate = self._last_world_T_body @ body_T_cam @ cam_T_gate
+        pred_pos = predicted_world_T_gate[:3, 3]
+        map_positions = np.array(
+            [g[:3, 3] for g in self._parkour_gates], dtype=np.float64,
+        )  # (N, 3)
+        dists = np.linalg.norm(map_positions - pred_pos[None, :], axis=1)
+        gate_id = int(np.argmin(dists))
+        closest_dist = float(dists[gate_id])
+
+        if closest_dist > SUSPECT_M:
+            # Rate-limited WARN: persistent suspect condition is important
+            # to surface (e.g., off-course drone), not suppress.
+            if now_ns - self._last_select_far_match_warn_ns >= WARN_RATE_NS:
+                self.get_logger().warning(
+                    f"[WARN] _select_world_T_gate: expected=closest map "
+                    f"gate within {SUSPECT_M:.1f} m of predicted position, "
+                    f"got={closest_dist:.1f} m to gate {gate_id}; "
+                    f"fallback=using gate {gate_id} anyway. Causes: stale "
+                    f"prior, off-course drone, or PnP error."
+                )
+                self._last_select_far_match_warn_ns = now_ns
+
+        return self._parkour_gates[gate_id]
+
+    def _world_T_gate_stub(self, gate_id: int = 0) -> np.ndarray:
+        """No-map fallback: identity ``world_T_gate`` with a one-shot [WARN].
+
+        Called only by ``_select_world_T_gate`` when the parkour map failed
+        to load. The ``gate_id`` argument is accepted for callsite
+        compatibility but ignored — without a map there is no gate SE(3)
+        to return. Once a map is loaded, gate-ID-aware lookup happens in
+        ``_select_world_T_gate``; the obsolete "defaults to gate 0 every
+        frame" body that lived here pre-A1.1 has been removed.
+        """
+        del gate_id  # unused — no map means no per-gate SE(3)
         if not self._warned_stub_gate_world:
             self.get_logger().warning(
-                f"[WARN] parkour map loaded ({len(self._parkour_gates)} gates) "
-                f"but gate-ID tracking is NOT yet wired -- defaulting to "
-                f"gate_id={gate_id} for every detection. Drone pose is the "
-                f"correct gate-anchored frame only while the model is locked "
-                f"on gate {gate_id}; for any other gate the published pose "
-                f"will be wrong by the gate-{gate_id}->gate-N offset. "
-                f"Replace this with a real gate-ID source before autonomous flight."
+                "[WARN] world_T_gate=identity STUB in use (no parkour "
+                "map loaded). Drone pose is published in a gate-anchored "
+                "frame, NOT a true world frame. Wire up the parkour-map "
+                "gate lookup before any autonomous flight."
             )
             self._warned_stub_gate_world = True
-        if not (0 <= gate_id < len(self._parkour_gates)):
-            self.get_logger().warning(
-                f"[WARN] gate_id={gate_id} out of range "
-                f"[0,{len(self._parkour_gates)}); falling back to identity"
-            )
-            return np.eye(4, dtype=np.float64)
-        return self._parkour_gates[gate_id]
+        return np.eye(4, dtype=np.float64)
 
     def _cam_T_body_stub(self) -> np.ndarray:
         """FPV convention — camera optical z = body +x, identity translation."""
