@@ -56,15 +56,18 @@ class SitlRcBridge(Node):
             self.attitude_cmd_callback, 
             10)
         
-        # Timer (50Hz for RC heartbeat)
-        self.timer = self.create_timer(0.02, self.timer_callback)
+        # Timer (500Hz for RC heartbeat). Betaflight SITL can advance FC time
+        # faster than wall time, so 50Hz can trip RXLOSS even while ROS is alive.
+        self.timer = self.create_timer(0.002, self.timer_callback)
         
         self.get_logger().info('SITL RC Bridge Initialized (Handles Joy and Attitude Cmd via UDP)')
 
     def attitude_cmd_callback(self, msg):
+        if not self.use_override:
+            return
         if len(msg.data) < 4:
             return
-            
+
         # msg.data = [roll_rate, pitch_rate, yaw_rate, thrust]
         roll_rate = msg.data[0]
         pitch_rate = msg.data[1]
@@ -88,7 +91,21 @@ class SitlRcBridge(Node):
         # Handle MSP Override Mode status (AUX2)
         if len(msg.buttons) > self.override_switch_id:
             self.use_override = msg.buttons[self.override_switch_id] == 1
-            self.rc_channels[5] = 2000 if self.use_override else 1000
+            # In SITL, we keep AUX2 low (1000) so the flight controller does not enter BOXMSPOVERRIDE
+            # and ignore our UDP RX stream.
+            self.rc_channels[5] = 1000
+
+        # Update manual RC channels if not in Override mode
+        if not self.use_override:
+            roll = msg.axes[0] if len(msg.axes) > 0 else 0.0
+            pitch = msg.axes[1] if len(msg.axes) > 1 else 0.0
+            yaw = msg.axes[2] if len(msg.axes) > 2 else 0.0
+            throttle = msg.axes[3] if len(msg.axes) > 3 else -1.0
+
+            self.rc_channels[0] = int(max(1000, min(2000, 1500 + roll * 500)))
+            self.rc_channels[1] = int(max(1000, min(2000, 1500 + pitch * 500)))
+            self.rc_channels[2] = int(max(1000, min(2000, 1500 + throttle * 500)))
+            self.rc_channels[3] = int(max(1000, min(2000, 1500 + yaw * 500)))
 
     def timer_callback(self):
         # Publish throttle topic for monitoring
