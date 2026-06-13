@@ -46,6 +46,7 @@ import cv2
 import numpy as np
 import rclpy
 import torch
+import yaml
 from ament_index_python.packages import get_package_share_directory
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseWithCovarianceStamped
@@ -132,6 +133,11 @@ class GateDetectorNode(Node):
         self.declare_parameter("device", "")
         self.declare_parameter("img_size", 384)
         self.declare_parameter("max_rate_hz", 30.0)
+        # Parkour map: YAML with the 6 gate poses in world NED. Defaults to the
+        # competition course shipped with the package. Empty string disables
+        # the map and keeps _world_T_gate=identity (still a stub, but with the
+        # historical [WARN] semantics). See config/parkour_map.yaml.
+        self.declare_parameter("parkour_map_path", "")
         # Covariance values published on the pose message. Conservative
         # diagonals; the EKF can be tuned from there once we have real
         # PnP-residual statistics from the zephyrus rig.
@@ -235,6 +241,12 @@ class GateDetectorNode(Node):
         self._warned_stub_gate_world: bool = False
         self._warned_stub_cam_body: bool = False
         self._warned_no_camera_info: bool = False
+
+        # ---- Parkour map ------------------------------------------------
+        # List of 4x4 world_T_gate SE(3) matrices indexed by gate id.
+        # Empty list = no map loaded (stub falls back to identity).
+        self._parkour_gates: list[np.ndarray] = []
+        self._load_parkour_map()
 
         self.get_logger().info(
             f"GateDetectorNode up: image={cam_topic} info={info_topic} "
@@ -448,17 +460,138 @@ class GateDetectorNode(Node):
     # -----------------------------------------------------------------
     # Frame stubs (CLAUDE.md §5: announce once, loudly)
     # -----------------------------------------------------------------
-    def _world_T_gate_stub(self) -> np.ndarray:
-        """Identity — placeholder until a parkour map exists."""
+    def _load_parkour_map(self) -> None:
+        """Load the parkour map YAML into ``self._parkour_gates``.
+
+        Each entry becomes a 4x4 ``world_T_gate`` SE(3) matrix. The map
+        carries gate positions in **NED** (X=North, Y=East, Z=Down) and
+        the convention that all gates share the same orientation (identity
+        rotation w.r.t. world). CLAUDE.md §5: announce the load result.
+        """
+        path = self.get_parameter("parkour_map_path").get_parameter_value().string_value
+        if not path:
+            # Default to the package-shipped map in share/config/.
+            try:
+                share = get_package_share_directory("gate_detection")
+                path = os.path.join(share, "config", "parkour_map.yaml")
+            except Exception as e:
+                self.get_logger().warning(
+                    f"[WARN] could not resolve gate_detection share dir "
+                    f"to find parkour_map.yaml ({e}); proceeding with no map"
+                )
+                return
+        if not os.path.isfile(path):
+            self.get_logger().warning(
+                f"[WARN] parkour map not found at {path!r}; proceeding "
+                f"with no map (_world_T_gate_stub will return identity)"
+            )
+            return
+        try:
+            with open(path, "r") as f:
+                doc = yaml.safe_load(f)
+        except Exception as e:
+            self.get_logger().error(
+                f"[ERROR] failed to parse parkour map {path!r}: {e}"
+            )
+            return
+        if not isinstance(doc, dict) or "gates" not in doc:
+            self.get_logger().error(
+                f"[ERROR] parkour map {path!r} missing top-level 'gates' "
+                f"list; got keys={list(doc.keys()) if isinstance(doc, dict) else type(doc).__name__}"
+            )
+            return
+        frame = doc.get("world_frame", "<unspecified>")
+        if frame != "NED":
+            self.get_logger().warning(
+                f"[WARN] parkour map declares world_frame={frame!r}; "
+                f"the detector assumes NED for the SE(3) composition. "
+                f"If this map is not NED the published drone_pose will "
+                f"be in the wrong frame."
+            )
+        # Build the SE(3) list. Identity rotation per the "all gates have
+        # the same orientation" convention; the translation is the NED
+        # position. Sort by id so gates[i].id == i for the dense case.
+        gates_in = doc["gates"]
+        if not isinstance(gates_in, list) or not gates_in:
+            self.get_logger().error(
+                f"[ERROR] parkour map {path!r} has empty 'gates' list"
+            )
+            return
+        # Determine the gate-id range so we can index by id directly.
+        try:
+            ids = [int(g["id"]) for g in gates_in]
+        except Exception as e:
+            self.get_logger().error(
+                f"[ERROR] parkour map {path!r}: gate entries missing 'id': {e}"
+            )
+            return
+        max_id = max(ids)
+        gates: list[np.ndarray] = [np.eye(4, dtype=np.float64) for _ in range(max_id + 1)]
+        seen: set[int] = set()
+        for g in gates_in:
+            gid = int(g["id"])
+            if gid in seen:
+                self.get_logger().warning(
+                    f"[WARN] duplicate gate id {gid} in {path!r}; keeping last"
+                )
+            seen.add(gid)
+            pos = g.get("position_ned")
+            if not isinstance(pos, list) or len(pos) != 3:
+                self.get_logger().error(
+                    f"[ERROR] gate id={gid}: position_ned must be a length-3 list, got {pos!r}"
+                )
+                return
+            T = np.eye(4, dtype=np.float64)
+            T[:3, 3] = np.asarray(pos, dtype=np.float64)
+            # Rotation stays identity per the all-gates-same-orientation
+            # convention. If a future map adds per-gate orientations we
+            # can read a 'rotation_quat_xyzw' field here and fill T[:3,:3]
+            # via scipy.spatial.transform.Rotation.
+            gates[gid] = T
+        self._parkour_gates = gates
+        self.get_logger().info(
+            f"parkour map loaded: {len(gates)} gates from {path!r} (world_frame=NED, "
+            f"all_gates_same_orientation=True)"
+        )
+
+    def _world_T_gate_stub(self, gate_id: int = 0) -> np.ndarray:
+        """Return ``world_T_gate`` for gate ``gate_id`` from the parkour map.
+
+        Falls back to identity (with a [WARN]) when the map failed to load.
+        CLAUDE.md §5: even with the map loaded this is still a stub for the
+        autonomous-flight contract -- the deployment node has no gate-ID
+        tracking yet, so we default to ``gate_id=0`` regardless of which
+        gate the model is actually looking at. A follow-up needs to wire
+        the HybridSegNextGateTracker's gate-sequence counter to this call.
+        """
+        if not self._parkour_gates:
+            if not self._warned_stub_gate_world:
+                self.get_logger().warning(
+                    "[WARN] world_T_gate=identity STUB in use (no parkour "
+                    "map loaded). Drone pose is published in a gate-anchored "
+                    "frame, NOT a true world frame. Wire up the parkour-map "
+                    "gate lookup before any autonomous flight."
+                )
+                self._warned_stub_gate_world = True
+            return np.eye(4, dtype=np.float64)
         if not self._warned_stub_gate_world:
             self.get_logger().warning(
-                "[WARN] world_T_gate=identity STUB in use. Drone pose "
-                "is published in a gate-anchored frame, NOT a true "
-                "world frame. Wire up the parkour-map gate lookup "
-                "before any autonomous flight."
+                f"[WARN] parkour map loaded ({len(self._parkour_gates)} gates) "
+                f"but gate-ID tracking is NOT yet wired -- defaulting to "
+                f"gate_id={gate_id} for every detection. Drone pose is the "
+                f"correct gate-anchored frame only while the model is locked "
+                f"on gate {gate_id}; for any other gate the published pose "
+                f"will be wrong by the gate-{gate_id}->gate-N offset. "
+                f"Replace this with a real gate-ID source before autonomous flight."
             )
             self._warned_stub_gate_world = True
-        return np.eye(4, dtype=np.float64)
+        if not (0 <= gate_id < len(self._parkour_gates)):
+            self.get_logger().warning(
+                f"[WARN] gate_id={gate_id} out of range "
+                f"[0,{len(self._parkour_gates)}); falling back to identity"
+            )
+            return np.eye(4, dtype=np.float64)
+        return self._parkour_gates[gate_id]
 
     def _cam_T_body_stub(self) -> np.ndarray:
         """FPV convention — camera optical z = body +x, identity translation."""
