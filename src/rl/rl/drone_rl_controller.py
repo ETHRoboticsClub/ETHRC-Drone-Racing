@@ -57,30 +57,19 @@ class DroneRLController(ControllerInterface):
         gate_obs_single = np.concatenate([offset_b_scaled, forward_b])
         obs_gates = np.concatenate([gate_obs_single, gate_obs_single, gate_obs_single]) # 18 dims
         
-        # --- Assemble 32-dim step observation ---
+        # --- Assemble 15-dim step observation ---
+        # The policy expects a 15-dim observation representing:
+        # [lin_vel(3), ang_vel(3), gravity_body(3), offset_b_scaled(3), forward_b(3)]
         step_obs = np.concatenate([
             lin_vel,                    # 3
             ang_vel,                    # 3
             gravity_body,               # 3
-            self.last_action,           # 4
-            obs_gates,                  # 18
-            [self.velocity_limit]       # 1
+            offset_b_scaled,            # 3
+            forward_b                   # 3
         ]).astype(np.float32)
         
-        # --- History Buffer ---
-        if self.obs_history is None:
-            # Initialize history with the first observation repeated 3 times
-            self.obs_history = np.tile(step_obs, (3, 1)) # shape: (3, 32)
-        else:
-            # Shift history: remove oldest (index 2), push newest to front (index 0)
-            self.obs_history = np.roll(self.obs_history, shift=1, axis=0)
-            self.obs_history[0] = step_obs
-            
-        # Flatten to 96-dim vector for the policy
-        flat_obs = self.obs_history.flatten()
-        
         # Convert to tensor and run inference
-        observation_tensor = torch.tensor(flat_obs, dtype=torch.float32).unsqueeze(0)
+        observation_tensor = torch.tensor(step_obs, dtype=torch.float32).unsqueeze(0)
         actions = self.policy_model.inference(observation_tensor)
         actions = actions.squeeze(0).cpu().numpy()
         
