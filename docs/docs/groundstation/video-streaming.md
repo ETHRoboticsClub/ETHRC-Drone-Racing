@@ -1,6 +1,6 @@
 # H.264 Video Streaming
 
-**Page Owner:** [Julian Hoffman](https://github.com/JulesHere)
+**Page Owner:** [Julian Hofmann](https://github.com/JulesHere)
 
 The default racing video path uses the Jetson hardware encoder inside
 `imx219_argus_camera` and publishes H.264 as a ROS topic. This page focuses on

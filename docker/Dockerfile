@@ -30,13 +30,14 @@ COPY --chown=drone_dev:drone_dev src/ros2-vicon-receiver ${WORKSPACE}/src/ros2-v
 COPY --chown=drone_dev:drone_dev src/utils ${WORKSPACE}/src/utils
 COPY --chown=drone_dev:drone_dev src/h264_image_transport ${WORKSPACE}/src/h264_image_transport
 COPY --chown=drone_dev:drone_dev src/jetson_h264_publisher ${WORKSPACE}/src/jetson_h264_publisher
+COPY --chown=drone_dev:drone_dev src/msp ${WORKSPACE}/src/msp
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
 USER root
 RUN apt-get update && apt-get install -y libserialport-dev && rm -rf /var/lib/apt/lists/*
 USER drone_dev
 RUN ARCH=$(dpkg --print-architecture); \
-    PKGS="ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt h264_image_transport"; \
+    PKGS="msp ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt h264_image_transport aigp_camera_driver aigp_imu_driver betaflight_mavlink_bridge"; \
     if [ "$ARCH" != "arm64" ]; then PKGS="$PKGS gazebo_ros_bridges"; else PKGS="$PKGS jetson_h264_publisher"; fi; \
     source /opt/ros/humble/setup.bash && colcon build --symlink-install --parallel-workers 2 --packages-up-to $PKGS
 
@@ -129,7 +130,7 @@ COPY --chown=drone_dev:drone_dev src/groundstation ${WORKSPACE}/src/groundstatio
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 # Add docs
 COPY --chown=drone_dev:drone_dev docs /home/drone_dev/docs
-RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0" fastapi uvicorn
+RUN uv pip install --system --no-cache "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0" fastapi uvicorn av
 
 USER drone_dev
 WORKDIR ${WORKSPACE}

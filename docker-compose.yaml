@@ -58,6 +58,7 @@ services:
       # --- ROS Configuration ---
       ROS_DOMAIN_ID: 1
       RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      CYCLONEDDS_URI: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src/cyclonedds.xml
 
       # --- Gazebo Resource Paths ---
       GZ_SIM_RESOURCE_PATH: ${GZ_SIM_RESOURCE_PATH:-/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/models:/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/worlds}
@@ -126,3 +127,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: rl
+
+  # --- AIGP Simulation / Pilot Team ---
+  aigp:
+    extends: dev

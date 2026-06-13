@@ -41,8 +41,9 @@ def generate_launch_description():
             'flip_method', default_value='2',
             description='nvvidconv flip-method; 2 rotates 180 degrees for the Zephyrus mount',
         ),
+        DeclareLaunchArgument('publish_raw', default_value='false'),
         DeclareLaunchArgument('publish_color', default_value='true'),
-        DeclareLaunchArgument('color_encoding', default_value='rgb8'),
+        DeclareLaunchArgument('color_encoding', default_value='rgba8'),
         DeclareLaunchArgument('color_reliable', default_value='false'),
         DeclareLaunchArgument('publish_h264', default_value='false'),
         DeclareLaunchArgument('enable_h264_stream', default_value='false'),
@@ -65,6 +66,8 @@ def generate_launch_description():
                     'output_encoding': LaunchConfiguration('output_encoding'),
                     'flip_method': ParameterValue(
                         LaunchConfiguration('flip_method'), value_type=int),
+                    'publish_raw': ParameterValue(
+                        LaunchConfiguration('publish_raw'), value_type=bool),
                     'publish_color': ParameterValue(
                         LaunchConfiguration('publish_color'), value_type=bool),
                     'color_encoding': LaunchConfiguration('color_encoding'),

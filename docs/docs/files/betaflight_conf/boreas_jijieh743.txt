@@ -2,8 +2,8 @@ defaults nosave
 
 
 # version
-# Betaflight / STM32H743 (SH74) 4.5.3 Mar  4 2026 / 05:48:30 (0e533ba76) MSP API: 1.46
-# config rev: e2f254e
+# Betaflight / STM32H743 (H743) 2026.6.0-alpha May 22 2026 / 21:01:00 (844687cb4) MSP API: 1.48
+# config rev: 08c6477
 
 # start the command batch
 batch start
@@ -24,9 +24,9 @@ feature LED_STRIP
 feature ESC_SENSOR
 
 # serial
-serial 0 1 115200 57600 0 115200
-serial 1 64 115200 57600 0 115200
-serial 5 128 115200 57600 0 1500000
+serial UART1 1 115200 57600 0 115200
+serial UART2 64 115200 57600 0 115200
+serial UART6 128 115200 57600 0 1500000
 
 # beeper
 beeper -RX_LOST
@@ -38,10 +38,8 @@ beeper -ACC_CALIBRATION
 beeper -ACC_CALIBRATION_FAIL
 beeper -READY_BEEP
 beeper -DISARM_REPEAT
-beeper -CRASH_FLIP
 beeper -CAM_CONNECTION_OPEN
 beeper -CAM_CONNECTION_CLOSE
-beeper -RC_SMOOTHING_INIT_FAIL
 
 # aux
 aux 0 0 0 1775 2100 0 0
@@ -52,9 +50,10 @@ aux 2 50 1 1700 2100 0 0
 set dyn_notch_count = 1
 set dyn_notch_q = 500
 set acc_calibration = 82,-40,2,1
+set serialrx_provider = GHST
 set msp_override_channels_mask = 15
 set msp_override_failsafe = ON
-set blackbox_sample_rate = 1/1
+set blackbox_sample_rate = 1/8
 set blackbox_device = SERIAL
 set blackbox_disable_pids = ON
 set blackbox_disable_rc = ON
@@ -63,13 +62,9 @@ set blackbox_disable_alt = ON
 set blackbox_disable_rssi = ON
 set blackbox_disable_debug = ON
 set blackbox_disable_motors = ON
-set blackbox_disable_rpm = ON
 set blackbox_disable_gps = ON
-set blackbox_mode = ALWAYS
-set dshot_idle_value = 250
 set dshot_bidir = ON
 set motor_output_reordering = 1,0,3,2,4,5,6,7
-set vbat_min_cell_voltage = 350
 set small_angle = 70
 set craft_name = boreas
 
@@ -100,7 +95,19 @@ rateprofile 2
 
 rateprofile 3
 
+battery_profile 0
+
+# battery_profile 0
+set vbat_min_cell_voltage = 350
+
+battery_profile 1
+
+battery_profile 2
+
 # restore original rateprofile selection
 rateprofile 0
+
+# restore original battery_profile selection
+battery_profile 0
 
 # save configuration

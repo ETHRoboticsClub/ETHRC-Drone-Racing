@@ -17,7 +17,7 @@ setup(
         (os.path.join('share', package_name, 'static', 'images'), glob('groundstation/static/images/*')),
         (os.path.join('lib', package_name), glob('scripts/*')),
     ],
-    install_requires=['setuptools', 'fastapi', 'uvicorn'],
+    install_requires=['setuptools', 'fastapi', 'uvicorn', 'av'],
     zip_safe=True,
     maintainer='Aaron Glaser',
     maintainer_email='aglaser@ethz.ch',

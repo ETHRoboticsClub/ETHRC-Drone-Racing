@@ -46,8 +46,8 @@ Responsible for ground control software and telemetry.
 
 | Name | Role / Focus | GitHub |
 | :--- | :--- | :--- |
-| **Julian Hoffman** | Leader Groundstation Team | [@JulesHere](https://github.com/JulesHere) |
-| **Aaron Glaser** | Data Visualization, Safety Lead | [@AaronCodesPython](https://github.com/orgs/ETHRoboticsClub/people/AaronCodesPython) |
+| **Julian Hofmann** | Leader Groundstation Team | [@JulesHere](https://github.com/JulesHere) |
+| **Aaron Glaser** | Data Visualization, Safety Lead | [@AaronCodesPython](https://github.com/AaronCodesPython) |
 
 ---
 

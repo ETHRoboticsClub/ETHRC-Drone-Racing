@@ -24,7 +24,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'bridge_node = betaflight_mavlink_bridge.bridge_node:main'
+            'bridge_node = betaflight_mavlink_bridge.bridge_node:main',
+            'aigp_bridge_node = betaflight_mavlink_bridge.aigp_bridge_node:main'
         ],
     },
 )
