@@ -126,6 +126,7 @@ export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/ext/aeroloop_gazebo/plugins/build:${GZ_SI
 
 ros2 launch drone_control racing_bringup.launch.py \
   sitl:=true \
+  sitl_world:="$PWD/sim/gazebo/worlds/sitl_racing_custom.sdf" \
   view_stream:=false \
   publish_raw:=false \
   publish_rgb:=false \
@@ -142,6 +143,60 @@ If you want to spawn the graphical interface to visually monitor the drone, open
 ```bash
 gz sim -g
 ```
+
+On WSL, Gazebo may need explicit Qt and Mesa settings to use the Windows GPU through Mesa D3D12:
+
+```bash
+GALLIUM_DRIVER=d3d12 QT_QPA_PLATFORM=xcb gz sim -g
+```
+
+---
+
+## 🧯 Troubleshooting
+
+### Gazebo GUI Uses CPU Rendering on WSL
+
+If Gazebo opens slowly or `glxinfo -B` reports `llvmpipe`, WSL is using Mesa's CPU renderer instead of the Windows GPU:
+
+```text
+OpenGL renderer string: llvmpipe (LLVM ...)
+Accelerated: no
+```
+
+First check whether the D3D12 path works when forced:
+
+```bash
+GALLIUM_DRIVER=d3d12 glxinfo -B
+```
+
+Expected GPU-backed output contains the real adapter name and `Accelerated: yes`, for example:
+
+```text
+OpenGL renderer string: D3D12 (AMD Radeon RX 7900 XT)
+Accelerated: yes
+```
+
+Use the same environment when starting Gazebo:
+
+```bash
+GALLIUM_DRIVER=d3d12 QT_QPA_PLATFORM=xcb gz sim -g
+```
+
+If the Gazebo GUI fails with an Ogre / GLX error like `currentGLContext was specified with no current GL context`, keep `QT_QPA_PLATFORM=xcb` set. This avoids the problematic Qt Wayland path used by some Gazebo GUI configurations under WSLg.
+
+### Drone Falls Through the Ground Plane
+
+This is expected in the current SITL world when the vehicle is not producing lift. The `ground_plane` in `sim/gazebo/worlds/sitl_racing.sdf` is visual-only: it has a `<visual>` plane but no `<collision>` plane. That means it looks like a floor but is not a physical contact surface.
+
+The default `sitl_racing_custom.sdf` world includes a simple physical floor and raised launch pad. If you switch back to `sitl_racing.sdf`, the physical ground collision was intentionally removed because earlier contact with the drone model could trigger unstable DART/ODE AABB failures. The verified SITL path starts the drone at `z=0.5` and expects Betaflight motor output to provide lift. If the drone sinks while armed, debug motor/RC flow rather than ground contact:
+
+```bash
+ss -ulpn | rg '900[234]'
+ros2 topic hz /odometry
+ros2 topic echo /joy --once
+```
+
+For a quick lift check, run the manual throttle takeoff verifier below. Low throttle should stay near the launch height and full throttle should increase `/odometry` `z`.
 
 ---
 

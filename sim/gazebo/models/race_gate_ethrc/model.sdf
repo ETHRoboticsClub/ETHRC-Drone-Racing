@@ -1,0 +1,135 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="race_gate_ethrc">
+    <static>true</static>
+
+    <!-- Gate dimensions:
+         - Inner opening: 1.0 m wide x 1.0 m tall
+         - Border thickness: 0.3 m
+         - Outer dimensions: 1.6 m wide x 1.6 m tall
+         - Top/bottom banners: 1.6 m x 0.3 m
+         - Left/right banners: 1.0 m x 0.3 m
+         - Depth: 0.12 m along X, so gates face along the X axis by default.
+    -->
+
+    <link name="left_bar">
+      <pose>0 0.65 0 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.12 0.30 1.00</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://race_gate_ethrc/meshes/banner_yz_vertical.obj</uri>
+            <scale>1 0.30 1.00</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://race_gate_ethrc/materials/textures/left.jpg</albedo_map>
+              <roughness>0.8</roughness>
+              <metalness>0.0</metalness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+
+    <link name="right_bar">
+      <pose>0 -0.65 0 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.12 0.30 1.00</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://race_gate_ethrc/meshes/banner_yz_vertical.obj</uri>
+            <scale>1 0.30 1.00</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://race_gate_ethrc/materials/textures/right.jpg</albedo_map>
+              <roughness>0.8</roughness>
+              <metalness>0.0</metalness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+
+    <link name="top_bar">
+      <pose>0 0 0.65 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.12 1.60 0.30</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://race_gate_ethrc/meshes/banner_yz_horizontal.obj</uri>
+            <scale>1 1.60 0.30</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://race_gate_ethrc/materials/textures/top.jpg</albedo_map>
+              <roughness>0.8</roughness>
+              <metalness>0.0</metalness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+
+    <link name="bottom_bar">
+      <pose>0 0 -0.65 0 0 0</pose>
+      <collision name="collision">
+        <geometry>
+          <box>
+            <size>0.12 1.60 0.30</size>
+          </box>
+        </geometry>
+      </collision>
+      <visual name="visual">
+        <geometry>
+          <mesh>
+            <uri>model://race_gate_ethrc/meshes/banner_yz_horizontal.obj</uri>
+            <scale>1 1.60 0.30</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr>
+            <metal>
+              <albedo_map>model://race_gate_ethrc/materials/textures/bottom.jpg</albedo_map>
+              <roughness>0.8</roughness>
+              <metalness>0.0</metalness>
+            </metal>
+          </pbr>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Setup script for Betaflight SITL + Gazebo Harmonic simulation verification.
 
-SCRIPT_NAME="$(basename "$0")"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 readonly SCRIPT_NAME
 
 WORKSPACE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,6 +11,13 @@ readonly WORKSPACE_DIR
 
 SUDO=()
 APT_UPDATED=0
+COLCON_PACKAGES=(
+    drone_control
+    betaflight_msp_controller
+    gazebo_ros_bridges
+    rl
+    interfaces
+)
 
 log() {
     echo "[$SCRIPT_NAME] $*" >&2
@@ -52,6 +59,112 @@ apt_package_installed() {
 
 apt_package_available() {
     apt-cache show "$1" >/dev/null 2>&1
+}
+
+package_source_dir() {
+    local package_name="$1"
+    local package_dir
+
+    package_dir="$(find "$WORKSPACE_DIR/src" -mindepth 2 -maxdepth 4 -name package.xml -printf '%h\n' \
+        | while IFS= read -r candidate; do
+            if grep -Eq "<name>[[:space:]]*$package_name[[:space:]]*</name>" "$candidate/package.xml"; then
+                printf '%s\n' "$candidate"
+                break
+            fi
+        done)"
+
+    [ -n "$package_dir" ] || return 1
+    printf '%s\n' "$package_dir"
+}
+
+validate_colcon_package_sources() {
+    local package_name
+    local package_dir
+    local missing_packages=()
+
+    for package_name in "$@"; do
+        if ! package_dir="$(package_source_dir "$package_name")"; then
+            missing_packages+=("$package_name")
+            continue
+        fi
+
+        [ -r "$package_dir/package.xml" ] \
+            || die "Package '$package_name' is missing a readable package.xml at $package_dir."
+    done
+
+    if [ "${#missing_packages[@]}" -gt 0 ]; then
+        die "Missing ROS package source directories for: ${missing_packages[*]}"
+    fi
+}
+
+clean_colcon_package_artifacts() {
+    local package_name="$1"
+
+    log "Cleaning stale colcon artifacts for package '$package_name'."
+    rm -rf \
+        "$WORKSPACE_DIR/build/$package_name" \
+        "$WORKSPACE_DIR/install/$package_name"
+}
+
+package_from_artifact_path() {
+    local path="$1"
+    local relative
+
+    case "$path" in
+        "$WORKSPACE_DIR/build/"*)
+            relative="${path#"$WORKSPACE_DIR/build/"}"
+            ;;
+        "$WORKSPACE_DIR/install/"*)
+            relative="${path#"$WORKSPACE_DIR/install/"}"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    relative="${relative%%/*}"
+    [ -n "$relative" ] || return 1
+    printf '%s\n' "$relative"
+}
+
+cleanup_stale_colcon_symlinks() {
+    local roots=()
+    local broken_links=()
+    local packages_to_clean=()
+    local root
+    local link_path
+    local package_name
+    local seen
+
+    for root in "$WORKSPACE_DIR/build" "$WORKSPACE_DIR/install"; do
+        [ -d "$root" ] && roots+=("$root")
+    done
+
+    [ "${#roots[@]}" -gt 0 ] || return
+
+    mapfile -t broken_links < <(find "${roots[@]}" -xtype l -print 2>/dev/null || true)
+    [ "${#broken_links[@]}" -gt 0 ] || return
+
+    log "Found stale colcon symlinks from an older build:"
+    for link_path in "${broken_links[@]}"; do
+        log "  $link_path -> $(readlink "$link_path" || true)"
+        if package_name="$(package_from_artifact_path "$link_path")"; then
+            seen=" ${packages_to_clean[*]} "
+            if [[ "$seen" != *" $package_name "* ]]; then
+                packages_to_clean+=("$package_name")
+            fi
+        fi
+    done
+
+    if [ "${#packages_to_clean[@]}" -eq 0 ]; then
+        log "Removing stale symlinks directly because no package owner could be inferred."
+        rm -f "${broken_links[@]}"
+        return
+    fi
+
+    for package_name in "${packages_to_clean[@]}"; do
+        clean_colcon_package_artifacts "$package_name"
+    done
 }
 
 install_apt_packages() {
@@ -328,7 +441,10 @@ build_ros_workspace() {
     mkdir -p "$WORKSPACE_DIR/ext"
     echo "# Tell colcon to ignore this directory" > "$WORKSPACE_DIR/ext/COLCON_IGNORE"
 
-    (cd "$WORKSPACE_DIR" && colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges rl interfaces)
+    validate_colcon_package_sources "${COLCON_PACKAGES[@]}"
+    cleanup_stale_colcon_symlinks
+
+    (cd "$WORKSPACE_DIR" && colcon build --symlink-install --packages-up-to "${COLCON_PACKAGES[@]}")
 }
 
 main() {
@@ -363,4 +479,6 @@ main() {
     log "To run SITL: ros2 launch drone_control racing_bringup.launch.py sitl:=true"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

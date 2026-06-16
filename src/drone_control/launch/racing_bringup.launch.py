@@ -37,6 +37,12 @@ def generate_launch_description():
     # --- Arguments ---
     arg_sitl = DeclareLaunchArgument('sitl', default_value='false',
                                      description='Whether to run in SITL mode with Gazebo and Betaflight')
+    default_sitl_world = os.path.join(ws_root, 'sim', 'gazebo', 'worlds', 'sitl_racing_custom.sdf')
+    arg_sitl_world = DeclareLaunchArgument(
+        'sitl_world',
+        default_value=default_sitl_world,
+        description='Gazebo world SDF to launch when sitl:=true'
+    )
 
     # Try to find NVIDIA Isaac ROS encoder/decoder package paths to avoid crashes on non-Jetson hosts
     has_encoder = False
@@ -505,8 +511,6 @@ def generate_launch_description():
     )
 
     # --- 6. SITL SPECIFIC LAUNCHES ---
-    gazebo_world_path = os.path.join(ws_root, 'sim', 'gazebo', 'worlds', 'sitl_racing.sdf')
-    
     gazebo_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -516,7 +520,7 @@ def generate_launch_description():
             ])
         ),
         launch_arguments={
-            'gz_args': [gazebo_world_path, ' -s -r'],
+            'gz_args': [LaunchConfiguration('sitl_world'), ' -s -r'],
             'gz_version': '8'
         }.items(),
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
@@ -556,6 +560,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         arg_sitl,
+        arg_sitl_world,
         arg_imu_port,
         arg_imu_source,
         arg_imu_baud,
