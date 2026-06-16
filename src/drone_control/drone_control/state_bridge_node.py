@@ -49,8 +49,10 @@ class DirectStateBridgeNode(Node):
                 PoseStamped, vicon_topic, self.vicon_callback, 10)
             self.get_logger().info(f'Subscribed to Vicon: {vicon_topic}')
         elif self.pose_source == 'odometry':
+            from rclpy.qos import QoSProfile, ReliabilityPolicy
+            odom_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10)
             self.odom_sub = self.create_subscription(
-                Odometry, odometry_topic, self.odom_callback, 10)
+                Odometry, odometry_topic, self.odom_callback, odom_qos)
             self.get_logger().info(f'Subscribed to Odometry: {odometry_topic}')
         else:
             self.get_logger().error(f'Invalid pose_source: {self.pose_source}')
@@ -150,8 +152,8 @@ class DirectStateBridgeNode(Node):
             float(self.latest_omega[0]), float(self.latest_omega[1]), float(self.latest_omega[2])
         ]
         
-        # Sanity check for NaNs (from Vicon dropout)
-        if np.isnan(data).any():
+        # Sanity check for NaNs and Infs
+        if not np.isfinite(data).all():
             return
 
         state_msg = Float64MultiArray()

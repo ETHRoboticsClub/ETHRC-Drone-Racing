@@ -67,6 +67,7 @@ nav:
   - Getting Started:
     - Overview: getting-started.md
     - SITL Simulation: getting-started/sitl_simulation.md
+    - SITL Propulsion Calibration: getting-started/sitl_propulsion_calibration.md
   - Guidelines: guidelines.md
   - Infrastructure:
     - Overview: infrastructure/index.md

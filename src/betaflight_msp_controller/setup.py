@@ -27,7 +27,8 @@ setup(
             'msp_bridge = betaflight_msp_controller.msp_bridge:main',
             'load_bf_config = betaflight_msp_controller.load_bf_config:main',
             'msp_tx_emulator = betaflight_msp_controller.msp_tx_emulator:main',
-            'sitl_rc_bridge = betaflight_msp_controller.sitl_rc_bridge:main'
+            'sitl_rc_bridge = betaflight_msp_controller.sitl_rc_bridge:main',
+            'joy_tx_emulator = betaflight_msp_controller.joy_tx_emulator:main'
         ],
     },
 )
