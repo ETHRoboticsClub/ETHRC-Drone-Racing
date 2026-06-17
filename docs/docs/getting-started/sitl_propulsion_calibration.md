@@ -4,9 +4,9 @@ This note summarizes the current SITL propulsion findings and the calibration ta
 
 ## Current Situation
 
-The SDF model contains `gz::sim::systems::LiftDrag` plugins for each rotor, but the currently verified SITL path applies thrust directly in `ext/aeroloop_gazebo/plugins/BetaflightPlugin.cc` from Betaflight motor outputs.
+The SITL model uses the in-tree `gz::sim::systems::EthrcBetaflightSITLPlugin` from `src/sitl_gazebo_plugins` to apply thrust directly from Betaflight motor outputs.
 
-That direct-thrust path was added because the existing `LiftDrag` setup did not produce reliable takeoff for this model. Do not enable both a calibrated direct-thrust model and a calibrated SDF lift model at the same time, or thrust will be double-counted.
+That direct-thrust path was added because the previous `LiftDrag` setup did not produce reliable takeoff for this model. Do not enable both a calibrated direct-thrust model and a calibrated SDF lift model at the same time, or thrust will be double-counted.
 
 ## Physical Target
 
@@ -15,19 +15,19 @@ The drone thrust-to-weight ratio is approximately `4:1`.
 The current model mass is:
 
 ```text
-base_link mass = 1.3116 kg
+base_link mass = 0.893 kg
 rotor mass     = 4 * 0.012 kg
-total mass     = 1.3596 kg
-weight         = 1.3596 * 9.80665 = 13.33 N
+total mass     = 0.941 kg
+weight         = 0.941 * 9.80665 = 9.23 N
 ```
 
 Calibration targets:
 
 ```text
-max total thrust      ~= 53.3 N
-max thrust per motor  ~= 13.3 N
-hover total thrust    ~= 13.3 N
-hover thrust per motor ~= 3.33 N
+max total thrust       ~= 36.9 N
+max thrust per motor   ~= 9.23 N
+hover total thrust     ~= 9.23 N
+hover thrust per motor ~= 2.31 N
 ```
 
 For a quadratic propeller thrust model:
@@ -63,7 +63,7 @@ Approximate disk areas:
 5 inch disk area   = pi * 0.0635^2 = 0.0127 m^2
 ```
 
-The current SDF uses rotor visual radius `0.06 m`, which is close to a 5-inch prop, but its `LiftDrag` area is `0.15 m^2`, which is much larger than even the full disk area. If `LiftDrag` is kept, `<area>` should be treated as blade planform area or an empirically tuned effective area, not as `0.15`.
+The current SDF uses rotor visual radius `0.06 m`, which is close to a 5-inch prop. If `LiftDrag` is reintroduced later, `<area>` should be treated as blade planform area or an empirically tuned effective area, not as the full disk area.
 
 ## Making `LiftDrag` More Accurate
 
@@ -71,7 +71,7 @@ The current SDF uses rotor visual radius `0.06 m`, which is close to a 5-inch pr
 
 Recommended process:
 
-1. Disable direct thrust in `BetaflightPlugin.cc`.
+1. Disable or remove `EthrcBetaflightSITLPlugin` from `sim/gazebo/models/drone_sitl/model.sdf`.
 2. Run a single-rotor or fixed-throttle SITL test.
 3. Log vertical acceleration and estimate generated thrust:
    ```text
@@ -98,7 +98,7 @@ Key checks:
 * `forward` and `upward` must produce lift in the correct direction for each rotor spin direction.
 * Rotor joint velocity sign must match the aerodynamic sign assumptions.
 * Rotor geometry should match the real prop diameter.
-* The model should produce about `13.3 N` per motor at maximum output.
+* The model should produce about `9.23 N` per motor at maximum output.
 
 ## Preferred Long-Term Model
 
@@ -109,7 +109,7 @@ thrust = motor_constant * omega^2
 torque = moment_constant * thrust
 ```
 
-Gazebo Harmonic includes `gz::sim::systems::MulticopterMotorModel`, which follows this style and may be a better long-term replacement for the SDF `LiftDrag` blocks. The direct-thrust code in `BetaflightPlugin.cc` can also be kept, but then the direct model should be the single source of truth and should use the measured `4:1` thrust-to-weight ratio.
+Gazebo Harmonic includes `gz::sim::systems::MulticopterMotorModel`, which follows this style and may be a better long-term replacement for the SDF `LiftDrag` blocks. The in-tree `EthrcBetaflightSITLPlugin` can also be kept, but then the direct model should be the single source of truth and should use the measured `4:1` thrust-to-weight ratio.
 
 ## Verification Criteria
 
@@ -120,4 +120,3 @@ A propulsion model is acceptable when:
 * the drone does not climb at minimum throttle after arming,
 * Betaflight motor ordering and spin directions match the SDF,
 * the RL policy receives consistent state signs and does not fight a frame mismatch.
-

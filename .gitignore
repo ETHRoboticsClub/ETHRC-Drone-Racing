@@ -64,3 +64,7 @@ docs/**/*.synctex.gz
 .antigravitycli
 kalibr_20260430_1005
 /src/mpc/mpc/c_generated_code
+
+# Windows metadata from downloaded / copied assets
+desktop.ini
+*:Zone.Identifier

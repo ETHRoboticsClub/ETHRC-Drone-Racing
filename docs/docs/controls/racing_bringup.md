@@ -23,10 +23,10 @@ You can customize the bringup configuration using the following parameters:
 | `imu_source` | `blackbox` | `blackbox`, `msp` | Telemetry source for angular velocities (`blackbox` driver or MSP). |
 | `use_vicon` | `true` | `true`, `false` | Launch the Vicon receiver for positioning. (Ignored and disabled in SITL mode). |
 | `use_rc_sim` | `true` | `true`, `false` | Launch simulated RC receiver node to inject MSP override arming states. |
-| `view_stream` | `false` | `true`, `false` | Launch video decoding and display sink (for Groundstation/debug views). |
-| `publish_raw` | `false` | `true`, `false` | Publish the raw mono camera frame on `/cam0/image_raw`. |
-| `publish_rgb` | `false` | `true`, `false` | Publish the demosaiced color frame on `/cam0/image_rgb`. |
-| `h264_backend` | `isaac_ros` | `isaac_ros`, `gstreamer`, `gstreamer_ros` | Compression/decompression backend for the H264 camera pipeline. |
+| `view_stream` | `true` | `true`, `false` | Launch video decoding and display sink (for Groundstation/debug views). |
+| `publish_raw` | `true` | `true`, `false` | Publish the raw mono camera frame on `/cam0/image_raw`. |
+| `publish_rgb` | `true` | `true`, `false` | Publish the demosaiced color frame on `/cam0/image_rgb`. |
+| `h264_backend` | `gstreamer_ros` | `gstreamer_ros`, `isaac_ros`, `gstreamer` | Compression/decompression backend for the H264 camera pipeline. |
 
 ---
 

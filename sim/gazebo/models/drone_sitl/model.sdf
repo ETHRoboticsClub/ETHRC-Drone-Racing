@@ -11,14 +11,16 @@
       <pose>0 0 0 0 0 0</pose>
 
       <inertial>
-        <mass>1.3116</mass>
+        <!-- From anemos_drone/raw/drone_acc_mass_description/urdf/drone_acc_mass.urdf. -->
+        <pose>0.004839178109627602 0.0034084153156952045 0.00927557259352703 0 0 0</pose>
+        <mass>0.8351086449771665</mass>
         <inertia>
-          <ixx>0.003708</ixx>
-          <iyy>0.002511</iyy>
-          <izz>0.004013</izz>
-          <ixy>0</ixy>
-          <ixz>-2e-06</ixz>
-          <iyz>-1.7e-05</iyz>
+          <ixx>0.002158</ixx>
+          <iyy>0.002919</iyy>
+          <izz>0.002743</izz>
+          <ixy>0.000001</ixy>
+          <ixz>-0.000085</ixz>
+          <iyz>-0.000043</iyz>
         </inertia>
       </inertial>
 
@@ -26,17 +28,69 @@
         <geometry>
           <mesh>
             <scale>0.001 0.001 0.001</scale>
-            <uri>model://drone/meshes/base_link.stl</uri>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/base_link.stl</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.7 0.7 0.7 1</ambient>
+          <diffuse>0.7 0.7 0.7 1</diffuse>
+        </material>
+      </visual>
+
+      <!-- Prop meshes are included as visuals on base_link so the measured
+           URDF mass, COM, and inertia remain the only physical inertial model. -->
+      <visual name="back_right_prop_visual">
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/BR_5_inch_CW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <visual name="front_right_prop_visual">
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/FR_5_inch_CCW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <visual name="back_left_prop_visual">
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/BL_5_inch_CCW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+
+      <visual name="front_left_prop_visual">
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/FL_5_inch_CW_prop_1_1_1.stl</uri>
           </mesh>
         </geometry>
       </visual>
 
       <collision name="base_collision">
+        <!-- Keep collision simple; the raw STL is very detailed and hurts RTF. -->
+        <pose>0.003157 0.002282 0.017908 0 0 0</pose>
         <geometry>
           <box>
-            <size>0.18 0.18 0.045</size>
+            <size>0.21 0.18 0.08</size>
           </box>
         </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.2</mu>
+              <mu2>0.2</mu2>
+            </ode>
+          </friction>
+        </surface>
       </collision>
 
       <!-- ===================================================== -->
@@ -109,7 +163,7 @@
       <sensor name="front_camera" type="camera">
         <always_on>true</always_on>
         <update_rate>30</update_rate>
-        <pose>0.05 0.0 0.03 0 0 0</pose>
+        <pose>0.12 0.0 0.04 0 0 0</pose>
         <camera>
           <horizontal_fov>2.705</horizontal_fov>
           <image>
@@ -129,188 +183,50 @@
     </link>
 
     <!-- ===================================================== -->
-    <!--                      ROTOR LINKS                      -->
-    <!-- ===================================================== -->
-    <link name="rotor_0"><pose>0.05 0.05 0.02 0 0 0</pose><inertial><mass>0.012</mass><inertia><ixx>9.75e-06</ixx><iyy>0.000167</iyy><izz>0.000168</izz></inertia></inertial><visual name="rotor_0_visual"><geometry><cylinder><length>0.005</length><radius>0.06</radius></cylinder></geometry><material><ambient>0 0 0.8 1</ambient><diffuse>0 0 0.8 1</diffuse></material></visual></link>
-    <joint name="rotor_0_joint" type="revolute"><parent>base_link</parent><child>rotor_0</child><axis><xyz>0 0 1</xyz><limit><lower>-1e+16</lower><upper>1e+16</upper></limit><dynamics><damping>0.004</damping></dynamics></axis></joint>
-
-    <link name="rotor_1"><pose>-0.05 0.05 0.02 0 0 0</pose><inertial><mass>0.012</mass><inertia><ixx>9.75e-06</ixx><iyy>0.000167</iyy><izz>0.000168</izz></inertia></inertial><visual name="rotor_1_visual"><geometry><cylinder><length>0.005</length><radius>0.06</radius></cylinder></geometry><material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material></visual></link>
-    <joint name="rotor_1_joint" type="revolute"><parent>base_link</parent><child>rotor_1</child><axis><xyz>0 0 1</xyz><limit><lower>-1e+16</lower><upper>1e+16</upper></limit><dynamics><damping>0.004</damping></dynamics></axis></joint>
-
-    <link name="rotor_2"><pose>-0.05 -0.05 0.02 0 0 0</pose><inertial><mass>0.012</mass><inertia><ixx>9.75e-06</ixx><iyy>0.000167</iyy><izz>0.000168</izz></inertia></inertial><visual name="rotor_2_visual"><geometry><cylinder><length>0.005</length><radius>0.06</radius></cylinder></geometry><material><ambient>0 0 0.8 1</ambient><diffuse>0 0 0.8 1</diffuse></material></visual></link>
-    <joint name="rotor_2_joint" type="revolute"><parent>base_link</parent><child>rotor_2</child><axis><xyz>0 0 1</xyz><limit><lower>-1e+16</lower><upper>1e+16</upper></limit><dynamics><damping>0.004</damping></dynamics></axis></joint>
-
-    <link name="rotor_3"><pose>0.05 -0.05 0.02 0 0 0</pose><inertial><mass>0.012</mass><inertia><ixx>9.75e-06</ixx><iyy>0.000167</iyy><izz>0.000168</izz></inertia></inertial><visual name="rotor_3_visual"><geometry><cylinder><length>0.005</length><radius>0.06</radius></cylinder></geometry><material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material></visual></link>
-    <joint name="rotor_3_joint" type="revolute"><parent>base_link</parent><child>rotor_3</child><axis><xyz>0 0 1</xyz><limit><lower>-1e+16</lower><upper>1e+16</upper></limit><dynamics><damping>0.004</damping></dynamics></axis></joint>
-
-    <!-- ===================================================== -->
-    <!--                 LIFT/DRAG PLUGINS                     -->
-    <!-- ===================================================== -->
-    <!-- rotor_0 (Front Left, CCW) -->
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>0.045 0 0</cp>
-      <forward>0 1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_0</link_name>
-    </plugin>
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>-0.045 0 0</cp>
-      <forward>0 -1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_0</link_name>
-    </plugin>
-
-    <!-- rotor_1 (Back Left, CW) -->
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>0.045 0 0</cp>
-      <forward>0 -1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_1</link_name>
-    </plugin>
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>-0.045 0 0</cp>
-      <forward>0 1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_1</link_name>
-    </plugin>
-
-    <!-- rotor_2 (Back Right, CCW) -->
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>0.045 0 0</cp>
-      <forward>0 1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_2</link_name>
-    </plugin>
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>-0.045 0 0</cp>
-      <forward>0 -1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_2</link_name>
-    </plugin>
-
-    <!-- rotor_3 (Front Right, CW) -->
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>0.045 0 0</cp>
-      <forward>0 -1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_3</link_name>
-    </plugin>
-    <plugin name="gz::sim::systems::LiftDrag" filename="gz-sim-lift-drag-system">
-      <a0>0.025</a0>
-      <alpha_stall>1.4</alpha_stall>
-      <cla>0.2500</cla>
-      <cda>0.004</cda>
-      <area>0.15</area>
-      <air_density>1.2041</air_density>
-      <cp>-0.045 0 0</cp>
-      <forward>0 1 0</forward>
-      <upward>0 0 1</upward>
-      <link_name>rotor_3</link_name>
-    </plugin>
-
-    <!-- ===================================================== -->
     <!--                BETAFLIGHT SITL PLUGIN                 -->
     <!-- ===================================================== -->
-    <plugin name="gz::sim::systems::BetaflightPlugin" filename="BetaflightPlugin">
+    <plugin name="gz::sim::systems::EthrcBetaflightSITLPlugin" filename="EthrcBetaflightSITLPlugin">
       <imuName>imu_sensor</imuName>
-      <connectionTimeoutMaxCount>5</connectionTimeoutMaxCount>
-      
-      <!-- BF Motor 1: Back Right (rotor_2, CCW) -->
+      <bindAddress>127.0.0.1</bindAddress>
+      <betaflightAddress>127.0.0.1</betaflightAddress>
+      <motorInputPort>9002</motorInputPort>
+      <stateOutputPort>9003</stateOutputPort>
+      <connectionTimeoutMaxCount>50</connectionTimeoutMaxCount>
+      <!-- 4:1 thrust-to-weight for the raw URDF mass: 4 * 0.8351086449771665 * 9.80665. -->
+      <maxTotalThrust>32.7584728</maxTotalThrust>
+      <!-- Match Betaflight ACTUAL yaw rates (~500 deg/s full stick) without snap-spinning the Gazebo body. -->
+      <yawTorqueCoefficient>0.00125</yawTorqueCoefficient>
+      <yawDampingCoefficient>0.006</yawDampingCoefficient>
+      <maxRpm>30000</maxRpm>
+      <resetPose>0 0 0.5 0 0 0</resetPose>
+      <maxWorldPosition>30</maxWorldPosition>
+      <minWorldAltitude>-0.5</minWorldAltitude>
+      <maxWorldAltitude>20</maxWorldAltitude>
+      <maxLinearSpeed>35</maxLinearSpeed>
+      <maxAngularSpeed>80</maxAngularSpeed>
+
+      <!-- BF Motor 1: Back Right -->
       <rotor id="0">
-        <vel_p_gain>0.01</vel_p_gain>
-        <vel_i_gain>0</vel_i_gain>
-        <vel_d_gain>0</vel_d_gain>
-        <vel_i_max>0</vel_i_max>
-        <vel_i_min>0</vel_i_min>
-        <vel_cmd_max>4000.0</vel_cmd_max>
-        <vel_cmd_min>-4000.0</vel_cmd_min>
-        <jointName>rotor_2_joint</jointName>
-        <turningDirection>ccw</turningDirection>
-        <rotorVelocitySlowdownSim>1</rotorVelocitySlowdownSim>
+        <position>-0.081108 0.086485 0.044629</position>
+        <turningDirection>cw</turningDirection>
       </rotor>
 
-      <!-- BF Motor 2: Front Right (rotor_3, CW) -->
+      <!-- BF Motor 2: Front Right -->
       <rotor id="1">
-        <vel_p_gain>0.01</vel_p_gain>
-        <vel_i_gain>0</vel_i_gain>
-        <vel_d_gain>0</vel_d_gain>
-        <vel_i_max>0</vel_i_max>
-        <vel_i_min>0</vel_i_min>
-        <vel_cmd_max>4000.0</vel_cmd_max>
-        <vel_cmd_min>-4000.0</vel_cmd_min>
-        <jointName>rotor_3_joint</jointName>
-        <turningDirection>cw</turningDirection>
-        <rotorVelocitySlowdownSim>1</rotorVelocitySlowdownSim>
-      </rotor>
-
-      <!-- BF Motor 3: Back Left (rotor_1, CW) -->
-      <rotor id="2">
-        <vel_p_gain>0.01</vel_p_gain>
-        <vel_i_gain>0</vel_i_gain>
-        <vel_d_gain>0</vel_d_gain>
-        <vel_i_max>0</vel_i_max>
-        <vel_i_min>0</vel_i_min>
-        <vel_cmd_max>4000.0</vel_cmd_max>
-        <vel_cmd_min>-4000.0</vel_cmd_min>
-        <jointName>rotor_1_joint</jointName>
-        <turningDirection>cw</turningDirection>
-        <rotorVelocitySlowdownSim>1</rotorVelocitySlowdownSim>
-      </rotor>
-
-      <!-- BF Motor 4: Front Left (rotor_0, CCW) -->
-      <rotor id="3">
-        <vel_p_gain>0.01</vel_p_gain>
-        <vel_i_gain>0</vel_i_gain>
-        <vel_d_gain>0</vel_d_gain>
-        <vel_i_max>0</vel_i_max>
-        <vel_i_min>0</vel_i_min>
-        <vel_cmd_max>4000.0</vel_cmd_max>
-        <vel_cmd_min>-4000.0</vel_cmd_min>
-        <jointName>rotor_0_joint</jointName>
+        <position>0.099477 0.067468 0.044629</position>
         <turningDirection>ccw</turningDirection>
-        <rotorVelocitySlowdownSim>1</rotorVelocitySlowdownSim>
+      </rotor>
+
+      <!-- BF Motor 3: Back Left -->
+      <rotor id="2">
+        <position>-0.073632 -0.075213 0.044629</position>
+        <turningDirection>ccw</turningDirection>
+      </rotor>
+
+      <!-- BF Motor 4: Front Left -->
+      <rotor id="3">
+        <position>0.086702 -0.054547 0.044629</position>
+        <turningDirection>cw</turningDirection>
       </rotor>
     </plugin>
 

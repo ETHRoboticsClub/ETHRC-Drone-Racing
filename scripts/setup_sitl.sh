@@ -15,6 +15,7 @@ COLCON_PACKAGES=(
     drone_control
     betaflight_msp_controller
     gazebo_ros_bridges
+    sitl_gazebo_plugins
     rl
     interfaces
 )

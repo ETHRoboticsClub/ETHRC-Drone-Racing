@@ -34,7 +34,7 @@ graph TD
     UDP_RC -->|rc_packet UDP:9004| BF
 ```
 
-* **Gazebo** simulates the `drone_sitl` body dynamics, IMU, and odometry. The verified SITL path applies physical thrust directly from decoded Betaflight motor outputs in the Gazebo `BetaflightPlugin`, with a small virtual launch pad to avoid unstable ODE ground contact.
+* **Gazebo** simulates the `drone_sitl` body dynamics, IMU, and odometry. The verified SITL path applies physical thrust directly from decoded Betaflight motor outputs in the in-tree `EthrcBetaflightSITLPlugin`.
 * **Betaflight SITL** receives simulated FDM packets from Gazebo on UDP port `9003`, reads RC input on UDP port `9004`, and sends motor outputs back to Gazebo on UDP port `9002`.
 * **`sitl_rc_bridge`** bridges ROS 2 `/joy` and controller commands into Betaflight SITL RC packets.
 
@@ -54,10 +54,10 @@ Before running the simulation, you must install the Gazebo ROS bridges and compi
 This script will:
 
 1. Install **Gazebo Harmonic** and the matching ROS/Gazebo bridge packages.
-2. Clone or update `ext/aeroloop_gazebo` and build the C++ `BetaflightPlugin`.
+2. Clone or update `ext/aeroloop_gazebo` for reference dependencies and build the in-tree SITL Gazebo plugin.
 3. Clone or update `ext/anemos-betaflight` and build the Betaflight SITL target.
 4. Load `docs/docs/files/betaflight_conf/sitl_config.txt` into `eeprom.bin`.
-5. Run `colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges`.
+5. Run `colcon build --symlink-install --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges sitl_gazebo_plugins`.
 
 !!! note
     `setup_sitl.sh` fetches external repositories. On a development branch with local edits inside `ext/aeroloop_gazebo` or `ext/anemos-betaflight`, use the manual rebuild commands below instead of re-running the bootstrap script.
@@ -80,7 +80,7 @@ ext/anemos-betaflight/obj/main/betaflight_SITL.elf \
   --config docs/docs/files/betaflight_conf/sitl_config.txt
 
 # ROS packages
-source /opt/ros/humble/setup.bash
+source scripts/source_sitl_env.sh
 colcon build --symlink-install \
   --packages-up-to drone_control betaflight_msp_controller gazebo_ros_bridges
 ```
@@ -96,7 +96,8 @@ ss -ulpn | rg '900[234]' || true
 Expected output before launch is empty. If a previous run is still listed, stop it with `Ctrl-C` in that terminal or kill only the stale SITL/Gazebo processes:
 
 ```bash
-pkill -f 'gz sim .*sitl_racing.sdf' || true
+pkill -f 'gz sim .*sitl_racing' || true
+pkill -f 'gz-sim-main .*sitl_racing' || true
 pkill -f 'betaflight_SITL' || true
 pkill -f 'sitl_rc_bridge' || true
 ```
@@ -118,11 +119,7 @@ The `drone_controller_node` runs the neural network policy and requires PyTorch.
 You can launch the complete simulation loop (Gazebo server, Betaflight firmware, ROS topic bridges, state bridge, controller, and RC bridge) using a single bringup command.
 
 ```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-
-export GZ_SIM_RESOURCE_PATH="$PWD/sim/gazebo/models:${GZ_SIM_RESOURCE_PATH}"
-export GZ_SIM_SYSTEM_PLUGIN_PATH="$PWD/ext/aeroloop_gazebo/plugins/build:${GZ_SIM_SYSTEM_PLUGIN_PATH}"
+source scripts/source_sitl_env.sh
 
 ros2 launch drone_control racing_bringup.launch.py \
   sitl:=true \
@@ -135,6 +132,8 @@ ros2 launch drone_control racing_bringup.launch.py \
   controller_type:=rl
 ```
 
+Avoid putting project-specific SITL exports in `~/.bashrc`. The helper above detects the installed ROS 2 distro, sources the workspace, keeps WSL/Fast DDS discovery on localhost, and applies the Gazebo GPU defaults needed by WSLg.
+
 ### Headless vs. GUI Mode
 By default, the simulation starts Gazebo in **headless mode** (running only the physics server `gz-sim-server`) to minimize resource consumption and avoid graphical driver issues.
 
@@ -143,6 +142,15 @@ If you want to spawn the graphical interface to visually monitor the drone, open
 ```bash
 gz sim -g
 ```
+
+Only one Gazebo server should be running for the racing world before attaching the GUI. If an older server is still alive, the GUI can attach to that stale world while Betaflight talks to the fresh racing bringup server. That makes Betaflight altitude and the visible drone disagree. Check for duplicates with:
+
+```bash
+pgrep -af 'gz sim|gz-sim-main|betaflight_SITL|racing_bringup'
+gz topic -i -t /world/sitl_racing_custom/stats
+```
+
+The stats topic should show one publisher. If it shows two, stop the stale Gazebo processes using the cleanup commands from the preflight section and restart racing bringup.
 
 On WSL, Gazebo may need explicit Qt and Mesa settings to use the Windows GPU through Mesa D3D12:
 
@@ -153,6 +161,12 @@ GALLIUM_DRIVER=d3d12 QT_QPA_PLATFORM=xcb gz sim -g
 ---
 
 ## 🧯 Troubleshooting
+
+### Shell Environment Pitfalls
+
+Use `source scripts/source_sitl_env.sh` in each SITL terminal instead of relying on `~/.bashrc`. Global shell setup can make ROS behavior differ between machines, especially if `~/.bashrc` sources a ROS distro automatically or a login shell activates a Python virtual environment before ROS is sourced.
+
+On WSL, the helper keeps local SITL discovery on localhost. This avoids Fast DDS choosing Docker or virtual switch interfaces for discovery, which can make `ros2 topic list`, `joy_tx_emulator`, and `sitl_rc_bridge` appear to be in different ROS graphs.
 
 ### Gazebo GUI Uses CPU Rendering on WSL
 
@@ -182,6 +196,24 @@ Use the same environment when starting Gazebo:
 GALLIUM_DRIVER=d3d12 QT_QPA_PLATFORM=xcb gz sim -g
 ```
 
+### Quick Simulator Reset
+
+To reset the drone and world model state without restarting racing bringup, run:
+
+```bash
+scripts/reset_sitl_sim.sh
+```
+
+The reset uses Gazebo's model pose service to put the `drone` model back at the racing-world spawn pose (`0 0 0.5`) without restarting racing bringup or rewinding simulation time.
+
+The TUI joystick has the same action on `X`:
+
+```bash
+ros2 run betaflight_msp_controller joy_tx_emulator
+```
+
+Pressing `X` disarms the virtual transmitter, drops throttle to minimum, pulses Joy button `0` (`SIM RESET`), and requests the Gazebo reset.
+
 If the Gazebo GUI fails with an Ogre / GLX error like `currentGLContext was specified with no current GL context`, keep `QT_QPA_PLATFORM=xcb` set. This avoids the problematic Qt Wayland path used by some Gazebo GUI configurations under WSLg.
 
 ### Drone Falls Through the Ground Plane
@@ -207,8 +239,7 @@ The fastest end-to-end check is to emulate a joystick, arm Betaflight, and comma
 Keep the bringup running in terminal 1. In terminal 2, run:
 
 ```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
+source scripts/source_sitl_env.sh
 
 python3 - <<'PY'
 import time
@@ -328,8 +359,7 @@ To manually fly, arm, or override the drone during SITL simulation, you can run 
 To launch the emulator in a new terminal:
 
 ```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
+source scripts/source_sitl_env.sh
 ros2 run betaflight_msp_controller joy_tx_emulator
 ```
 
@@ -353,19 +383,93 @@ ros2 run betaflight_msp_controller joy_tx_emulator
 * **Drone Physical Properties**: Defined in the Gazebo SDF model at `sim/gazebo/models/drone_sitl/model.sdf`. Adjust mass, inertia, and motor coefficients to match custom frames.
 * **Betaflight Configuration**: CLI parameters for the SITL flight controller are located in `docs/docs/files/betaflight_conf/sitl_config.txt`.
 
+### Custom Gate Placement
+
+Reusable gates should live as Gazebo models under `sim/gazebo/models/`. The current ETHRC gate model is:
+
+```text
+sim/gazebo/models/race_gate_ethrc/
+├── model.config
+├── model.sdf
+├── meshes/
+│   ├── banner_yz.obj
+│   ├── banner_yz_horizontal.obj
+│   └── banner_yz_vertical.obj
+└── materials/
+    └── textures/
+        ├── bottom.jpg
+        ├── left.jpg
+        ├── right.jpg
+        └── top.jpg
+```
+
+`model.sdf` defines the gate geometry, collisions, UV-mapped banner meshes, and texture paths. Keep the collision geometry simple, usually boxes, and use meshes/textures only for visuals. This keeps Gazebo contact behavior stable while still allowing branded gate artwork.
+
+Place gates in a world file with `<include>` blocks. For example, in `sim/gazebo/worlds/sitl_racing_custom.sdf`:
+
+```xml
+<include>
+  <uri>model://race_gate_ethrc</uri>
+  <name>gate_1</name>
+  <pose>5 0 1.0 0 0 0</pose>
+</include>
+
+<include>
+  <uri>model://race_gate_ethrc</uri>
+  <name>gate_2</name>
+  <pose>10 4 1.0 0 0 0.65</pose>
+</include>
+```
+
+Gazebo poses are:
+
+```text
+x y z roll pitch yaw
+```
+
+For gates:
+
+* `x` / `y`: horizontal track position in meters.
+* `z`: gate center height in meters. For `race_gate_ethrc`, `z=1.0` puts the 1 m by 1 m opening roughly between `0.5 m` and `1.5 m`.
+* `yaw`: rotation around the vertical axis in radians. `1.57` is about `90 deg`.
+* `roll` and `pitch`: usually keep these at `0` unless you intentionally want tilted gates.
+
+Before launching SITL, validate the model and world:
+
+```bash
+gz sdf -k sim/gazebo/models/race_gate_ethrc/model.sdf
+SDF_PATH="$PWD/sim/gazebo/models:${SDF_PATH-}" \
+  gz sdf -k sim/gazebo/worlds/sitl_racing_custom.sdf
+```
+
+For direct Gazebo testing:
+
+```bash
+export GZ_SIM_RESOURCE_PATH="$PWD/sim/gazebo/models:${GZ_SIM_RESOURCE_PATH}"
+GALLIUM_DRIVER=d3d12 QT_QPA_PLATFORM=xcb \
+  gz sim sim/gazebo/worlds/sitl_racing_custom.sdf
+```
+
+For full SITL, pass the world through `sitl_world`:
+
+```bash
+ros2 launch drone_control racing_bringup.launch.py \
+  sitl:=true \
+  sitl_world:="$PWD/sim/gazebo/worlds/sitl_racing_custom.sdf"
+```
+
 ---
 
 ## 🧩 Repair Notes and Findings
 
 These are the important implementation details behind the currently verified SITL path.
 
-### BetaflightPlugin (`ext/aeroloop_gazebo`)
+### EthrcBetaflightSITLPlugin (`src/sitl_gazebo_plugins`)
 
-* The Gazebo plugin must load from `ext/aeroloop_gazebo/plugins/build`; export `GZ_SIM_SYSTEM_PLUGIN_PATH` before launching.
+* The Gazebo plugin must load from `install/sitl_gazebo_plugins/lib`; `scripts/source_sitl_env.sh` and `racing_bringup.launch.py` add this path to `GZ_SIM_SYSTEM_PLUGIN_PATH`.
 * The FDM packet ABI sent to Betaflight must match the SITL firmware. The packet includes `timestamp`, IMU angular velocity, IMU linear acceleration, quaternion, velocity, position, and `pressure`.
-* The rotor velocity PID sign must be `velTarget - vel`. The inverted sign drives the rotor joints away from the requested target.
-* Motor UDP receive should drain all queued datagrams and use the newest valid `servo_packet`. A one-packet blocking receive can let port `9002` build a backlog and stale motor commands.
-* The SDF `LiftDrag` rotor path was not sufficient for verified takeoff in this model. The working path applies direct world force from decoded normalized motor outputs and keeps the model on a small virtual launch pad before takeoff.
+* The SDF `LiftDrag` rotor path was not sufficient for reliable takeoff in this model. The working path applies direct world force from decoded normalized motor outputs.
+* The current thrust target is `36.9122306 N` total, matching a `0.941 kg` drone at approximately `4:1` thrust-to-weight ratio.
 
 ### Gazebo SDF
 

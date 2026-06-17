@@ -3,6 +3,7 @@ bridges:
     gz_topic: "/drone/camera/image"
     ros2_type: "sensor_msgs/msg/Image"
     gz_type: "gz.msgs.Image"
+    direction: "GZ_TO_ROS"
     remap_to: "/cam0/image_raw"
     enabled: true
 
@@ -10,6 +11,7 @@ bridges:
     gz_topic: "/drone/camera/camera_info"
     ros2_type: "sensor_msgs/msg/CameraInfo"
     gz_type: "gz.msgs.CameraInfo"
+    direction: "GZ_TO_ROS"
     remap_to: "/cam0/camera_info"
     enabled: true
 
@@ -17,6 +19,7 @@ bridges:
     gz_topic: "/drone/imu"
     ros2_type: "sensor_msgs/msg/Imu"
     gz_type: "gz.msgs.IMU"
+    direction: "GZ_TO_ROS"
     remap_to: "/imu0"
     enabled: true
 
@@ -24,5 +27,6 @@ bridges:
     gz_topic: "/drone/odometry"
     ros2_type: "nav_msgs/msg/Odometry"
     gz_type: "gz.msgs.Odometry"
+    direction: "GZ_TO_ROS"
     remap_to: "/odometry"
     enabled: true

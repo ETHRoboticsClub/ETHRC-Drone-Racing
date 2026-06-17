@@ -1,14 +1,195 @@
 import os
 import socket
+import errno
 import launch.conditions
 
 from ament_index_python.packages import get_package_share_directory, PackageNotFoundError
 from launch import LaunchDescription
-from launch.actions import GroupAction, IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, LogInfo
+from launch.actions import (
+    EmitEvent,
+    ExecuteProcess,
+    GroupAction,
+    IncludeLaunchDescription,
+    DeclareLaunchArgument,
+    LogInfo,
+    OpaqueFunction,
+    RegisterEventHandler,
+    SetEnvironmentVariable,
+)
+from launch.event_handlers import OnProcessExit
+from launch.events import Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource, FrontendLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node, SetRemap
 from launch_ros.substitutions import FindPackageShare
+
+
+def _launch_bool(value):
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def _proc_cmdline(pid):
+    try:
+        with open(f'/proc/{pid}/cmdline', 'rb') as f:
+            raw = f.read().replace(b'\0', b' ').strip()
+        return raw.decode('utf-8', errors='replace')
+    except OSError:
+        return ''
+
+
+def _current_process_family():
+    pids = set()
+    pid = os.getpid()
+    while pid and pid not in pids:
+        pids.add(pid)
+        try:
+            with open(f'/proc/{pid}/stat', 'r', encoding='utf-8') as f:
+                fields = f.read().split()
+            pid = int(fields[3])
+        except (OSError, IndexError, ValueError):
+            break
+    return pids
+
+
+def _matching_processes(patterns):
+    matches = []
+    ignored = _current_process_family()
+
+    try:
+        proc_entries = os.listdir('/proc')
+    except OSError:
+        return matches
+
+    for name in proc_entries:
+        if not name.isdigit():
+            continue
+        pid = int(name)
+        if pid in ignored:
+            continue
+
+        cmdline = _proc_cmdline(pid)
+        if not cmdline:
+            continue
+
+        if any(pattern in cmdline for pattern in patterns):
+            matches.append((pid, cmdline))
+
+    return matches
+
+
+def _port_is_bound(host, port, socket_type):
+    sock = socket.socket(socket.AF_INET, socket_type)
+    try:
+        sock.bind((host, port))
+        return False
+    except OSError as exc:
+        if exc.errno in (errno.EADDRINUSE, errno.EACCES):
+            return True
+        raise
+    finally:
+        sock.close()
+
+
+def _sitl_preflight(context, ws_root, bf_sitl_bin, sitl_plugins_dir):
+    if not _launch_bool(LaunchConfiguration('preflight').perform(context)):
+        return []
+
+    if not _launch_bool(LaunchConfiguration('sitl').perform(context)):
+        return []
+
+    errors = []
+    warnings = []
+
+    world_path = LaunchConfiguration('sitl_world').perform(context)
+    if not os.path.isfile(world_path):
+        errors.append(f'SITL world does not exist: {world_path}')
+
+    if not os.path.isfile(bf_sitl_bin):
+        errors.append(f'Betaflight SITL binary is missing: {bf_sitl_bin}')
+    elif not os.access(bf_sitl_bin, os.X_OK):
+        errors.append(f'Betaflight SITL binary is not executable: {bf_sitl_bin}')
+
+    plugin_path = os.path.join(sitl_plugins_dir, 'libEthrcBetaflightSITLPlugin.so')
+    if not os.path.isfile(plugin_path):
+        errors.append(
+            'EthrcBetaflightSITLPlugin is missing. Build it with: '
+            'colcon build --packages-select sitl_gazebo_plugins'
+        )
+
+    if not os.path.isfile(os.path.join(ws_root, 'eeprom.bin')):
+        warnings.append('eeprom.bin is missing; run scripts/setup_sitl.sh before SITL if Betaflight config is not loaded yet.')
+
+    process_patterns = [
+        'betaflight_SITL.elf',
+        'sitl_rc_bridge',
+        'parameter_bridge /drone/camera',
+        'gz-sim-main',
+        ' gz sim ',
+        'drone_controller_node',
+        'state_bridge_node',
+    ]
+    process_matches = _matching_processes(process_patterns)
+    if process_matches:
+        details = ', '.join(f'{pid}: {cmd[:120]}' for pid, cmd in process_matches[:8])
+        extra = '' if len(process_matches) <= 8 else f' (+{len(process_matches) - 8} more)'
+        errors.append(
+            'Another SITL/racing bringup process appears to be running: '
+            f'{details}{extra}. Stop the stale process with Ctrl-C before launching again.'
+        )
+
+    port_checks = [
+        ('tcp', 5761, 'Betaflight UART1/MSP TCP'),
+        ('udp', 9001, 'Betaflight RealFlight output'),
+        ('udp', 9002, 'Gazebo motor input'),
+        ('udp', 9003, 'Betaflight FDM input'),
+        ('udp', 9004, 'Betaflight RC input'),
+        ('udp', 9010, 'Joy emulator UDP fallback'),
+    ]
+    for protocol, port, label in port_checks:
+        socket_type = socket.SOCK_STREAM if protocol == 'tcp' else socket.SOCK_DGRAM
+        try:
+            if _port_is_bound('127.0.0.1', port, socket_type):
+                errors.append(f'Port {protocol.upper()} 127.0.0.1:{port} is already in use ({label}).')
+        except OSError as exc:
+            warnings.append(f'Could not check {protocol.upper()} 127.0.0.1:{port}: {exc}')
+
+    if os.environ.get('WSL_INTEROP') or _running_under_wsl():
+        rmw = os.environ.get('RMW_IMPLEMENTATION', '')
+        discovery = os.environ.get('ROS_AUTOMATIC_DISCOVERY_RANGE', '')
+        fastdds_profile = os.environ.get('FASTDDS_DEFAULT_PROFILES_FILE', '')
+        if rmw == 'rmw_fastrtps_cpp' and discovery == 'LOCALHOST' and not fastdds_profile:
+            warnings.append(
+                'WSL is using FastDDS with LOCALHOST discovery and no FASTDDS_DEFAULT_PROFILES_FILE. '
+                'Run: source scripts/source_sitl_env.sh'
+            )
+        if fastdds_profile and not os.path.isfile(fastdds_profile):
+            errors.append(f'FASTDDS_DEFAULT_PROFILES_FILE points to a missing file: {fastdds_profile}')
+
+    if warnings:
+        print('[racing_bringup_health] WARNINGS:')
+        for warning in warnings:
+            print(f'  - {warning}')
+
+    if not errors:
+        print('[racing_bringup_health] SITL preflight passed.')
+        return []
+
+    print('[racing_bringup_health] ERRORS:')
+    for error in errors:
+        print(f'  - {error}')
+
+    raise RuntimeError('Racing bringup preflight failed; fix the errors above or pass preflight:=false to bypass.')
+
+
+def _running_under_wsl():
+    if os.environ.get('WSL_INTEROP') or os.environ.get('WSL_DISTRO_NAME'):
+        return True
+    try:
+        with open('/proc/sys/kernel/osrelease', 'r', encoding='utf-8') as f:
+            return 'microsoft' in f.read().lower()
+    except OSError:
+        return False
+
 
 def generate_launch_description():
     # --- Machine Detection ---
@@ -20,7 +201,14 @@ def generate_launch_description():
     ws_root = os.path.abspath(os.path.join(pkg_drone_control, '../../../../'))
 
     # --- Paths for SITL ---
-    os.environ['GZ_VERSION'] = 'harmonic'
+    os.environ.setdefault('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp')
+    os.environ.setdefault('GALLIUM_DRIVER', 'd3d12')
+    os.environ.setdefault('LIBGL_ALWAYS_SOFTWARE', '0')
+    os.environ.setdefault('QT_QPA_PLATFORM', 'xcb')
+    # WSL often exposes Docker / virtual switch interfaces that Gazebo Transport
+    # may pick before loopback. Keep Gazebo Transport on localhost; ROS DDS is
+    # handled separately by scripts/source_sitl_env.sh when running under WSL.
+    os.environ.setdefault('GZ_IP', '127.0.0.1')
     gz_config_path = os.environ.get('GZ_CONFIG_PATH', '')
     if '/usr/share/gz' not in gz_config_path:
         os.environ['GZ_CONFIG_PATH'] = f"/usr/share/gz:{gz_config_path}" if gz_config_path else '/usr/share/gz'
@@ -30,13 +218,22 @@ def generate_launch_description():
         os.environ['GZ_SIM_RESOURCE_PATH'] = f"{models_dir}:{gz_resource_path}" if gz_resource_path else models_dir
 
     plugins_dir = os.path.join(ws_root, 'ext', 'aeroloop_gazebo', 'plugins', 'build')
+    sitl_plugins_dir = os.path.join(ws_root, 'install', 'sitl_gazebo_plugins', 'lib')
     gz_plugin_path = os.environ.get('GZ_SIM_SYSTEM_PLUGIN_PATH', '')
+    if sitl_plugins_dir not in gz_plugin_path:
+        os.environ['GZ_SIM_SYSTEM_PLUGIN_PATH'] = f"{sitl_plugins_dir}:{gz_plugin_path}" if gz_plugin_path else sitl_plugins_dir
+        gz_plugin_path = os.environ['GZ_SIM_SYSTEM_PLUGIN_PATH']
     if plugins_dir not in gz_plugin_path:
         os.environ['GZ_SIM_SYSTEM_PLUGIN_PATH'] = f"{plugins_dir}:{gz_plugin_path}" if gz_plugin_path else plugins_dir
 
     # --- Arguments ---
     arg_sitl = DeclareLaunchArgument('sitl', default_value='false',
                                      description='Whether to run in SITL mode with Gazebo and Betaflight')
+    arg_preflight = DeclareLaunchArgument(
+        'preflight',
+        default_value='true',
+        description='Run SITL health checks before starting Gazebo, Betaflight, and bridge processes'
+    )
     default_sitl_world = os.path.join(ws_root, 'sim', 'gazebo', 'worlds', 'sitl_racing_custom.sdf')
     arg_sitl_world = DeclareLaunchArgument(
         'sitl_world',
@@ -89,7 +286,7 @@ def generate_launch_description():
     arg_video_fps = DeclareLaunchArgument('video_fps', default_value='60')
     arg_video_port = DeclareLaunchArgument('video_port', default_value='5000')
     arg_h264_backend = DeclareLaunchArgument(
-        'h264_backend', default_value='isaac_ros',
+        'h264_backend', default_value='gstreamer_ros',
         description='H.264 backend when view_stream=true: gstreamer_ros, isaac_ros, or gstreamer'
     )
     arg_isaac_h264_qp = DeclareLaunchArgument(
@@ -117,7 +314,7 @@ def generate_launch_description():
         description='Ground station IPv4 address for the Jetson RTP/H.264 UDP stream'
     )
     arg_publish_raw = DeclareLaunchArgument(
-        'publish_raw', default_value='false',
+        'publish_raw', default_value='true',
         description='Publish /cam0/image_raw as mono8 for VIO'
     )
     arg_publish_rgb = DeclareLaunchArgument(
@@ -511,19 +708,18 @@ def generate_launch_description():
     )
 
     # --- 6. SITL SPECIFIC LAUNCHES ---
-    gazebo_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('ros_gz_sim'),
-                'launch',
-                'gz_sim.launch.py'
-            ])
-        ),
-        launch_arguments={
-            'gz_args': [LaunchConfiguration('sitl_world'), ' -s -r'],
-            'gz_version': '8'
-        }.items(),
+    gazebo_process = ExecuteProcess(
+        cmd=['gz', 'sim', LaunchConfiguration('sitl_world'), '-s', '-r', '--force-version', '10'],
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
+    )
+    gazebo_exit_handler = RegisterEventHandler(
+        OnProcessExit(
+            target_action=gazebo_process,
+            on_exit=[
+                LogInfo(msg='Gazebo server exited; shutting down racing bringup.'),
+                EmitEvent(event=Shutdown(reason='Gazebo server exited')),
+            ],
+        )
     )
 
     gz_bridges_launch = IncludeLaunchDescription(
@@ -538,6 +734,10 @@ def generate_launch_description():
     )
 
     bf_sitl_bin = os.path.join(ws_root, 'ext', 'anemos-betaflight', 'obj', 'main', 'betaflight_SITL.elf')
+    sitl_preflight = OpaqueFunction(
+        function=lambda context: _sitl_preflight(context, ws_root, bf_sitl_bin, sitl_plugins_dir)
+    )
+
     betaflight_sitl_process = ExecuteProcess(
         cmd=[bf_sitl_bin],
         cwd=ws_root,
@@ -558,8 +758,13 @@ def generate_launch_description():
         output='screen'
     )
 
+    sitl_discovery_range = 'SUBNET' if os.environ.get('FASTDDS_DEFAULT_PROFILES_FILE') else os.environ.get(
+        'ROS_AUTOMATIC_DISCOVERY_RANGE', 'LOCALHOST'
+    )
+
     return LaunchDescription([
         arg_sitl,
+        arg_preflight,
         arg_sitl_world,
         arg_imu_port,
         arg_imu_source,
@@ -595,6 +800,22 @@ def generate_launch_description():
         arg_load_bf_config,
         arg_controller_type,
         arg_rate_error_scale,
+        SetEnvironmentVariable(
+            name='RMW_IMPLEMENTATION',
+            value=PythonExpression([
+                "'rmw_fastrtps_cpp' if '", LaunchConfiguration('sitl'), "' == 'true' else '",
+                os.environ.get('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'), "'"
+            ])
+        ),
+        SetEnvironmentVariable(
+            name='ROS_AUTOMATIC_DISCOVERY_RANGE',
+            value=PythonExpression([
+                "'", sitl_discovery_range, "' if '",
+                LaunchConfiguration('sitl'), "' == 'true' else '",
+                os.environ.get('ROS_AUTOMATIC_DISCOVERY_RANGE', 'SUBNET'), "'"
+            ])
+        ),
+        sitl_preflight,
         blackbox_node,
         msp_imu_node,
         msp_bridge_node,
@@ -614,7 +835,8 @@ def generate_launch_description():
         ekf_launch,
         state_bridge_node,
         control_launch,
-        gazebo_launch,
+        gazebo_process,
+        gazebo_exit_handler,
         gz_bridges_launch,
         betaflight_sitl_process,
         sitl_rc_bridge_node,

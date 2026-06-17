@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<robot name="drone_acc_mass" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+<xacro:include filename="$(find drone_acc_mass_description)/urdf/materials.xacro" />
+<xacro:include filename="$(find drone_acc_mass_description)/urdf/drone_acc_mass.trans" />
+<xacro:include filename="$(find drone_acc_mass_description)/urdf/drone_acc_mass.gazebo" />
+<link name="base_link">
+  <inertial>
+    <origin xyz="0.004839178109627602 0.0034084153156952045 0.00927557259352703" rpy="0 0 0"/>
+    <mass value="0.8351086449771665"/>
+    <inertia ixx="0.002158" iyy="0.002919" izz="0.002743" ixy="1e-06" iyz="-4.3e-05" ixz="-8.5e-05"/>
+  </inertial>
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="package://drone_acc_mass_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+    <material name="silver"/>
+  </visual>
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+      <mesh filename="package://drone_acc_mass_description/meshes/base_link.stl" scale="0.001 0.001 0.001"/>
+    </geometry>
+  </collision>
+</link>
+
+</robot>

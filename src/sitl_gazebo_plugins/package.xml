@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>sitl_gazebo_plugins</name>
+  <version>0.0.0</version>
+  <description>Gazebo plugins for ETHRC Betaflight SITL.</description>
+  <maintainer email="drone_dev@todo.todo">drone_dev</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend condition="$ROS_DISTRO == rolling">gz_sim_vendor</depend>
+  <depend condition="$ROS_DISTRO == rolling">gz_plugin_vendor</depend>
+  <depend condition="$ROS_DISTRO == rolling">gz_math_vendor</depend>
+  <depend condition="$ROS_DISTRO != rolling">gz-sim8</depend>
+  <depend condition="$ROS_DISTRO != rolling">gz-plugin2</depend>
+  <depend condition="$ROS_DISTRO != rolling">gz-math7</depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

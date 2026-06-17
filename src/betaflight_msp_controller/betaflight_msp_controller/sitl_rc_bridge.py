@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+from betaflight_msp_controller.ros_runtime_env import configure_local_ros_defaults
+
+configure_local_ros_defaults()
+
+import json
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray, Float64
@@ -19,6 +24,7 @@ class SitlRcBridge(Node):
         self.declare_parameter('attitude_cmd_topic', '/drone_attitude_cmd')
         self.declare_parameter('max_rate_deg_s', 500.0)
         self.declare_parameter('rc_warning_interval_s', 1.0)
+        self.declare_parameter('joy_udp_port', 9010)
         
         self.sitl_ip = self.get_parameter('sitl_ip').value
         self.sitl_rc_port = self.get_parameter('sitl_rc_port').value
@@ -27,6 +33,7 @@ class SitlRcBridge(Node):
         self.attitude_cmd_topic = self.get_parameter('attitude_cmd_topic').value
         self.max_rate_deg_s = self.get_parameter('max_rate_deg_s').value
         self.rc_warning_interval_s = self.get_parameter('rc_warning_interval_s').value
+        self.joy_udp_port = int(self.get_parameter('joy_udp_port').value)
         
         # RC State [Roll, Pitch, Throttle, Yaw, AUX1, AUX2, AUX3, AUX4, AUX5-12]
         # Padded to 16 channels
@@ -41,6 +48,11 @@ class SitlRcBridge(Node):
         # Setup UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.get_logger().info(f'Initialized SITL UDP RC socket to {self.sitl_ip}:{self.sitl_rc_port}')
+
+        self.joy_udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.joy_udp_sock.setblocking(False)
+        self.joy_udp_sock.bind(('127.0.0.1', self.joy_udp_port))
+        self.get_logger().info(f'Listening for local Joy UDP fallback on 127.0.0.1:{self.joy_udp_port}')
         
         # Start time for timestamps
         self.start_time = time.time()
@@ -83,31 +95,54 @@ class SitlRcBridge(Node):
         self.rc_channels[2] = int(max(1000, min(2000, 1000 + thrust * 1000)))
 
     def joy_callback(self, msg):
+        self.apply_joy(msg.axes, msg.buttons)
+
+    def apply_joy(self, joy_axes, joy_buttons):
         # Handle Arming (AUX1)
-        if len(msg.buttons) > self.arm_switch_id:
-            self.is_armed = msg.buttons[self.arm_switch_id] == 1
+        if len(joy_buttons) > self.arm_switch_id:
+            self.is_armed = joy_buttons[self.arm_switch_id] == 1
             self.rc_channels[4] = 2000 if self.is_armed else 1000
         
         # Handle MSP Override Mode status (AUX2)
-        if len(msg.buttons) > self.override_switch_id:
-            self.use_override = msg.buttons[self.override_switch_id] == 1
+        if len(joy_buttons) > self.override_switch_id:
+            self.use_override = joy_buttons[self.override_switch_id] == 1
             # In SITL, we keep AUX2 low (1000) so the flight controller does not enter BOXMSPOVERRIDE
             # and ignore our UDP RX stream.
             self.rc_channels[5] = 1000
 
         # Update manual RC channels if not in Override mode
         if not self.use_override:
-            roll = msg.axes[0] if len(msg.axes) > 0 else 0.0
-            pitch = msg.axes[1] if len(msg.axes) > 1 else 0.0
-            yaw = msg.axes[2] if len(msg.axes) > 2 else 0.0
-            throttle = msg.axes[3] if len(msg.axes) > 3 else -1.0
+            roll = joy_axes[0] if len(joy_axes) > 0 else 0.0
+            pitch = joy_axes[1] if len(joy_axes) > 1 else 0.0
+            yaw = joy_axes[2] if len(joy_axes) > 2 else 0.0
+            throttle = joy_axes[3] if len(joy_axes) > 3 else -1.0
 
             self.rc_channels[0] = int(max(1000, min(2000, 1500 + roll * 500)))
             self.rc_channels[1] = int(max(1000, min(2000, 1500 + pitch * 500)))
             self.rc_channels[2] = int(max(1000, min(2000, 1500 + throttle * 500)))
             self.rc_channels[3] = int(max(1000, min(2000, 1500 + yaw * 500)))
 
+    def poll_joy_udp(self):
+        while True:
+            try:
+                payload, _ = self.joy_udp_sock.recvfrom(2048)
+            except BlockingIOError:
+                return
+            except OSError:
+                return
+
+            try:
+                msg = json.loads(payload.decode('utf-8'))
+                joy_axes = [float(v) for v in msg.get('axes', [])]
+                joy_buttons = [int(v) for v in msg.get('buttons', [])]
+            except (ValueError, TypeError, json.JSONDecodeError):
+                continue
+
+            self.apply_joy(joy_axes, joy_buttons)
+
     def timer_callback(self):
+        self.poll_joy_udp()
+
         # Publish throttle topic for monitoring
         throttle_msg = Float64()
         throttle_msg.data = float(self.rc_channels[2])
@@ -143,6 +178,7 @@ class SitlRcBridge(Node):
 
     def destroy_node(self):
         self.sock.close()
+        self.joy_udp_sock.close()
         super().destroy_node()
 
 def main(args=None):
