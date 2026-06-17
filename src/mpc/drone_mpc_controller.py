@@ -50,6 +50,9 @@ class DroneMpcController(ControllerInterface):
             np.degrees(np.max(np.abs(self.drone_model.constraint.w_state_max)))
         )
 
+        self.horizon_publish_every = 10
+        self._last_x_pred = None
+
         if self.verbose:
             print(f"\n{'='*60}")
             print(f"Drone parameters:")
@@ -116,7 +119,8 @@ class DroneMpcController(ControllerInterface):
         # TODO: Handle mpc failure more explicitely
         try:
             #TODO: bound solution time, ensure RT
-            u0, _, _, _ = self.opt.compute_control_once(self.x_current, self.goal_position)
+            u0, _, x_pred_all, _ = self.opt.compute_control_once(self.x_current, self.goal_position)
+            self._last_x_pred = x_pred_all
 
             if self.verbose:
                 self._debug_print(u0)
@@ -150,6 +154,14 @@ class DroneMpcController(ControllerInterface):
         yaw_rate_deg = np.clip(yaw_rate_deg, -max_rate_deg, max_rate_deg)
 
         return AttitudeRate(roll_rate_deg, pitch_rate_deg, yaw_rate_deg, thrust_normalized)
+
+    @property
+    def last_predicted_positions(self) -> 'np.ndarray | None':
+        """(N+1, 3) predicted positions in NED from the last OCP solve, or None."""
+        pred = getattr(self, '_last_x_pred', None)
+        if pred is None:
+            return None
+        return pred[:, 0:3]
 
     def _thrust_to_normalized(self, thrust_N):
         """Convert thrust in Newtons to normalized [0,1] for MAVSDK."""

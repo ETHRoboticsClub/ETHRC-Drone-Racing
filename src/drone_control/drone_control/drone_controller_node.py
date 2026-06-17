@@ -173,10 +173,10 @@ class DroneController(Node):
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('verbose_input', False)
         self.declare_parameter('speed_report_interval_sec', 5.0)
-        self.declare_parameter('threshold.positon', 0.1)  # typo kept for backwards compatibility
+        self.declare_parameter('threshold.position', 0.02)  # typo kept for backwards compatibility
         self.declare_parameter('threshold.velocity', 0.02)
         self.declare_parameter('threshold.angular_velocity', 0.02)
-        self.declare_parameter('threshold.orientation', 0.1)
+        self.declare_parameter('threshold.orientation', 0.05)
 
         self.controller_type = self.get_parameter('controller_type').get_parameter_value().string_value
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
@@ -199,7 +199,7 @@ class DroneController(Node):
         self._speed_samples = 0
         self._path_timer_start = None
         self._last_lap_count = 0
-        self.thresholds_.position = self.get_parameter('threshold.positon').get_parameter_value().double_value
+        self.thresholds_.position = self.get_parameter('threshold.position').get_parameter_value().double_value
         self.thresholds_.velocity = self.get_parameter('threshold.velocity').get_parameter_value().double_value
         self.thresholds_.angular_velocity = self.get_parameter('threshold.angular_velocity').get_parameter_value().double_value
         self.thresholds_.orientation = self.get_parameter('threshold.orientation').get_parameter_value().double_value
@@ -682,6 +682,8 @@ class DroneController(Node):
         if isinstance(self.controller, _MPCC_CLASSES):
             self._publish_mpcc_horizon()
             self._publish_mpcc_progress_point()
+        elif isinstance(self.controller, DroneMpcController):
+            self._publish_mpcc_horizon()
 
         if self._verbose:
             self._publish_debug_counter += 1

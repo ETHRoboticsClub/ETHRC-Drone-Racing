@@ -22,6 +22,37 @@ def _ned_vec_to_enu(v_ned: np.ndarray) -> np.ndarray:
     return np.array([v_ned[1], v_ned[0], -v_ned[2]])
 
 
+def _quat_body_axes_ned(q: np.ndarray) -> tuple:
+    """
+    Given a body->NED quaternion [w,x,y,z] (FRD body, NED world — see
+    mpc/drone_model.py R_bn), return the (front, right, down) body unit
+    axes expressed in NED, i.e. the columns of the body->NED rotation matrix.
+    """
+    qw, qx, qy, qz = q
+    norm = math.sqrt(qw * qw + qx * qx + qy * qy + qz * qz)
+    if norm < 1e-9:
+        qw, qx, qy, qz = 1.0, 0.0, 0.0, 0.0
+    else:
+        qw, qx, qy, qz = qw / norm, qx / norm, qy / norm, qz / norm
+
+    front = np.array([
+        1 - 2 * (qy ** 2 + qz ** 2),
+        2 * (qx * qy + qw * qz),
+        2 * (qx * qz - qw * qy),
+    ])
+    right = np.array([
+        2 * (qx * qy - qw * qz),
+        1 - 2 * (qx ** 2 + qz ** 2),
+        2 * (qy * qz + qw * qx),
+    ])
+    down = np.array([
+        2 * (qx * qz + qw * qy),
+        2 * (qy * qz - qw * qx),
+        1 - 2 * (qx ** 2 + qy ** 2),
+    ])
+    return front, right, down
+
+
 def _point(x: float, y: float, z: float) -> Point:
     p = Point()
     p.x, p.y, p.z = x, y, z
@@ -43,18 +74,23 @@ class WaypointVisualizer(Node):
       - Planned circuit (cyan line)
 
     Both modes:
-      - Current active target (green sphere)
-      - Drone position        (yellow cube)
+      - Current active target (green sphere) + body axes (desired yaw)
+      - Drone position        (yellow cube)  + body axes (live attitude)
       - Drone trajectory trail (yellow line)
     """
 
     _MAX_TRAIL = 3000  # maximum trail points to keep
+    _AXIS_COLORS = ((1.0, 0.0, 0.0, 0.95),   # X (front) — red
+                    (0.0, 1.0, 0.0, 0.95),   # Y (right) — green
+                    (0.0, 0.4, 1.0, 0.95))   # Z (down)  — blue
 
     def __init__(self):
         super().__init__('waypoint_visualizer')
 
         self._drone_pos_enu: tuple | None = None
+        self._drone_quat_ned: np.ndarray | None = None
         self._target_enu: tuple | None = None
+        self._target_quat_ned: np.ndarray | None = None
         self._trail: list[tuple] = []
 
         # ── Load gates or waypoints ───────────────────────────────────────
@@ -112,10 +148,14 @@ class WaypointVisualizer(Node):
         self._trail.append(pos)
         if len(self._trail) > self._MAX_TRAIL:
             self._trail.pop(0)
+        if len(data) >= 10:
+            self._drone_quat_ned = np.array(data[6:10])
 
     def _target_cb(self, msg: PoseStamped):
         p = msg.pose.position
         self._target_enu = _ned_to_enu(p.x, p.y, p.z)
+        o = msg.pose.orientation
+        self._target_quat_ned = np.array([o.w, o.x, o.y, o.z])
 
     # ── Marker construction helpers ────────────────────────────────────────
 
@@ -224,6 +264,33 @@ class WaypointVisualizer(Node):
         m.points.append(_point(ex, ey, ez))
         return m
 
+    def _axis_arrow(self, ns, mid, stamp, origin_enu, dir_enu, color, length,
+                     shaft_d=0.04, head_d=0.09, head_l=0.12) -> Marker:
+        m = self._base(ns, mid, stamp)
+        m.type = Marker.ARROW
+        m.scale.x = shaft_d
+        m.scale.y = head_d
+        m.scale.z = head_l
+        m.color.r, m.color.g, m.color.b, m.color.a = color
+        ox, oy, oz = origin_enu
+        m.points.append(_point(ox, oy, oz))
+        m.points.append(_point(
+            ox + dir_enu[0] * length,
+            oy + dir_enu[1] * length,
+            oz + dir_enu[2] * length))
+        return m
+
+    def _body_axes_markers(self, ns: str, mid: int, stamp, origin_enu, quat_ned: np.ndarray,
+                            length: float) -> tuple:
+        """Build RGB (front/right/down) body-axis arrows from a body->NED quaternion."""
+        axes_ned = _quat_body_axes_ned(quat_ned)
+        markers = []
+        for axis_ned, color in zip(axes_ned, self._AXIS_COLORS):
+            markers.append(self._axis_arrow(
+                ns, mid, stamp, origin_enu, _ned_vec_to_enu(axis_ned), color, length))
+            mid += 1
+        return markers, mid
+
     # ── Main publish ───────────────────────────────────────────────────────
 
     def _publish(self):
@@ -276,6 +343,10 @@ class WaypointVisualizer(Node):
             markers.markers.append(
                 self._label('target_label', mid, now, x, y, z + 0.95, 'TARGET', size=0.4))
             mid += 1
+            if self._target_quat_ned is not None:
+                axis_markers, mid = self._body_axes_markers(
+                    'target_axes', mid, now, self._target_enu, self._target_quat_ned, length=1.0)
+                markers.markers.extend(axis_markers)
 
         # Drone position
         if self._drone_pos_enu is not None:
@@ -287,6 +358,10 @@ class WaypointVisualizer(Node):
             m.color.r, m.color.g, m.color.b, m.color.a = 1.0, 1.0, 0.0, 1.0
             markers.markers.append(m)
             mid += 1
+            if self._drone_quat_ned is not None:
+                axis_markers, mid = self._body_axes_markers(
+                    'drone_axes', mid, now, self._drone_pos_enu, self._drone_quat_ned, length=0.5)
+                markers.markers.extend(axis_markers)
 
         # Drone trail
         if len(self._trail) > 1:

@@ -39,11 +39,13 @@ Visualization Manager:
       Name: Waypoints & Drone
       Namespaces:
         drone: true
+        drone_axes: true
         drone_trail: true
         gate_labels: true
         gates: true
         planned_circuit: true
         target: true
+        target_axes: true
         target_label: true
       Topic:
         Depth: 10

@@ -28,7 +28,7 @@
 
     # ── Waypoint-reached thresholds ───────────────────────────────────
     threshold:
-      position: 0.1          # m
+      position: 0.02          # m
       velocity: 0.02         # m/s
       angular_velocity: 0.02 # rad/s
-      orientation: 0.1       # rad
+      orientation: 0.05       # rad
