@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import torch
 from scipy.spatial.transform import Rotation as R
@@ -11,7 +13,9 @@ from rl.policy_model import PolicyModel
 
 # Match the values from the Isaac Lab training env.
 _REL_POSITION_DIVISOR = 10.0
-ANG_COMMAND_SCALE = 9.0
+ANG_COMMAND_SCALE = float(os.environ.get("RL_ANG_COMMAND_SCALE", "3.0"))
+THRUST_CMD_LIMIT = float(os.environ.get("RL_THRUST_LIMIT", "0.5"))
+RATE_CMD_LIMIT_DEG_S = float(os.environ.get("RL_RATE_LIMIT_DEG_S", "45.0"))
 _GRAVITY_WORLD = np.array([0.0, 0.0, -9.81], dtype=float)
 
 OBS_DIM = 12
@@ -118,24 +122,24 @@ class HoveringExperiment:
         obs_t = torch.tensor(observation, dtype=torch.float32).unsqueeze(0)
         raw = self.policy.inference(obs_t).squeeze(0).cpu().numpy().clip(-1.0, 1.0)
 
-        # [-1, 1] -> [0, 1] with 0.7 safety cap
-        thrust_cmd = min(float((raw[0] + 1.0) * 0.5), 0.6)
+        thrust_cmd = min(float((raw[0] + 1.0) * 0.5), THRUST_CMD_LIMIT)
 
-        # Policy outputs rate commands in sim FLU frame.
-        # MAVSDK AttitudeRate / Betaflight MSP use FRD: X (roll) is shared,
-        # negate Y (pitch) and Z (yaw).
+        # Policy outputs are deployed directly as Betaflight rate commands.
+        # The manager action term and SITL bridge both use the same roll,
+        # pitch, yaw channel signs here; applying an extra FLU->FRD flip makes
+        # the feedback correction diverge in SITL.
         omega_cmd_FLU_rad = np.asarray(raw[1:4], dtype=float) * ANG_COMMAND_SCALE
-        
-        # FLU -> FRD/NED:
+
         omega_cmd_FRD_rad = omega_cmd_FLU_rad.copy()
-        omega_cmd_FRD_rad[1] *= -1.0
-        omega_cmd_FRD_rad[2] *= -1.0
+
+        cmd_deg_s = np.degrees(omega_cmd_FRD_rad)
+        cmd_deg_s = np.clip(cmd_deg_s, -RATE_CMD_LIMIT_DEG_S, RATE_CMD_LIMIT_DEG_S)
 
         return np.array(
             [
-                float(np.degrees(omega_cmd_FRD_rad[0])),
-                float(np.degrees(omega_cmd_FRD_rad[1])),
-                float(np.degrees(omega_cmd_FRD_rad[2])),
+                float(cmd_deg_s[0]),
+                float(cmd_deg_s[1]),
+                float(cmd_deg_s[2]),
                 thrust_cmd,
             ],
             dtype=np.float32,

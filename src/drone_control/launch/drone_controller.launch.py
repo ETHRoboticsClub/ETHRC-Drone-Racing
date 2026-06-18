@@ -27,6 +27,14 @@ def generate_launch_description():
             description='Type of controller to use: "mpc" or "rl"'),
         DeclareLaunchArgument('rate_error_scale', default_value='300.0',
             description='Torque-to-rate scaling for RL controller'),
+        DeclareLaunchArgument('default_goal_enabled', default_value='false',
+            description='Seed the controller with a default sticky goal at startup'),
+        DeclareLaunchArgument('default_goal_x', default_value='0.0',
+            description='Default goal x position in world frame'),
+        DeclareLaunchArgument('default_goal_y', default_value='0.0',
+            description='Default goal y position in world frame'),
+        DeclareLaunchArgument('default_goal_z', default_value='1.5',
+            description='Default goal z position in world frame'),
 
         Node(
             package="my_mavsdk",
@@ -42,7 +50,11 @@ def generate_launch_description():
             name="drone_controller_node",
             parameters=[controller_params, {
                 'controller_type': LaunchConfiguration('controller_type'),
-                'rl.rate_error_scale': LaunchConfiguration('rate_error_scale')
+                'rl.rate_error_scale': LaunchConfiguration('rate_error_scale'),
+                'default_goal.enabled': LaunchConfiguration('default_goal_enabled'),
+                'default_goal.x': LaunchConfiguration('default_goal_x'),
+                'default_goal.y': LaunchConfiguration('default_goal_y'),
+                'default_goal.z': LaunchConfiguration('default_goal_z'),
             }],
             output="screen",
         ),

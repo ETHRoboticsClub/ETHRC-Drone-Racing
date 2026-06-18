@@ -49,6 +49,12 @@ from geometry_msgs.msg import Point
 from rl.drone_rl_controller import DroneRLController
 
 
+def _param_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 class DroneController(Node):
     """
     Bridges drone state → RL policy → attitude-rate commands.
@@ -79,6 +85,10 @@ class DroneController(Node):
         self.declare_parameter('goal_bounds.y_max',  5.0)
         self.declare_parameter('goal_bounds.z_min',  0.0)
         self.declare_parameter('goal_bounds.z_max',  3.0)
+        self.declare_parameter('default_goal.enabled', False)
+        self.declare_parameter('default_goal.x', 0.0)
+        self.declare_parameter('default_goal.y', 0.0)
+        self.declare_parameter('default_goal.z', 1.5)
 
         state_topic = self.get_parameter('state_topic').get_parameter_value().string_value
         attitude_command_topic = self.get_parameter('attitude_command_topic').get_parameter_value().string_value
@@ -112,6 +122,9 @@ class DroneController(Node):
         self.last_state_time: Optional[float] = None  # monotonic seconds
         self.goal: Optional[np.ndarray] = None
         self.last_thrust: Optional[float] = None
+        self._last_waiting_for_goal_log = 0.0
+
+        self._apply_default_goal_if_enabled()
 
         self.state_subscriber = self.create_subscription(
             Float64MultiArray, state_topic, self.drone_state_cb, 10)
@@ -123,6 +136,32 @@ class DroneController(Node):
             Float64MultiArray, observation_topic, 10)
 
         self.create_timer(1.0 / control_rate, self.control_loop)
+
+    def _apply_default_goal_if_enabled(self):
+        if not _param_bool(self.get_parameter('default_goal.enabled').value):
+            return
+
+        default_goal = np.array([
+            float(self.get_parameter('default_goal.x').value),
+            float(self.get_parameter('default_goal.y').value),
+            float(self.get_parameter('default_goal.z').value),
+        ])
+        if not self._goal_in_bounds(default_goal):
+            lo, hi = self.goal_bounds
+            self.get_logger().error(
+                f"Default goal {default_goal.tolist()} is outside bounds "
+                f"x[{lo[0]},{hi[0]}] y[{lo[1]},{hi[1]}] z[{lo[2]},{hi[2]}]; waiting for /drone_goal."
+            )
+            return
+
+        self.goal = default_goal
+        self.get_logger().info(f"Default goal enabled: {default_goal.tolist()}")
+
+    def _goal_in_bounds(self, goal: np.ndarray) -> bool:
+        if not np.isfinite(goal).all():
+            return False
+        lo, hi = self.goal_bounds
+        return not (np.any(goal < lo) or np.any(goal > hi))
 
     def initialize(self):
         self.controller.initialize()
@@ -154,8 +193,8 @@ class DroneController(Node):
             self.get_logger().error(
                 f"Rejecting goal: non-finite values {new_goal.tolist()}")
             return
-        lo, hi = self.goal_bounds
-        if np.any(new_goal < lo) or np.any(new_goal > hi):
+        if not self._goal_in_bounds(new_goal):
+            lo, hi = self.goal_bounds
             self.get_logger().error(
                 f"Rejecting goal {new_goal.tolist()}: outside bounds "
                 f"x[{lo[0]},{hi[0]}] y[{lo[1]},{hi[1]}] z[{lo[2]},{hi[2]}]")
@@ -174,6 +213,13 @@ class DroneController(Node):
         with self.goal_lock:
             goal = None if self.goal is None else self.goal.copy()
         if goal is None:
+            now = time.monotonic()
+            if now - self._last_waiting_for_goal_log >= 1.0:
+                self.get_logger().warning(
+                    "No goal received yet; controller is intentionally silent. "
+                    "Publish geometry_msgs/Point on /drone_goal or enable default_goal.enabled."
+                )
+                self._last_waiting_for_goal_log = now
             return
 
         with self.state_lock:

@@ -37,44 +37,6 @@
         </material>
       </visual>
 
-      <!-- Prop meshes are included as visuals on base_link so the measured
-           URDF mass, COM, and inertia remain the only physical inertial model. -->
-      <visual name="back_right_prop_visual">
-        <geometry>
-          <mesh>
-            <scale>0.001 0.001 0.001</scale>
-            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/BR_5_inch_CW_prop_1_1_1.stl</uri>
-          </mesh>
-        </geometry>
-      </visual>
-
-      <visual name="front_right_prop_visual">
-        <geometry>
-          <mesh>
-            <scale>0.001 0.001 0.001</scale>
-            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/FR_5_inch_CCW_prop_1_1_1.stl</uri>
-          </mesh>
-        </geometry>
-      </visual>
-
-      <visual name="back_left_prop_visual">
-        <geometry>
-          <mesh>
-            <scale>0.001 0.001 0.001</scale>
-            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/BL_5_inch_CCW_prop_1_1_1.stl</uri>
-          </mesh>
-        </geometry>
-      </visual>
-
-      <visual name="front_left_prop_visual">
-        <geometry>
-          <mesh>
-            <scale>0.001 0.001 0.001</scale>
-            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/FL_5_inch_CW_prop_1_1_1.stl</uri>
-          </mesh>
-        </geometry>
-      </visual>
-
       <collision name="base_collision">
         <!-- Keep collision simple; the raw STL is very detailed and hurts RTF. -->
         <pose>0.003157 0.002282 0.017908 0 0 0</pose>
@@ -182,6 +144,172 @@
 
     </link>
 
+    <!-- Prop links are visual-only for SITL parity: near-zero inertial values,
+         no collisions, and propulsion remains direct Betaflight motor wrenches. -->
+    <link name="FL_5_inch_CW_prop_1_1_1">
+      <pose relative_to="base_link">0.088628 -0.068017 0.040514 0 0 0</pose>
+      <inertial>
+        <pose>-0.000000495499 0.000001172823 0.004922947495 0 0 0</pose>
+        <mass>0.000000001</mass>
+        <inertia>
+          <ixx>0.000000000000001</ixx>
+          <iyy>0.000000000000001</iyy>
+          <izz>0.000000000000001</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="front_left_prop_visual">
+        <pose>-0.088628 0.068017 -0.040514 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/FL_5_inch_CW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="FR_5_inch_CCW_prop_1_1_1">
+      <pose relative_to="base_link">0.088431 0.072039 0.040514 0 0 0</pose>
+      <inertial>
+        <pose>0.000002120847 -0.000000100948 0.004922948264 0 0 0</pose>
+        <mass>0.000000001</mass>
+        <inertia>
+          <ixx>0.000000000000001</ixx>
+          <iyy>0.000000000000001</iyy>
+          <izz>0.000000000000001</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="front_right_prop_visual">
+        <pose>-0.088431 -0.072039 -0.040514 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/FR_5_inch_CCW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="BL_5_inch_CCW_prop_1_1_1">
+      <pose relative_to="base_link">-0.082176 -0.068017 0.040514 0 0 0</pose>
+      <inertial>
+        <pose>0.000001689673 -0.000000463099 0.004922948264 0 0 0</pose>
+        <mass>0.000000001</mass>
+        <inertia>
+          <ixx>0.000000000000001</ixx>
+          <iyy>0.000000000000001</iyy>
+          <izz>0.000000000000001</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="back_left_prop_visual">
+        <pose>0.082176 0.068017 -0.040514 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/BL_5_inch_CCW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="BR_5_inch_CW_prop_1_1_1">
+      <pose relative_to="base_link">-0.081841 0.071798 0.040514 0 0 0</pose>
+      <inertial>
+        <pose>0.000000057190 0.000001267331 0.004922947501 0 0 0</pose>
+        <mass>0.000000001</mass>
+        <inertia>
+          <ixx>0.000000000000001</ixx>
+          <iyy>0.000000000000001</iyy>
+          <izz>0.000000000000001</izz>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyz>0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="back_right_prop_visual">
+        <pose>0.081841 -0.071798 -0.040514 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.001 0.001 0.001</scale>
+            <uri>model://anemos_drone/raw/drone_acc_mass_description/meshes/BR_5_inch_CW_prop_1_1_1.stl</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <joint name="Revolute_15" type="revolute">
+      <parent>base_link</parent>
+      <child>FL_5_inch_CW_prop_1_1_1</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-10000000000000000</lower>
+          <upper>10000000000000000</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="Revolute_16" type="revolute">
+      <parent>base_link</parent>
+      <child>FR_5_inch_CCW_prop_1_1_1</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-10000000000000000</lower>
+          <upper>10000000000000000</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="Revolute_17" type="revolute">
+      <parent>base_link</parent>
+      <child>BL_5_inch_CCW_prop_1_1_1</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-10000000000000000</lower>
+          <upper>10000000000000000</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
+    <joint name="Revolute_18" type="revolute">
+      <parent>base_link</parent>
+      <child>BR_5_inch_CW_prop_1_1_1</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>-10000000000000000</lower>
+          <upper>10000000000000000</upper>
+        </limit>
+        <dynamics>
+          <damping>0</damping>
+          <friction>0</friction>
+        </dynamics>
+      </axis>
+    </joint>
+
     <!-- ===================================================== -->
     <!--                BETAFLIGHT SITL PLUGIN                 -->
     <!-- ===================================================== -->
@@ -198,6 +326,7 @@
       <yawTorqueCoefficient>0.00125</yawTorqueCoefficient>
       <yawDampingCoefficient>0.006</yawDampingCoefficient>
       <maxRpm>30000</maxRpm>
+      <visualMaxRpm>3600</visualMaxRpm>
       <resetPose>0 0 0.5 0 0 0</resetPose>
       <maxWorldPosition>30</maxWorldPosition>
       <minWorldAltitude>-0.5</minWorldAltitude>
@@ -207,24 +336,28 @@
 
       <!-- BF Motor 1: Back Right -->
       <rotor id="0">
+        <jointName>Revolute_18</jointName>
         <position>-0.081108 0.086485 0.044629</position>
         <turningDirection>cw</turningDirection>
       </rotor>
 
       <!-- BF Motor 2: Front Right -->
       <rotor id="1">
+        <jointName>Revolute_16</jointName>
         <position>0.099477 0.067468 0.044629</position>
         <turningDirection>ccw</turningDirection>
       </rotor>
 
       <!-- BF Motor 3: Back Left -->
       <rotor id="2">
+        <jointName>Revolute_17</jointName>
         <position>-0.073632 -0.075213 0.044629</position>
         <turningDirection>ccw</turningDirection>
       </rotor>
 
       <!-- BF Motor 4: Front Left -->
       <rotor id="3">
+        <jointName>Revolute_15</jointName>
         <position>0.086702 -0.054547 0.044629</position>
         <turningDirection>cw</turningDirection>
       </rotor>

@@ -12,6 +12,13 @@ import socket
 import struct
 import time
 
+
+def _param_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
 class SitlRcBridge(Node):
     def __init__(self):
         super().__init__('sitl_rc_bridge')
@@ -25,6 +32,9 @@ class SitlRcBridge(Node):
         self.declare_parameter('max_rate_deg_s', 500.0)
         self.declare_parameter('rc_warning_interval_s', 1.0)
         self.declare_parameter('joy_udp_port', 9010)
+        self.declare_parameter('default_override', False)
+        self.declare_parameter('lock_default_override', False)
+        self.declare_parameter('override_arm_throttle_delay_s', 1.0)
         
         self.sitl_ip = self.get_parameter('sitl_ip').value
         self.sitl_rc_port = self.get_parameter('sitl_rc_port').value
@@ -34,13 +44,17 @@ class SitlRcBridge(Node):
         self.max_rate_deg_s = self.get_parameter('max_rate_deg_s').value
         self.rc_warning_interval_s = self.get_parameter('rc_warning_interval_s').value
         self.joy_udp_port = int(self.get_parameter('joy_udp_port').value)
+        self.default_override = _param_bool(self.get_parameter('default_override').value)
+        self.lock_default_override = _param_bool(self.get_parameter('lock_default_override').value)
+        self.override_arm_throttle_delay_s = float(self.get_parameter('override_arm_throttle_delay_s').value)
         
         # RC State [Roll, Pitch, Throttle, Yaw, AUX1, AUX2, AUX3, AUX4, AUX5-12]
         # Padded to 16 channels
         self.rc_channels = [1500, 1500, 1000, 1500, 1000, 1500, 1500, 1500,
                             1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]
         self.is_armed = False
-        self.use_override = False
+        self._armed_since_time = None
+        self.use_override = self.default_override
         self._last_log_time = 0.0
         self._last_warning_time = 0.0
         self._udp_failures = 0
@@ -48,6 +62,10 @@ class SitlRcBridge(Node):
         # Setup UDP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.get_logger().info(f'Initialized SITL UDP RC socket to {self.sitl_ip}:{self.sitl_rc_port}')
+        if self.use_override:
+            self.get_logger().info('Default override enabled: attitude commands will drive SITL RC channels.')
+        if self.lock_default_override:
+            self.get_logger().info('Default override is locked: Joy AUX2 will not disable attitude-command control.')
 
         self.joy_udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.joy_udp_sock.setblocking(False)
@@ -86,13 +104,20 @@ class SitlRcBridge(Node):
         yaw_rate = msg.data[2]
         thrust = msg.data[3]
 
-        # Update RC stick channels (AETR)
-        # Roll, Pitch, Yaw: 1500 +/- 500
-        # Throttle: 1000 + thrust * 1000 (0.0 to 1.0)
-        self.rc_channels[0] = int(max(1000, min(2000, 1500 + (roll_rate / self.max_rate_deg_s) * 500)))
-        self.rc_channels[1] = int(max(1000, min(2000, 1500 + (pitch_rate / self.max_rate_deg_s) * 500)))
-        self.rc_channels[3] = int(max(1000, min(2000, 1500 + (yaw_rate / self.max_rate_deg_s) * 500)))
-        self.rc_channels[2] = int(max(1000, min(2000, 1000 + thrust * 1000)))
+        armed_for = 0.0 if self._armed_since_time is None else time.time() - self._armed_since_time
+        if not self.is_armed or armed_for < self.override_arm_throttle_delay_s:
+            self.rc_channels[0] = 1500
+            self.rc_channels[1] = 1500
+            self.rc_channels[2] = 1000
+            self.rc_channels[3] = 1500
+        else:
+            # Update RC stick channels (AETR)
+            # Roll, Pitch, Yaw: 1500 +/- 500
+            # Throttle: 1000 + thrust * 1000 (0.0 to 1.0)
+            self.rc_channels[0] = int(max(1000, min(2000, 1500 + (roll_rate / self.max_rate_deg_s) * 500)))
+            self.rc_channels[1] = int(max(1000, min(2000, 1500 + (pitch_rate / self.max_rate_deg_s) * 500)))
+            self.rc_channels[2] = int(max(1000, min(2000, 1000 + thrust * 1000)))
+            self.rc_channels[3] = int(max(1000, min(2000, 1500 + (yaw_rate / self.max_rate_deg_s) * 500)))
 
     def joy_callback(self, msg):
         self.apply_joy(msg.axes, msg.buttons)
@@ -100,12 +125,21 @@ class SitlRcBridge(Node):
     def apply_joy(self, joy_axes, joy_buttons):
         # Handle Arming (AUX1)
         if len(joy_buttons) > self.arm_switch_id:
+            was_armed = self.is_armed
             self.is_armed = joy_buttons[self.arm_switch_id] == 1
+            if self.is_armed and not was_armed:
+                self._armed_since_time = time.time()
+            elif not self.is_armed:
+                self._armed_since_time = None
+                self.rc_channels[2] = 1000
             self.rc_channels[4] = 2000 if self.is_armed else 1000
         
         # Handle MSP Override Mode status (AUX2)
         if len(joy_buttons) > self.override_switch_id:
-            self.use_override = joy_buttons[self.override_switch_id] == 1
+            if self.lock_default_override:
+                self.use_override = self.default_override
+            else:
+                self.use_override = joy_buttons[self.override_switch_id] == 1
             # In SITL, we keep AUX2 low (1000) so the flight controller does not enter BOXMSPOVERRIDE
             # and ignore our UDP RX stream.
             self.rc_channels[5] = 1000

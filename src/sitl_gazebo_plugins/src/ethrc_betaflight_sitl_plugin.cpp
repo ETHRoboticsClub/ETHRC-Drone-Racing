@@ -26,6 +26,7 @@
 #include <gz/sim/components/Imu.hh>
 #include <gz/sim/components/Joint.hh>
 #include <gz/sim/components/JointVelocity.hh>
+#include <gz/sim/components/JointVelocityCmd.hh>
 #include <gz/sim/components/LinearAcceleration.hh>
 #include <gz/sim/components/Name.hh>
 #include <gz/sim/components/Pose.hh>
@@ -165,6 +166,7 @@ class EthrcBetaflightSITLPlugin:
   private: void ResetVehicleState(EntityComponentManager &_ecm,
       const std::string &_reason);
   private: void ApplyThrust(EntityComponentManager &_ecm);
+  private: void UpdateRotorVisuals(EntityComponentManager &_ecm);
   private: void SendState(const UpdateInfo &_info,
       EntityComponentManager &_ecm) const;
 
@@ -188,6 +190,7 @@ class EthrcBetaflightSITLPlugin:
   private: double yawTorqueCoefficient{0.00125};
   private: double yawDampingCoefficient{0.006};
   private: double maxRpm{30000.0};
+  private: double visualMaxRpm{3600.0};
   private: double maxWorldPosition{30.0};
   private: double minWorldAltitude{-0.5};
   private: double maxWorldAltitude{20.0};
@@ -196,6 +199,7 @@ class EthrcBetaflightSITLPlugin:
   private: math::Pose3d resetPose{0, 0, 0.5, 0, 0, 0};
   private: std::chrono::steady_clock::duration lastUpdateTime{0};
   private: bool stateGuardLatched{false};
+  private: bool rotorVisualsSpinning{false};
   private: mutable std::mutex mutex;
 };
 
@@ -257,6 +261,8 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
   this->yawDampingCoefficient =
       SdfValue<double>(_sdf, "yawDampingCoefficient", this->yawDampingCoefficient);
   this->maxRpm = SdfValue<double>(_sdf, "maxRpm", this->maxRpm);
+  this->visualMaxRpm =
+      SdfValue<double>(_sdf, "visualMaxRpm", this->visualMaxRpm);
   this->maxWorldPosition =
       SdfValue<double>(_sdf, "maxWorldPosition", this->maxWorldPosition);
   this->minWorldAltitude =
@@ -313,6 +319,7 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
       if (rotor.jointEntity != kNullEntity)
       {
         _ecm.CreateComponent(rotor.jointEntity, components::JointVelocity());
+        _ecm.CreateComponent(rotor.jointEntity, components::JointVelocityCmd({0.0}));
       }
       else if (!rotor.jointName.empty())
       {
@@ -515,6 +522,7 @@ void EthrcBetaflightSITLPlugin::ResetVehicleState(EntityComponentManager &_ecm,
 {
   for (auto &rotor : this->rotors)
     rotor.normalizedCommand = 0.0;
+  this->UpdateRotorVisuals(_ecm);
 
   this->betaflightOnline = false;
   this->missedPackets = 0;
@@ -563,6 +571,33 @@ void EthrcBetaflightSITLPlugin::ApplyThrust(EntityComponentManager &_ecm)
     const math::Vector3d dampingTorqueWorld =
         bodyUpWorld * (-this->yawDampingCoefficient * yawRate);
     this->baseLink.AddWorldWrench(_ecm, {0, 0, 0}, dampingTorqueWorld);
+  }
+}
+
+void EthrcBetaflightSITLPlugin::UpdateRotorVisuals(EntityComponentManager &_ecm)
+{
+  bool anyRotorSpinning = false;
+  for (const auto &rotor : this->rotors)
+  {
+    anyRotorSpinning = anyRotorSpinning || rotor.normalizedCommand > 0.001;
+
+    if (rotor.jointEntity == kNullEntity)
+      continue;
+
+    const double rpm = rotor.normalizedCommand * this->visualMaxRpm;
+    const double angularVelocity =
+        rotor.turningDirection * rpm * 2.0 * GZ_PI / 60.0;
+    _ecm.SetComponentData<components::JointVelocityCmd>(
+        rotor.jointEntity, {angularVelocity});
+  }
+
+  if (anyRotorSpinning != this->rotorVisualsSpinning)
+  {
+    gzlog << InfoText(
+        std::string("[EthrcBetaflightSITLPlugin] Rotor visuals ") +
+        (anyRotorSpinning ? "spinning from Betaflight motor output."
+                          : "stopped.")) << "\n";
+    this->rotorVisualsSpinning = anyRotorSpinning;
   }
 }
 
@@ -653,6 +688,7 @@ void EthrcBetaflightSITLPlugin::PreUpdate(const UpdateInfo &_info,
   }
 
   this->ReceiveMotorCommand();
+  this->UpdateRotorVisuals(_ecm);
   if (this->betaflightOnline)
   {
     this->ApplyThrust(_ecm);

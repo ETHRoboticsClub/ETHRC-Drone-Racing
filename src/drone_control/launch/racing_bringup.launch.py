@@ -191,6 +191,75 @@ def _running_under_wsl():
         return False
 
 
+def _detect_primary_ipv4():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(('1.1.1.1', 80))
+        return sock.getsockname()[0]
+    except OSError:
+        return ''
+    finally:
+        sock.close()
+
+
+def _write_fastdds_wsl_profile(ip_addr):
+    if not ip_addr:
+        return ''
+
+    profile_path = os.environ.get(
+        'ETHRC_FASTDDS_WSL_PROFILE',
+        f"/tmp/ethrc_fastdds_wsl_{os.getuid()}.xml"
+    )
+    try:
+        os.makedirs(os.path.dirname(profile_path), exist_ok=True)
+        with open(profile_path, 'w', encoding='utf-8') as f:
+            f.write(f'''<?xml version="1.0" encoding="UTF-8" ?>
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>ethrc_wsl_udp</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList>
+        <address>{ip_addr}</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+
+  <participant profile_name="ros2_default_profile" is_default_profile="true">
+    <rtps>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <userTransports>
+        <transport_id>ethrc_wsl_udp</transport_id>
+      </userTransports>
+    </rtps>
+  </participant>
+</profiles>
+''')
+        return profile_path
+    except OSError:
+        return ''
+
+
+def _configure_wsl_fastdds_defaults():
+    if not _running_under_wsl():
+        return
+    if os.environ.get('ETHRC_DISABLE_WSL_FASTDDS_PROFILE') == '1':
+        return
+    if os.environ.get('FASTDDS_DEFAULT_PROFILES_FILE'):
+        return
+    if os.environ.get('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp') != 'rmw_fastrtps_cpp':
+        return
+
+    profile_path = _write_fastdds_wsl_profile(_detect_primary_ipv4())
+    if not profile_path:
+        return
+
+    os.environ['FASTDDS_DEFAULT_PROFILES_FILE'] = profile_path
+    os.environ.setdefault('RMW_FASTRTPS_USE_QOS_FROM_XML', '1')
+    if os.environ.get('ROS_AUTOMATIC_DISCOVERY_RANGE', '') in ('', 'LOCALHOST'):
+        os.environ['ROS_AUTOMATIC_DISCOVERY_RANGE'] = 'SUBNET'
+
+
 def generate_launch_description():
     # --- Machine Detection ---
     hostname = socket.gethostname()
@@ -205,6 +274,7 @@ def generate_launch_description():
     os.environ.setdefault('GALLIUM_DRIVER', 'd3d12')
     os.environ.setdefault('LIBGL_ALWAYS_SOFTWARE', '0')
     os.environ.setdefault('QT_QPA_PLATFORM', 'xcb')
+    _configure_wsl_fastdds_defaults()
     # WSL often exposes Docker / virtual switch interfaces that Gazebo Transport
     # may pick before loopback. Keep Gazebo Transport on localhost; ROS DDS is
     # handled separately by scripts/source_sitl_env.sh when running under WSL.
@@ -352,6 +422,14 @@ def generate_launch_description():
                                               description='Type of controller: "mpc" or "rl"')
     arg_rate_error_scale = DeclareLaunchArgument('rate_error_scale', default_value='300.0',
                                                description='Torque-to-rate scaling for RL controller')
+    arg_rl_default_goal_enabled = DeclareLaunchArgument(
+        'rl_default_goal_enabled',
+        default_value='true',
+        description='Seed a default hover goal when running SITL with the RL controller'
+    )
+    arg_rl_default_goal_x = DeclareLaunchArgument('rl_default_goal_x', default_value='0.0')
+    arg_rl_default_goal_y = DeclareLaunchArgument('rl_default_goal_y', default_value='0.0')
+    arg_rl_default_goal_z = DeclareLaunchArgument('rl_default_goal_z', default_value='1.5')
 
     # --- 1. IMU DRIVER: Betaflight Blackbox or MSP ---
     blackbox_node = Node(
@@ -703,7 +781,15 @@ def generate_launch_description():
             'plotjuggler': 'false',
             'use_mavsdk': 'false',
             'controller_type': LaunchConfiguration('controller_type'),
-            'rate_error_scale': LaunchConfiguration('rate_error_scale')
+            'rate_error_scale': LaunchConfiguration('rate_error_scale'),
+            'default_goal_enabled': PythonExpression([
+                "'true' if '", LaunchConfiguration('sitl'), "' == 'true' and '",
+                LaunchConfiguration('controller_type'), "' == 'rl' and '",
+                LaunchConfiguration('rl_default_goal_enabled'), "' == 'true' else 'false'"
+            ]),
+            'default_goal_x': LaunchConfiguration('rl_default_goal_x'),
+            'default_goal_y': LaunchConfiguration('rl_default_goal_y'),
+            'default_goal_z': LaunchConfiguration('rl_default_goal_z'),
         }.items() 
     )
 
@@ -752,15 +838,19 @@ def generate_launch_description():
         parameters=[{
             'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic'),
             'sitl_ip': '127.0.0.1',
-            'sitl_rc_port': 9004
+            'sitl_rc_port': 9004,
+            'default_override': PythonExpression([
+                "'true' if '", LaunchConfiguration('controller_type'), "' == 'rl' else 'false'"
+            ]),
+            'lock_default_override': PythonExpression([
+                "'true' if '", LaunchConfiguration('controller_type'), "' == 'rl' else 'false'"
+            ]),
         }],
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl')),
         output='screen'
     )
 
-    sitl_discovery_range = 'SUBNET' if os.environ.get('FASTDDS_DEFAULT_PROFILES_FILE') else os.environ.get(
-        'ROS_AUTOMATIC_DISCOVERY_RANGE', 'LOCALHOST'
-    )
+    sitl_discovery_range = 'SUBNET' if os.environ.get('FASTDDS_DEFAULT_PROFILES_FILE') else 'LOCALHOST'
 
     return LaunchDescription([
         arg_sitl,
@@ -800,6 +890,10 @@ def generate_launch_description():
         arg_load_bf_config,
         arg_controller_type,
         arg_rate_error_scale,
+        arg_rl_default_goal_enabled,
+        arg_rl_default_goal_x,
+        arg_rl_default_goal_y,
+        arg_rl_default_goal_z,
         SetEnvironmentVariable(
             name='RMW_IMPLEMENTATION',
             value=PythonExpression([
