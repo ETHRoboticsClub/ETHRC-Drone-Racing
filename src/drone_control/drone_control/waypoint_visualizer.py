@@ -134,6 +134,10 @@ class WaypointVisualizer(Node):
         self.create_subscription(
             PoseStamped, '/drone_current_target', self._target_cb, latching_qos)
 
+        # ── Threshold (drives target-sphere size) ────────────────────────
+        self.declare_parameter('threshold.position', 0.5)
+        self._threshold_pos = self.get_parameter('threshold.position').get_parameter_value().double_value
+
         # ── Publish at 10 Hz ──────────────────────────────────────────────
         self.create_timer(0.1, self._publish)
 
@@ -334,14 +338,15 @@ class WaypointVisualizer(Node):
                 self._line('planned_circuit', mid, now, pts, 0.2, 0.8, 1.0, 0.9))
             mid += 1
 
-        # Current active target
+        # Current active target — sphere diameter = 2 × position threshold
         if self._target_enu is not None:
             x, y, z = self._target_enu
+            sphere_diam = 2.0 * self._threshold_pos
             markers.markers.append(
-                self._sphere('target', mid, now, x, y, z, 0.0, 1.0, 0.2, 0.85, scale=0.65))
+                self._sphere('target', mid, now, x, y, z, 0.0, 1.0, 0.2, 0.85, scale=sphere_diam))
             mid += 1
             markers.markers.append(
-                self._label('target_label', mid, now, x, y, z + 0.95, 'TARGET', size=0.4))
+                self._label('target_label', mid, now, x, y, z + self._threshold_pos + 0.3, 'TARGET', size=0.4))
             mid += 1
             if self._target_quat_ned is not None:
                 axis_markers, mid = self._body_axes_markers(

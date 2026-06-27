@@ -173,7 +173,7 @@ class DroneController(Node):
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('verbose_input', False)
         self.declare_parameter('speed_report_interval_sec', 5.0)
-        self.declare_parameter('threshold.position', 0.02)  # typo kept for backwards compatibility
+        self.declare_parameter('threshold.position', 1.0)  # typo kept for backwards compatibility, was 0.02
         self.declare_parameter('threshold.velocity', 0.02)
         self.declare_parameter('threshold.angular_velocity', 0.02)
         self.declare_parameter('threshold.orientation', 0.05)
@@ -635,7 +635,7 @@ class DroneController(Node):
         sphere.pose.position.y = float(path_pos[0])    # NED north → RViz y
         sphere.pose.position.z = float(-path_pos[2])   # NED down  → RViz z
         sphere.pose.orientation.w = 1.0
-        point_scale = float(getattr(self.controller, 'progress_point_scale', 0.2))
+        point_scale = float(getattr(self.controller, 'progress_point_scale', 0.2))  # Was 0.2
         point_color = getattr(
             self.controller, 'progress_point_color_rgba', (1.0, 1.0, 0.0, 1.0))
         sphere.scale.x = sphere.scale.y = sphere.scale.z = point_scale

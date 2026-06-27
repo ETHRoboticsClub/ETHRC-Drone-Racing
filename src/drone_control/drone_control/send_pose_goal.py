@@ -218,10 +218,12 @@ def main(args=None):
                 
                 # Send the goal
                 client.send_goal(x, y, z, yaw, "goal_only")
-                
-                # Give a short delay to allow the server to accept before prompting again
-                time.sleep(0.1)
-                
+
+                # Wait for the goal to finish (succeeded, canceled, or aborted)
+                # before prompting for the next one, so the result message is
+                # always printed and we never accidentally cancel a live goal.
+                client._goal_done_event.wait()
+
                 if client._shutdown_requested:
                     break
                     

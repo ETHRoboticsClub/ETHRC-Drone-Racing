@@ -28,7 +28,10 @@ def generate_launch_description():
             package='drone_control',
             executable='waypoint_visualizer',
             name='waypoint_visualizer',
-            parameters=[{'waypoints_file': LaunchConfiguration('waypoints_file')}],
+            parameters=[{
+                'waypoints_file': LaunchConfiguration('waypoints_file'),
+                'threshold.position': 0.5,
+            }],
             output='screen',
         ),
 
