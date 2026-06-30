@@ -22,6 +22,77 @@ def _ned_vec_to_enu(v_ned: np.ndarray) -> np.ndarray:
     return np.array([v_ned[1], v_ned[0], -v_ned[2]])
 
 
+_ENU_TO_NED = np.array([
+    [0.0, 1.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [0.0, 0.0, -1.0],
+])
+_FLU_TO_FRD = np.diag([1.0, -1.0, -1.0])
+
+
+def _frame_is_ned(frame_id: str) -> bool:
+    return frame_id.strip('/').lower() in ('ned', 'map_ned', 'world_ned')
+
+
+def _normalize_quat(q: np.ndarray) -> np.ndarray:
+    norm = np.linalg.norm(q)
+    if norm < 1e-12:
+        return np.array([1.0, 0.0, 0.0, 0.0])
+    return q / norm
+
+
+def _quat_to_rot(q: np.ndarray) -> np.ndarray:
+    qw, qx, qy, qz = _normalize_quat(q)
+    return np.array([
+        [1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qw * qz), 2 * (qx * qz + qw * qy)],
+        [2 * (qx * qy + qw * qz), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qw * qx)],
+        [2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx), 1 - 2 * (qx * qx + qy * qy)],
+    ])
+
+
+def _rot_to_quat(r: np.ndarray) -> np.ndarray:
+    trace = np.trace(r)
+    if trace > 0.0:
+        s = np.sqrt(trace + 1.0) * 2.0
+        q = np.array([
+            0.25 * s,
+            (r[2, 1] - r[1, 2]) / s,
+            (r[0, 2] - r[2, 0]) / s,
+            (r[1, 0] - r[0, 1]) / s,
+        ])
+    else:
+        i = int(np.argmax(np.diag(r)))
+        if i == 0:
+            s = np.sqrt(1.0 + r[0, 0] - r[1, 1] - r[2, 2]) * 2.0
+            q = np.array([
+                (r[2, 1] - r[1, 2]) / s,
+                0.25 * s,
+                (r[0, 1] + r[1, 0]) / s,
+                (r[0, 2] + r[2, 0]) / s,
+            ])
+        elif i == 1:
+            s = np.sqrt(1.0 + r[1, 1] - r[0, 0] - r[2, 2]) * 2.0
+            q = np.array([
+                (r[0, 2] - r[2, 0]) / s,
+                (r[0, 1] + r[1, 0]) / s,
+                0.25 * s,
+                (r[1, 2] + r[2, 1]) / s,
+            ])
+        else:
+            s = np.sqrt(1.0 + r[2, 2] - r[0, 0] - r[1, 1]) * 2.0
+            q = np.array([
+                (r[1, 0] - r[0, 1]) / s,
+                (r[0, 2] + r[2, 0]) / s,
+                (r[1, 2] + r[2, 1]) / s,
+                0.25 * s,
+            ])
+    return _normalize_quat(q)
+
+
+def _enu_flu_quat_to_ned_frd(q: np.ndarray) -> np.ndarray:
+    return _rot_to_quat(_ENU_TO_NED @ _quat_to_rot(q) @ _FLU_TO_FRD.T)
+
+
 def _quat_body_axes_ned(q: np.ndarray) -> tuple:
     """
     Given a body->NED quaternion [w,x,y,z] (FRD body, NED world — see
@@ -157,9 +228,13 @@ class WaypointVisualizer(Node):
 
     def _target_cb(self, msg: PoseStamped):
         p = msg.pose.position
-        self._target_enu = _ned_to_enu(p.x, p.y, p.z)
+        if _frame_is_ned(msg.header.frame_id):
+            self._target_enu = _ned_to_enu(p.x, p.y, p.z)
+        else:
+            self._target_enu = (p.x, p.y, p.z)
         o = msg.pose.orientation
-        self._target_quat_ned = np.array([o.w, o.x, o.y, o.z])
+        q = np.array([o.w, o.x, o.y, o.z])
+        self._target_quat_ned = q if _frame_is_ned(msg.header.frame_id) else _enu_flu_quat_to_ned_frd(q)
 
     # ── Marker construction helpers ────────────────────────────────────────
 
