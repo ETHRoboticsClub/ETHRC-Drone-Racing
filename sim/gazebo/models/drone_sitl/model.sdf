@@ -61,6 +61,10 @@
 
       <!-- IMU (MPU6000 noise approximation) -->
       <sensor name="imu_sensor" type="imu">
+        <!-- Betaflight's ENABLE_GAZEBO_BRIDGE path consumes IMU samples in
+             aircraft FRD.  The rigid body is Gazebo FLU, so mount the virtual
+             sensor with Rx(pi), matching the upstream Aeroloop models. -->
+        <pose>0 0 0 3.141592653589793 0 0</pose>
         <always_on>true</always_on>
         <update_rate>250</update_rate>
         <topic>/drone/imu</topic>
@@ -314,12 +318,14 @@
     <!--                BETAFLIGHT SITL PLUGIN                 -->
     <!-- ===================================================== -->
     <plugin name="gz::sim::systems::EthrcBetaflightSITLPlugin" filename="EthrcBetaflightSITLPlugin">
+      <configurationFile>config/airframes/boreas_4s.yaml</configurationFile>
       <imuName>imu_sensor</imuName>
       <bindAddress>127.0.0.1</bindAddress>
       <betaflightAddress>127.0.0.1</betaflightAddress>
       <motorInputPort>9002</motorInputPort>
       <stateOutputPort>9003</stateOutputPort>
       <connectionTimeoutMaxCount>50</connectionTimeoutMaxCount>
+      <!-- Legacy fallbacks used only when configurationFile is omitted. -->
       <!-- 4:1 thrust-to-weight for the raw URDF mass: 4 * 0.8351086449771665 * 9.80665. -->
       <maxTotalThrust>32.7584728</maxTotalThrust>
       <!-- Match Betaflight ACTUAL yaw rates (~500 deg/s full stick) without snap-spinning the Gazebo body. -->
@@ -327,6 +333,8 @@
       <yawDampingCoefficient>0.006</yawDampingCoefficient>
       <maxRpm>30000</maxRpm>
       <visualMaxRpm>3600</visualMaxRpm>
+      <!-- Hold at resetPose with zero twist until Betaflight exits motor idle. -->
+      <launchReleaseCommand>0.45</launchReleaseCommand>
       <resetPose>0 0 0.5 0 0 0</resetPose>
       <maxWorldPosition>30</maxWorldPosition>
       <minWorldAltitude>-0.5</minWorldAltitude>
@@ -336,29 +344,29 @@
 
       <!-- BF Motor 1: Back Right -->
       <rotor id="0">
-        <jointName>Revolute_18</jointName>
-        <position>-0.081108 0.086485 0.044629</position>
+        <jointName>Revolute_17</jointName>
+        <position>-0.082176 -0.068017 0.040514</position>
         <turningDirection>cw</turningDirection>
       </rotor>
 
       <!-- BF Motor 2: Front Right -->
       <rotor id="1">
-        <jointName>Revolute_16</jointName>
-        <position>0.099477 0.067468 0.044629</position>
+        <jointName>Revolute_15</jointName>
+        <position>0.088628 -0.068017 0.040514</position>
         <turningDirection>ccw</turningDirection>
       </rotor>
 
       <!-- BF Motor 3: Back Left -->
       <rotor id="2">
-        <jointName>Revolute_17</jointName>
-        <position>-0.073632 -0.075213 0.044629</position>
+        <jointName>Revolute_18</jointName>
+        <position>-0.081841 0.071798 0.040514</position>
         <turningDirection>ccw</turningDirection>
       </rotor>
 
       <!-- BF Motor 4: Front Left -->
       <rotor id="3">
-        <jointName>Revolute_15</jointName>
-        <position>0.086702 -0.054547 0.044629</position>
+        <jointName>Revolute_16</jointName>
+        <position>0.088431 0.072039 0.040514</position>
         <turningDirection>cw</turningDirection>
       </rotor>
     </plugin>

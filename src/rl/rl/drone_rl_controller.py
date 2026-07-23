@@ -9,7 +9,10 @@ from interfaces import ControllerInterface
 
 from rl.hovering_experiment import HoveringExperiment
 
-_POLICY_PATH = Path(__file__).resolve().parent / "models" / "policy.pt"
+_DEFAULT_POLICY_PATH = Path(__file__).resolve().parent / "models" / "policy.pt"
+# Allow evaluation of candidate checkpoints without replacing the accepted
+# deployment artifact. This is intentionally process-scoped for SITL tests.
+_POLICY_PATH = Path(os.environ.get("RL_POLICY_PATH", str(_DEFAULT_POLICY_PATH))).expanduser().resolve()
 _LOG_PATH = Path.home() / ".ros" / "rl_controller.log"
 
 

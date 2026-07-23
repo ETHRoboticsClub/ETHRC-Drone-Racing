@@ -8,26 +8,26 @@ Uses full quadrotor dynamics with thrust vector and body rates.
 import numpy as np
 import casadi as ca
 from acados_template import AcadosModel
+from .airframe import load_boreas_airframe
 
 class DroneModel(object):
     def __init__(self):
         model = AcadosModel()
         constraint = ca.types.SimpleNamespace()
+        airframe = load_boreas_airframe()
         
-        # Physical parameters (X500 da SDF)
-        self.I_xx = 0.02166666666666667  # kg*m^2
-        self.I_yy = 0.02166666666666667  # kg*m^2
-        self.I_zz = 0.0400  # kg*m^2
-        self.m = 2.5372  # kg
+        # Boreas parameters shared with the Betaflight SITL plant.
+        self.I_xx, self.I_yy, self.I_zz = airframe.inertia_kg_m2
+        self.m = airframe.mass_kg
         self.g = 9.81  # m/s^2
         self.I = np.diag([self.I_xx, self.I_yy, self.I_zz])
 
-        self.motorConstant = 8.54858e-6  # N/(rad/s)^2
-        self.maxRotVelocity = 1000.0  # rad/s
-        self.maxThrust = 4 * self.motorConstant * self.maxRotVelocity**2  # N
+        self.maxThrust = airframe.maximum_thrust_n
+        self.thrust_curve_per_motor_n = airframe.thrust_curve_per_motor_n
+        self.calibration_status = airframe.calibration_status
         
         # Aerodynamic drag coefficient
-        self.k_drag = 0.0  # N/(m/s)^2
+        self.k_drag = float(sum(airframe.translational_drag[:2]) / 2.0)
         
         # Time constant for body rate tracking (first-order dynamics)
         # Use more conservative value for numerical stability

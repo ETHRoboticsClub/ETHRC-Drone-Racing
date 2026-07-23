@@ -64,26 +64,27 @@ _HOVER_VZ = 0.5
 #       -1 → command should be clearly negative
 #       +1 → command should be clearly positive
 #        0 → command should be near zero (|value| < ZERO_TOL_DEG_S)
-#   With identity attitude the body frame equals the world frame in FLU, and
-#   compute_actions then flips Y and Z to FRD before publishing — so the signs
-#   below are the *output* (FRD, deg/s) signs you should see in the printout.
-#       east (drone +X of goal): nose-up pitch in FLU → negative pitch in FRD.
-#       west (drone -X of goal): nose-down pitch in FLU → positive pitch in FRD.
+#   With identity attitude the body frame equals the world frame in FLU.
+#   Betaflight pitch uses the RC-stick convention (positive is nose-down), so
+#   FLU pitch is passed through; yaw is inverted for clockwise-positive RC.
+#       east (drone +X of goal): nose-up → negative Betaflight pitch.
+#       west (drone -X of goal): nose-down → positive Betaflight pitch.
 #       north (drone +Y, goal -Y): right roll in FLU → positive roll in FRD.
 #       south (drone -Y, goal +Y): left roll in FLU → negative roll in FRD.
+#       yaw is zero in every case: translation must come from tilt, not heading.
 #       on-target: no positional error → no rotational command.
 #
 # (label, position [x,y,z], expected_signs={'roll':..,'pitch':..,'yaw':..})
 CASES = [
-    ("east   (drone +X of goal)", np.array([+1.0, 0.0, 1.0]), {"roll":  0, "pitch": +1, "yaw": -1}),
-    ("west   (drone -X of goal)", np.array([-1.0, 0.0, 1.0]), {"roll":  0, "pitch": -1, "yaw": +1}),
-    ("north  (drone +Y of goal)", np.array([0.0, +1.0, 1.0]), {"roll": +1, "pitch":  0, "yaw": +1}),
-    ("south  (drone -Y of goal)", np.array([0.0, -1.0, 1.0]), {"roll": -1, "pitch":  0, "yaw": -1}),
+    ("east   (drone +X of goal)", np.array([+1.0, 0.0, 1.0]), {"roll":  0, "pitch": -1, "yaw": 0}),
+    ("west   (drone -X of goal)", np.array([-1.0, 0.0, 1.0]), {"roll":  0, "pitch": +1, "yaw": 0}),
+    ("north  (drone +Y of goal)", np.array([0.0, +1.0, 1.0]), {"roll": +1, "pitch":  0, "yaw": 0}),
+    ("south  (drone -Y of goal)", np.array([0.0, -1.0, 1.0]), {"roll": -1, "pitch":  0, "yaw": 0}),
     ("on-target (drone == goal)", np.array([0.0, 0.0, 1.0]), {"roll":  0, "pitch":  0, "yaw":  0}),
 ]
 
 # Pass/fail thresholds (deg/s).
-ZERO_TOL_DEG_S = 100.0     # |rate| < this counts as "near zero"
+ZERO_TOL_DEG_S = 20.0      # |rate| < this counts as "near zero"
 ACTIVE_MIN_DEG_S = 20.0   # |rate| > this counts as "clearly non-zero"
 SATURATION_DEG_S = (1.0 / np.pi * 180.0 * ANG_COMMAND_SCALE) * 0.99 # |rate| >= this is flagged as rail-saturated
 
@@ -108,7 +109,7 @@ def parse_args() -> argparse.Namespace:
         "--dump-obs",
         action="store_true",
         help="Per case, print the 12-element observation fed to the policy "
-             "and the 4-element raw policy output (pre FRD-flip, pre rad→deg, "
+             "and the 4-element raw policy output (pre Betaflight sign adapter, pre rad→deg, "
              "pre thrust mapping). Useful for spotting obs-layout mismatches "
              "or saturated policy outputs.",
     )

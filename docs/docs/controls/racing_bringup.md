@@ -15,7 +15,7 @@ You can customize the bringup configuration using the following parameters:
 | Argument | Default | Choices / Format | Description |
 | :--- | :--- | :--- | :--- |
 | `sitl` | `false` | `true`, `false` | Whether to run in Software-in-the-Loop (SITL) simulation mode. |
-| `controller_type` | `rl` | `rl`, `mpc` | Core high-level controller node to launch. |
+| `controller_type` | `rl` | `rl`, `mpc` | Core high-level controller interface. `rl` does not imply a learned checkpoint is active; the default residual scale is zero. Both options use the same Betaflight SITL RC path. |
 | `rate_error_scale` | `300.0` | Float value | **(RL Only)** Scaling factor mapping policy torque outputs to target Betaflight attitude rates. |
 | `msp_port` | `/dev/ttyTCU0` (Jetson) / `/dev/ttyACM0` (Host) | Serial Port Path | Dedicated UART/USB serial port for Betaflight MSP control link. |
 | `imu_port` | `/dev/ttyTHS1` (Jetson) / `/dev/ttyUSB0` (Host) | Serial Port Path | Dedicated UART/USB serial port for high-rate Blackbox binary stream. |

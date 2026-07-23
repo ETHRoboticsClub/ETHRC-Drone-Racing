@@ -34,9 +34,16 @@ graph TD
     UDP_RC -->|rc_packet UDP:9004| BF
 ```
 
-* **Gazebo** simulates the `drone_sitl` body dynamics, IMU, and odometry. The verified SITL path applies physical thrust directly from decoded Betaflight motor outputs in the in-tree `EthrcBetaflightSITLPlugin`.
+* **Gazebo** simulates the `drone_sitl` body dynamics, IMU, and odometry. The
+  in-tree `EthrcBetaflightSITLPlugin` loads the shared Boreas 4S profile and
+  applies identified-style motor lag, thrust, reaction torque, and body drag.
 * **Betaflight SITL** receives simulated FDM packets from Gazebo on UDP port `9003`, reads RC input on UDP port `9004`, and sends motor outputs back to Gazebo on UDP port `9002`.
-* **`sitl_rc_bridge`** bridges ROS 2 `/joy` and controller commands into Betaflight SITL RC packets.
+* **`sitl_rc_bridge`** bridges ROS 2 `/joy` and RL or MPC controller commands
+  into Betaflight SITL RC packets.
+
+The model profile is `config/airframes/boreas_4s.yaml`. Its rigid-body values
+are authoritative, while propulsion and drag remain provisional until physical
+identification is complete.
 
 ---
 
@@ -129,7 +136,7 @@ ros2 launch drone_control racing_bringup.launch.py \
   publish_rgb:=false \
   use_vio:=false \
   use_ekf:=false \
-  controller_type:=rl
+  controller_type:=rl  # use mpc for the MPC path
 ```
 
 Avoid putting project-specific SITL exports in `~/.bashrc`. The helper above detects the installed ROS 2 distro, sources the workspace, keeps WSL/Fast DDS discovery on localhost, and applies the Gazebo GPU defaults needed by WSLg.
@@ -220,7 +227,14 @@ If the Gazebo GUI fails with an Ogre / GLX error like `currentGLContext was spec
 
 This is expected in the current SITL world when the vehicle is not producing lift. The `ground_plane` in `sim/gazebo/worlds/sitl_racing.sdf` is visual-only: it has a `<visual>` plane but no `<collision>` plane. That means it looks like a floor but is not a physical contact surface.
 
-The default `sitl_racing_custom.sdf` world includes a simple physical floor and raised launch pad. If you switch back to `sitl_racing.sdf`, the physical ground collision was intentionally removed because earlier contact with the drone model could trigger unstable DART/ODE AABB failures. The verified SITL path starts the drone at `z=0.5` and expects Betaflight motor output to provide lift. If the drone sinks while armed, debug motor/RC flow rather than ground contact:
+The default `sitl_racing_custom.sdf` world includes a simple physical floor and
+raised launch pad. The SITL plugin holds the disarmed model at its `z=0.5`
+reset pose until any motor command exceeds `0.10`; this launch restraint avoids
+contact-solver impulses contaminating controller tests. It releases once per
+simulation run and does not interfere after takeoff. If you switch back to
+`sitl_racing.sdf`, the ground remains visual-only.
+
+If the drone sinks while armed, debug motor/RC flow rather than ground contact:
 
 ```bash
 ss -ulpn | rg '900[234]'
@@ -323,19 +337,100 @@ Stop the bringup with `Ctrl-C` after verification.
 
 ---
 
-## 🎯 Verification: Testing the RL Hover Policy
+## 🎯 Verification: RL Interface vs. Learned Policy
 
-The bringup command starts `drone_controller_node` with `controller_type:=rl`, so the controller is already waiting for a state stream and a target goal.
+`controller_type:=rl` selects the RL **controller interface** and observation /
+action adapter. It does not by itself prove that a neural-network policy is
+active. The qualified default is:
 
-### 1. Publish a Target Goal
-Instruct the drone to hover at a height of 1.5 meters:
-
-```bash
-ros2 topic pub /drone_goal geometry_msgs/msg/Point "{x: 0.0, y: 0.0, z: 1.5}" --once
+```text
+RL_RESIDUAL_POLICY=true
+RL_RESIDUAL_SCALE=0
 ```
 
-### 2. Verify Active Telemetry
-In a separate terminal, monitor the rates of the key control loop topics to ensure they are streaming at the target frequencies (~100Hz):
+At zero residual scale, checkpoint inference is skipped and the controller uses
+only the deterministic position/velocity outer loop. This is the currently
+qualified Boreas SITL policy. It is hand-designed and Gazebo-tested; it was not
+trained by PPO.
+
+### Validate the qualified nominal controller
+
+Run the validator in a clean terminal with no other racing bringup or Gazebo
+server using the SITL ports:
+
+```bash
+source scripts/source_sitl_env.sh
+unset RL_POLICY_PATH RL_RESIDUAL_POLICY RL_RESIDUAL_SCALE \
+  RL_RESIDUAL_MASK RL_POLICY_OUTPUT_TANH
+
+python3 scripts/simulation/validate_sitl_controller.py rl \
+  --arm --sample-seconds 20 \
+  --goal 1 0 0.5 \
+  --max-final-goal-error 0.15
+```
+
+`--goal X Y Z` is published on `/drone_goal` after the controller is ready. It
+therefore overrides launch defaults even when
+`--goal-delay-after-arm` is zero. A verified `X=1 m` run finished at
+approximately `(0.987, 0.015, 0.478) m`, with `0.029 m` final 3-D error.
+
+For a step-response test, keep the initial hover goal until a chosen delay:
+
+```bash
+python3 scripts/simulation/validate_sitl_controller.py rl \
+  --arm --sample-seconds 10 \
+  --goal 1 0 0.5 --goal-delay-after-arm 3 \
+  --max-final-goal-error 0.15 --min-goal-error-reduction 0.8
+```
+
+The validator rejects stale SITL processes during preflight and also verifies
+that its newly launched bringup remains alive. Stop old sessions before retrying:
+
+```bash
+pgrep -af 'racing_bringup|betaflight_SITL|gz sim|sitl_rc_bridge'
+```
+
+### Run a learned residual checkpoint explicitly
+
+A learned checkpoint is evaluated only when all required environment variables
+are set and the residual scale is nonzero:
+
+```bash
+export RL_POLICY_PATH=/absolute/path/to/agent_72000.pt
+export RL_RESIDUAL_POLICY=true
+export RL_RESIDUAL_SCALE=0.15
+export RL_RESIDUAL_MASK=0,1,1,0
+export RL_TRAINING_MAX_THRUST_N=35.9315656
+export RL_POLICY_OUTPUT_TANH=true
+
+python3 scripts/simulation/validate_sitl_controller.py rl \
+  --arm --sample-seconds 20 \
+  --goal 1 0 0.5 \
+  --max-final-goal-error 0.15
+```
+
+Do not interpret a finite command stream as a policy pass. The result must show
+`betaflight_motors_active: true`, `goal_tracking_passed: true`, and
+`passed: true`. No learned residual is currently promoted: the v8--v12
+candidates regressed the nominal controller in paired Isaac or armed Gazebo
+tests. Leave `RL_RESIDUAL_SCALE=0` for the qualified default.
+
+### Publish a goal during an interactive bringup
+
+When running `racing_bringup.launch.py` directly, publish the world-frame goal:
+
+```bash
+ros2 topic pub /drone_goal geometry_msgs/msg/Point \
+  "{x: 1.0, y: 0.0, z: 0.5}" --rate 2
+```
+
+The goal is sticky in `drone_controller_node`, but a low-rate publisher makes
+startup ordering explicit. Stop it with `Ctrl-C` after the controller reports
+the accepted goal.
+
+### Verify active telemetry
+
+In a separate terminal, monitor the key control-loop topics (~100 Hz):
 
 ```bash
 ros2 topic hz /drone_state_sim
@@ -380,7 +475,8 @@ ros2 run betaflight_msp_controller joy_tx_emulator
 ## ⚙️ Configuration & Customization
 
 * **Gazebo World File**: Defined in `sim/gazebo/worlds/sitl_racing.sdf`. Modify this file to add obstacles, gates, or custom lighting.
-* **Drone Physical Properties**: Defined in the Gazebo SDF model at `sim/gazebo/models/drone_sitl/model.sdf`. Adjust mass, inertia, and motor coefficients to match custom frames.
+* **Boreas Physical Profile**: Defined in `config/airframes/boreas_4s.yaml`.
+  Never tune the SDF and MPC independently.
 * **Betaflight Configuration**: CLI parameters for the SITL flight controller are located in `docs/docs/files/betaflight_conf/sitl_config.txt`.
 
 ### Custom Gate Placement
@@ -469,7 +565,19 @@ These are the important implementation details behind the currently verified SIT
 * The Gazebo plugin must load from `install/sitl_gazebo_plugins/lib`; `scripts/source_sitl_env.sh` and `racing_bringup.launch.py` add this path to `GZ_SIM_SYSTEM_PLUGIN_PATH`.
 * The FDM packet ABI sent to Betaflight must match the SITL firmware. The packet includes `timestamp`, IMU angular velocity, IMU linear acceleration, quaternion, velocity, position, and `pressure`.
 * The SDF `LiftDrag` rotor path was not sufficient for reliable takeoff in this model. The working path applies direct world force from decoded normalized motor outputs.
-* The current thrust target is `36.9122306 N` total, matching a `0.941 kg` drone at approximately `4:1` thrust-to-weight ratio.
+* Measured maximum static thrust is `8.9828914 N` (916 gf) per propeller, or
+  `35.9315656 N` total. With the `0.8351086 kg` URDF this is a `4.387:1`
+  thrust-to-weight ratio. The intermediate curve remains quadratic and
+  provisional pending a multi-point sweep.
+* The plugin publishes motor command, filtered RPM, per-motor thrust, applied
+  wrench, and calibration-status diagnostics under `/drone/sim/`.
+* Betaflight QUADX motor order is rear-right, front-right, rear-left,
+  front-left. The Boreas rotor bindings follow that order explicitly.
+* The virtual IMU is mounted with a 180-degree roll so Betaflight receives FRD
+  measurements. The ROS state bridge converts angular velocity back to FLU.
+* Before launch, motor commands below `0.10` hold the model at the reset pose
+  and zero its velocity. This prevents the physical launch pad from injecting
+  a large contact impulse.
 
 ### Gazebo SDF
 
@@ -479,14 +587,24 @@ These are the important implementation details behind the currently verified SIT
 ### Betaflight SITL (`ext/anemos-betaflight`)
 
 * UDP RX is treated as a held latest-value stream after the first valid packet. This prevents FC-time RXLOSS between wall-time UDP packets.
+* UDP RC packets are copied into a coherent flight-control snapshot before
+  Betaflight reads the channels. This prevents a receiver-thread update from
+  mixing throttle or AUX values from different packets in one FC cycle.
 * `RX_PROVIDER_UDP` starts with the full supported channel count so the first UDP RC packet is consumed.
 * Motor output packets are sent continuously from `pwmCompleteMotorUpdate()`; they are not gated by the old FDM update mutex.
+* PID numerators, disabled feedforward, and the linear 500 deg/s ACTUAL rate
+  profile mirror `boreas_jijieh743.txt`. Physical motor pin reordering remains
+  hardware-only; SITL retains logical QUADX order.
 
 ### `sitl_rc_bridge`
 
 * The UDP RC heartbeat runs at `500 Hz`. Betaflight SITL can advance FC time faster than wall time, so `50 Hz` can be too slow.
 * Manual `/joy` axes map directly to Roll, Pitch, Throttle, and Yaw when override is disabled.
 * AUX2 is held low in SITL so Betaflight does not enter `BOXMSPOVERRIDE` and ignore the UDP RX stream.
+* Betaflight pitch input follows the RC-stick convention: positive means
+  nose-down. Controller adapters must not treat this channel as mathematical
+  positive FRD pitch. Roll is unchanged; FLU yaw is inverted for Betaflight's
+  clockwise-positive yaw input.
 
 ### Debugging Checklist
 

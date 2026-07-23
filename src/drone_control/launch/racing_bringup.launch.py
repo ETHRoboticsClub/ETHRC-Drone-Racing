@@ -116,6 +116,10 @@ def _sitl_preflight(context, ws_root, bf_sitl_bin, sitl_plugins_dir):
             'colcon build --packages-select sitl_gazebo_plugins'
         )
 
+    boreas_config = os.path.join(ws_root, 'config', 'airframes', 'boreas_4s.yaml')
+    if not os.path.isfile(boreas_config):
+        errors.append(f'Boreas airframe configuration is missing: {boreas_config}')
+
     if not os.path.isfile(os.path.join(ws_root, 'eeprom.bin')):
         warnings.append('eeprom.bin is missing; run scripts/setup_sitl.sh before SITL if Betaflight config is not loaded yet.')
 
@@ -419,6 +423,7 @@ def generate_launch_description():
 
     # RL Controller Arguments
     arg_controller_type = DeclareLaunchArgument('controller_type', default_value='rl',
+                                              choices=['rl', 'mpc'],
                                               description='Type of controller: "mpc" or "rl"')
     arg_rate_error_scale = DeclareLaunchArgument('rate_error_scale', default_value='300.0',
                                                description='Torque-to-rate scaling for RL controller')
@@ -719,7 +724,10 @@ def generate_launch_description():
         launch_arguments={
             'config': 'zephyrus_real',
             'config_path': ov_config_path,
-            'use_sim_time': 'false',
+            # A simulated camera/IMU pair is only meaningful when OpenVINS
+            # consumes the same Gazebo clock epoch as its measurements.
+            # Hardware retains wall-clock time.
+            'use_sim_time': LaunchConfiguration('sitl'),
             'use_stereo': 'false',
             'max_cameras': '1',
             'rviz_enable': 'false',
@@ -784,7 +792,7 @@ def generate_launch_description():
             'rate_error_scale': LaunchConfiguration('rate_error_scale'),
             'default_goal_enabled': PythonExpression([
                 "'true' if '", LaunchConfiguration('sitl'), "' == 'true' and '",
-                LaunchConfiguration('controller_type'), "' == 'rl' and '",
+                LaunchConfiguration('controller_type'), "' in ('rl', 'mpc') and '",
                 LaunchConfiguration('rl_default_goal_enabled'), "' == 'true' else 'false'"
             ]),
             'default_goal_x': LaunchConfiguration('rl_default_goal_x'),
@@ -795,7 +803,12 @@ def generate_launch_description():
 
     # --- 6. SITL SPECIFIC LAUNCHES ---
     gazebo_process = ExecuteProcess(
-        cmd=['gz', 'sim', LaunchConfiguration('sitl_world'), '-s', '-r', '--force-version', '10'],
+        cmd=['gz', 'sim', LaunchConfiguration('sitl_world'), '-s', '-r', '--force-version', '8'],
+        additional_env={
+            'ETHRC_BOREAS_CONFIG': os.path.join(
+                ws_root, 'config', 'airframes', 'boreas_4s.yaml'
+            ),
+        },
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl'))
     )
     gazebo_exit_handler = RegisterEventHandler(
@@ -840,10 +853,10 @@ def generate_launch_description():
             'sitl_ip': '127.0.0.1',
             'sitl_rc_port': 9004,
             'default_override': PythonExpression([
-                "'true' if '", LaunchConfiguration('controller_type'), "' == 'rl' else 'false'"
+                "'true' if '", LaunchConfiguration('controller_type'), "' in ('rl', 'mpc') else 'false'"
             ]),
             'lock_default_override': PythonExpression([
-                "'true' if '", LaunchConfiguration('controller_type'), "' == 'rl' else 'false'"
+                "'true' if '", LaunchConfiguration('controller_type'), "' in ('rl', 'mpc') else 'false'"
             ]),
         }],
         condition=launch.conditions.IfCondition(LaunchConfiguration('sitl')),

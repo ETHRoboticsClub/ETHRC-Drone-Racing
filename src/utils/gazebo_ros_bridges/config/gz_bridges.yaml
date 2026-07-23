@@ -1,4 +1,15 @@
 bridges:
+  # All SITL perception nodes use Gazebo's clock epoch.  This bridge is
+  # deliberately separate from the sensor bridges so it cannot alter the
+  # Betaflight control path.
+  - name: simulation_clock
+    gz_topic: "/clock"
+    ros2_type: "rosgraph_msgs/msg/Clock"
+    gz_type: "gz.msgs.Clock"
+    direction: "GZ_TO_ROS"
+    remap_to: "/clock"
+    enabled: true
+
   - name: camera_image
     gz_topic: "/drone/camera/image"
     ros2_type: "sensor_msgs/msg/Image"

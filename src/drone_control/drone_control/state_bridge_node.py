@@ -18,6 +18,35 @@ except Exception:
     gz_imu_msg = None
     gz_odom_msg = None
 
+
+def gazebo_message_time_seconds(message) -> float | None:
+    """Return a positive Gazebo simulation timestamp when one is present.
+
+    Gazebo Transport callbacks are delivered on a wall-clock thread.  Using
+    ``time.monotonic()`` to differentiate successive poses therefore makes
+    the velocity seen by the policy depend on real-time factor and callback
+    jitter, rather than on the physics trajectory.  Isaac supplies simulated
+    body velocity, so this is a direct deployment-observation mismatch.
+
+    The helper intentionally accepts a duck-typed protobuf object to keep the
+    state bridge compatible with the message versions shipped by Gazebo
+    Fortress/Harmonic.  A missing or zero timestamp remains a safe fallback to
+    wall time in the caller.
+    """
+    header = getattr(message, "header", None)
+    stamp = getattr(header, "stamp", None)
+    if stamp is None:
+        return None
+
+    try:
+        seconds = float(getattr(stamp, "sec", 0))
+        nanoseconds = float(getattr(stamp, "nsec", 0))
+    except (TypeError, ValueError):
+        return None
+
+    timestamp = seconds + nanoseconds * 1e-9
+    return timestamp if np.isfinite(timestamp) and timestamp > 0.0 else None
+
 class DirectStateBridgeNode(Node):
     """
     Bypasses EKF by fusing Pose (Vicon or Gazebo Odometry) and IMU data directly.
@@ -124,7 +153,15 @@ class DirectStateBridgeNode(Node):
             msg.twist.linear.y,
             msg.twist.linear.z
         ])
-        self.latest_vel = self._select_velocity(curr_pos, time.monotonic(), vel_msg)
+        # Differentiate positions in simulation time, not callback wall time.
+        # The latter changes whenever Gazebo real-time factor changes and was
+        # feeding a velocity signal unlike the one used for Isaac training.
+        sample_time = gazebo_message_time_seconds(msg)
+        self.latest_vel = self._select_velocity(
+            curr_pos,
+            sample_time if sample_time is not None else time.monotonic(),
+            vel_msg,
+        )
         self.latest_pos = curr_pos
         self.has_vicon_data = True
 
@@ -149,11 +186,14 @@ class DirectStateBridgeNode(Node):
         return raw_vel
 
     def gz_imu_callback(self, msg):
-        self.latest_omega = np.array([
+        omega = np.array([
             msg.angular_velocity.x,
             msg.angular_velocity.y,
             msg.angular_velocity.z
         ])
+        # The SITL IMU is mounted in aircraft FRD for Betaflight, while the
+        # controller state and odometry attitude use ROS FLU.
+        self.latest_omega = omega * np.array([1.0, -1.0, -1.0])
         self.has_imu_data = True
 
     def vicon_callback(self, msg: PoseStamped):
@@ -209,11 +249,14 @@ class DirectStateBridgeNode(Node):
 
     def imu_callback(self, msg: Imu):
         # Extract angular velocity directly from high-rate IMU
-        self.latest_omega = np.array([
+        omega = np.array([
             msg.angular_velocity.x,
             msg.angular_velocity.y,
             msg.angular_velocity.z
         ])
+        if self.pose_source == 'odometry':
+            omega = omega * np.array([1.0, -1.0, -1.0])
+        self.latest_omega = omega
         self.has_imu_data = True
 
     def timer_callback(self):
@@ -255,7 +298,8 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

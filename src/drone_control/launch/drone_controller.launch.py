@@ -24,6 +24,7 @@ def generate_launch_description():
         DeclareLaunchArgument('use_mavsdk', default_value='true',
             description='Whether to launch the MAVSDK client'),
         DeclareLaunchArgument('controller_type', default_value='rl',
+            choices=['rl', 'mpc'],
             description='Type of controller to use: "mpc" or "rl"'),
         DeclareLaunchArgument('rate_error_scale', default_value='300.0',
             description='Torque-to-rate scaling for RL controller'),

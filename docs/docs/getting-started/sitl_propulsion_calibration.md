@@ -1,122 +1,205 @@
-# SITL Propulsion and Lift Calibration
+# Boreas 4S SITL Dynamics and Calibration
 
-This note summarizes the current SITL propulsion findings and the calibration targets for making the Gazebo rotor model more realistic.
+**Page Owner:** [Leads of the Aeronautics Division](https://github.com/orgs/ETHRoboticsClub/teams/aeronautics/)
 
-## Current Situation
+---
 
-The SITL model uses the in-tree `gz::sim::systems::EthrcBetaflightSITLPlugin` from `src/sitl_gazebo_plugins` to apply thrust directly from Betaflight motor outputs.
+## Model Status
 
-That direct-thrust path was added because the previous `LiftDrag` setup did not produce reliable takeoff for this model. Do not enable both a calibrated direct-thrust model and a calibrated SDF lift model at the same time, or thrust will be double-counted.
+The Betaflight SITL plant targets **Boreas 4S**. Its rigid-body properties are
+CAD-derived and authoritative. Static maximum thrust is measured at **916 gf
+per propeller**; the intermediate thrust curve, motor transient, reaction
+torque, and aerodynamic coefficients remain provisional. The profile status is
+therefore `partially_measured`, not a fully validated digital twin.
 
-## Physical Target
-
-The drone thrust-to-weight ratio is approximately `4:1`.
-
-The current model mass is:
-
-```text
-base_link mass = 0.893 kg
-rotor mass     = 4 * 0.012 kg
-total mass     = 0.941 kg
-weight         = 0.941 * 9.80665 = 9.23 N
-```
-
-Calibration targets:
+The single source of truth is:
 
 ```text
-max total thrust       ~= 36.9 N
-max thrust per motor   ~= 9.23 N
-hover total thrust     ~= 9.23 N
-hover thrust per motor ~= 2.31 N
+config/airframes/boreas_4s.yaml
 ```
 
-For a quadratic propeller thrust model:
+Every parameter records a provenance and calibration status. The profile is
+loaded by both the Gazebo plant and the MPC.
+
+## Rigid-Body Properties
+
+The CAD-derived URDF describes the complete flight-ready Boreas vehicle. The
+visual propeller links therefore have negligible inertial values and must not
+add mass a second time.
+
+| Property | Value |
+| --- | ---: |
+| Mass | `0.8351086449771665 kg` |
+| CoG | `[0.00483918, 0.00340842, 0.00927557] m` |
+| `Ixx` | `0.002158 kg m²` |
+| `Iyy` | `0.002919 kg m²` |
+| `Izz` | `0.002743 kg m²` |
+
+Validate that the profile, URDF, SDF, rotor order, and rotor geometry agree:
+
+```bash
+python3 scripts/simulation/validate_boreas_model.py
+```
+
+This check should run before accepting changes to any Boreas model file.
+
+## Propulsion Model
+
+`EthrcBetaflightSITLPlugin` is the only source of propulsion. Do not add
+`LiftDrag` or `MulticopterMotorModel` alongside it, because that would count
+rotor forces twice.
+
+For each rotor, the plugin applies:
 
 ```text
-thrust = normalized_motor_output^2 * max_thrust
+n_target = clamp(Betaflight motor output, 0, 1)
+dn/dt    = (n_target - n) / tau_up_or_down
+T        = c0 + c1*n + c2*n²
+Q        = direction * moment_ratio * T
 ```
 
-hover is expected near:
+`T` acts along body `+Z` at the CAD rotor position. `Q` is the propeller
+reaction torque. Translational and angular drag are component-wise quadratic
+in the body frame.
+
+The measured endpoint gives:
 
 ```text
-normalized_motor_output = sqrt(1 / 4) = 0.5
+maximum thrust/prop  =  8.9828914 N (916 gf)
+maximum total thrust = 35.9315656 N
+vehicle weight       =  8.1896182 N
+thrust-to-weight      =  4.38595 (using the training gravity convention)
+hover rotor state    =  0.477412 (quadratic prior)
 ```
 
-## Propeller Geometry
+Only the maximum is measured. Until a multi-point sweep is available, the
+curve is quadratic through zero and that endpoint. Motor time constants are
+currently `0`: no step response has been measured, so SITL does not invent a
+lag. Replace both values when identified data is available.
 
-The reported propeller is a Gemfan `4030`, but the standard prop naming convention and common Gemfan listings use `4030` to mean `4x3 inch`, not `5 inch`. A 5-inch, 3-inch-pitch prop would usually be named `5030`.
+## Diagnostics
 
-Before final calibration, confirm whether the actual prop is:
+The plant publishes Gazebo Transport diagnostics:
+
+| Topic | Meaning |
+| --- | --- |
+| `/drone/sim/model_profile` | Airframe and calibration status |
+| `/drone/sim/motor_command` | Raw Betaflight normalized outputs |
+| `/drone/sim/motor_rpm` | Filtered mechanical rotor RPM |
+| `/drone/sim/motor_thrust` | Per-rotor thrust in newtons |
+| `/drone/sim/applied_wrench` | Total simulated world-frame wrench |
+
+Inspect one message with:
+
+```bash
+gz topic -e -n 1 -t /drone/sim/motor_thrust
+```
+
+## Automated Plant Validation
+
+The airborne validation world runs at a 1 ms physics step and bypasses
+Betaflight by injecting deterministic servo packets. It checks profile loading,
+hover thrust, actuator cutoff, applied wrench, odometry, and real-time factor:
+
+```bash
+source scripts/source_sitl_env.sh
+python3 scripts/simulation/validate_sitl_plant.py \
+  --report /tmp/boreas_plant_report.json
+```
+
+The normal racing worlds use a 2 ms step. The 1 ms validation world is retained
+as a performance benchmark; on the reference WSL development machine it does
+not consistently sustain `0.9` real-time factor.
+
+The 2026-07-13 measured-endpoint reference run passed with `8.1896180 N`
+applied hover force against `8.1896182 N` expected weight, a `0.477412` hover
+command, less than `6e-8 N` per-motor hover error, and less than `6e-7 N` per
+motor after cutoff. Use `/drone/odometry` for
+world-position checks; Betaflight's console position fields are firmware debug
+values and are not the plant ground truth.
+
+## Hardware-Faithful RL Contract
+
+SITL and the real Boreas share ACTUAL rates, zero expo, and `500 deg/s` at full
+stick. SITL uses lock-step gyro/PID scheduling and a conservative simulation
+rate tune (`P5/I20/D0`) because the motor transient has not been identified;
+do not claim hardware-PID parity yet. The shared deployment adapter converts
+the policy's desired force through the inverse Boreas propeller curve before
+sending Betaflight throttle.
+
+The nominal residual-policy baseline passed armed hover and delayed `+/-1 m`
+X/Y goals. The hover endpoint was approximately `(-0.016, 0.013, 0.479) m` for
+a `(0, 0, 0.5) m` goal; all four cardinal goals finished within about `3 cm`.
+The deployed default keeps learned residual authority at zero. The current
+Isaac residual candidates were rejected by paired nominal and armed Gazebo
+tests; do not enable one for real flight until the Betaflight inner-loop model
+is included in training or identified to equivalent fidelity.
+
+Validate either controller through ROS, Betaflight, and Gazebo without arming:
+
+```bash
+python3 scripts/simulation/validate_sitl_controller.py rl
+python3 scripts/simulation/validate_sitl_controller.py mpc
+```
+
+Pass `--arm` only in an isolated test session where vehicle motion is intended.
+
+## Physical Identification Campaign
+
+When Boreas is available, record the exact motor, propeller, ESC firmware, and
+battery used. A thrust-stand CSV must contain at least:
 
 ```text
-4030 = 4.0 inch diameter, 3.0 inch pitch
-5030 = 5.0 inch diameter, 3.0 inch pitch
+rpm,thrust_n
 ```
 
-Approximate disk areas:
+Recommended additional columns are:
 
 ```text
-4 inch prop radius = 0.0508 m
-4 inch disk area   = pi * 0.0508^2 = 0.0081 m^2
-
-5 inch prop radius = 0.0635 m
-5 inch disk area   = pi * 0.0635^2 = 0.0127 m^2
+timestamp_s,motor_command,voltage_v,current_a,torque_nm,battery_temperature_c
 ```
 
-The current SDF uses rotor visual radius `0.06 m`, which is close to a 5-inch prop. If `LiftDrag` is reintroduced later, `<area>` should be treated as blade planform area or an empirically tuned effective area, not as the full disk area.
+Collect steady-state points across the usable RPM range at several 4S voltage
+levels. Record separate rising and falling step responses for actuator time
+constants. Fit the static curve with:
 
-## Making `LiftDrag` More Accurate
-
-`LiftDrag` is a wing-surface approximation. A propeller is better described by blade-element theory or by a thrust curve, so `LiftDrag` needs calibration against measured motor/prop data.
-
-Recommended process:
-
-1. Disable or remove `EthrcBetaflightSITLPlugin` from `sim/gazebo/models/drone_sitl/model.sdf`.
-2. Run a single-rotor or fixed-throttle SITL test.
-3. Log vertical acceleration and estimate generated thrust:
-   ```text
-   total_force = mass * (az + g)
-   ```
-4. Tune `LiftDrag` parameters until the model reaches the physical targets above.
-5. Verify full manual throttle produces clear climb and hover throttle is plausible.
-
-Important SDF parameters:
-
-```xml
-<area>...</area>
-<cla>...</cla>
-<cda>...</cda>
-<a0>...</a0>
-<alpha_stall>...</alpha_stall>
-<cp>...</cp>
-<forward>...</forward>
-<upward>...</upward>
+```bash
+python3 scripts/simulation/fit_boreas_propulsion.py measurements.csv \
+  --maximum-rpm 30000 \
+  --report propulsion_fit.json
 ```
 
-Key checks:
+Do not copy coefficients into the profile unless:
 
-* `forward` and `upward` must produce lift in the correct direction for each rotor spin direction.
-* Rotor joint velocity sign must match the aerodynamic sign assumptions.
-* Rotor geometry should match the real prop diameter.
-* The model should produce about `9.23 N` per motor at maximum output.
+- the data includes at least three repeated sweeps;
+- held-out residuals are reported;
+- the fitted maximum thrust is physically plausible;
+- motor and propeller identifiers are recorded; and
+- the profile provenance changes from `provisional` to a dataset identifier.
 
-## Preferred Long-Term Model
+## Flight Identification
 
-For a racing quad, a motor thrust model is usually easier to calibrate than `LiftDrag`:
+Use Vicon and record synchronized:
 
-```text
-thrust = motor_constant * omega^2
-torque = moment_constant * thrust
-```
+- Vicon pose;
+- `/imu0`;
+- `/motor_rpm`;
+- `/battery`;
+- `/drone_attitude_cmd`;
+- Betaflight motor outputs or Blackbox motor fields; and
+- the exact Betaflight configuration hash.
 
-Gazebo Harmonic includes `gz::sim::systems::MulticopterMotorModel`, which follows this style and may be a better long-term replacement for the SDF `LiftDrag` blocks. The in-tree `EthrcBetaflightSITLPlugin` can also be kept, but then the direct model should be the single source of truth and should use the measured `4:1` thrust-to-weight ratio.
+Perform safe hover, axis steps, multisine rate excitation, straight
+acceleration, and coast-down runs. Fit drag and transient parameters on one set
+of flights and validate them on different flights.
 
-## Verification Criteria
+Acceptance targets are:
 
-A propulsion model is acceptable when:
+- static thrust error below 5% over the usable range;
+- RPM and actuator transient error below 10%;
+- hover command within `0.03` normalized throttle;
+- attitude-rate rise-time and steady-state error below 15%; and
+- documented residuals on held-out Vicon runs.
 
-* manual full throttle lifts the drone decisively,
-* hover is near the expected normalized motor output, approximately `0.5` for `4:1` TWR,
-* the drone does not climb at minimum throttle after arming,
-* Betaflight motor ordering and spin directions match the SDF,
-* the RL policy receives consistent state signs and does not fight a frame mismatch.
+Battery sag, ground effect, propwash, frame flexibility, and thermal behavior
+remain deferred until the simpler model fails those held-out tests.

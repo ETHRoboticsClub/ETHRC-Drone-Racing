@@ -35,6 +35,7 @@ class SitlRcBridge(Node):
         self.declare_parameter('default_override', False)
         self.declare_parameter('lock_default_override', False)
         self.declare_parameter('override_arm_throttle_delay_s', 1.0)
+        self.declare_parameter('override_throttle_ramp_s', 1.0)
         
         self.sitl_ip = self.get_parameter('sitl_ip').value
         self.sitl_rc_port = self.get_parameter('sitl_rc_port').value
@@ -47,6 +48,7 @@ class SitlRcBridge(Node):
         self.default_override = _param_bool(self.get_parameter('default_override').value)
         self.lock_default_override = _param_bool(self.get_parameter('lock_default_override').value)
         self.override_arm_throttle_delay_s = float(self.get_parameter('override_arm_throttle_delay_s').value)
+        self.override_throttle_ramp_s = float(self.get_parameter('override_throttle_ramp_s').value)
         
         # RC State [Roll, Pitch, Throttle, Yaw, AUX1, AUX2, AUX3, AUX4, AUX5-12]
         # Padded to 16 channels
@@ -116,7 +118,11 @@ class SitlRcBridge(Node):
             # Throttle: 1000 + thrust * 1000 (0.0 to 1.0)
             self.rc_channels[0] = int(max(1000, min(2000, 1500 + (roll_rate / self.max_rate_deg_s) * 500)))
             self.rc_channels[1] = int(max(1000, min(2000, 1500 + (pitch_rate / self.max_rate_deg_s) * 500)))
-            self.rc_channels[2] = int(max(1000, min(2000, 1000 + thrust * 1000)))
+            ramp_elapsed = armed_for - self.override_arm_throttle_delay_s
+            ramp = 1.0 if self.override_throttle_ramp_s <= 0.0 else min(
+                max(ramp_elapsed / self.override_throttle_ramp_s, 0.0), 1.0
+            )
+            self.rc_channels[2] = int(max(1000, min(2000, 1000 + thrust * ramp * 1000)))
             self.rc_channels[3] = int(max(1000, min(2000, 1500 + (yaw_rate / self.max_rate_deg_s) * 500)))
 
     def joy_callback(self, msg):

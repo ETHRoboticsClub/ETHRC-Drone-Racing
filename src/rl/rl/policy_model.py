@@ -4,12 +4,13 @@ import torch.nn as nn
 
 
 class PolicyModel():
-    def __init__(self, model_path: str, model_type: str = "pytorch"):
+    def __init__(self, model_path: str, model_type: str = "pytorch", output_activation: str | None = None):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.running_mean = None
         self.running_var = None
         self._ort_session = None
         self.policy = None
+        self.output_activation = output_activation
 
         if model_type == "onnx":
             self._load_onnx_policy(model_path)
@@ -40,7 +41,10 @@ class PolicyModel():
             std[std < 1e-8] = 1.0
             observations = (observations - self.running_mean) / std
         with torch.no_grad():
-            return self.policy(observations)
+            output = self.policy(observations)
+            if self.output_activation == "tanh":
+                output = torch.tanh(output)
+            return output
 
     def _inference_onnx(self, observations: torch.Tensor) -> torch.Tensor:
         obs_np = observations.float().cpu().numpy()

@@ -78,6 +78,7 @@ nav:
     - ROS Bags (S3): infrastructure/ros_bags.md
   - Perception:
     - Overview: perception/index.md
+    - Gazebo SITL Validation Plan: perception/gazebo_sitl_validation_plan.md
     - Jetson Camera Pipeline: perception/camera_pipeline.md
     - Blackbox Driver: perception/blackbox.md
     - VIO: perception/vio.md

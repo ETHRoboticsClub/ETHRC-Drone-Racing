@@ -46,13 +46,24 @@ from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 from geometry_msgs.msg import Point
 
-from rl.drone_rl_controller import DroneRLController
-
-
 def _param_bool(value) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+def create_controller(controller_type: str):
+    """Construct a supported controller without importing unused heavy stacks."""
+    normalized = controller_type.strip().lower()
+    if normalized == 'rl':
+        from rl.drone_rl_controller import DroneRLController
+        return DroneRLController()
+    if normalized == 'mpc':
+        from mpc.drone_mpc_controller import DroneMpcController
+        return DroneMpcController()
+    raise ValueError(
+        f"Unsupported controller_type '{controller_type}'; expected 'rl' or 'mpc'."
+    )
 
 
 class DroneController(Node):
@@ -72,6 +83,7 @@ class DroneController(Node):
         self.declare_parameter('goal_topic', 'drone_goal')
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('observation_topic', 'drone_observation')
+        self.declare_parameter('controller_type', 'rl')
 
         # Watchdog: max age of the latest state before we stop publishing.
         self.declare_parameter('state_timeout_sec', 0.1)
@@ -111,8 +123,9 @@ class DroneController(Node):
             ]),
         )
 
-        self.controller = DroneRLController()
-        self.get_logger().info("Using RL Controller")
+        controller_type = str(self.get_parameter('controller_type').value)
+        self.controller = create_controller(controller_type)
+        self.get_logger().info(f"Using {controller_type.upper()} controller")
 
         self.state_lock = threading.Lock()
         self.goal_lock = threading.Lock()
@@ -281,7 +294,8 @@ def main(args=None):
     finally:
         executor.shutdown()
         node.destroy_node()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

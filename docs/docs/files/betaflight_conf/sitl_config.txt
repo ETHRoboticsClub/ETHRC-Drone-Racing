@@ -18,9 +18,29 @@ set msp_override_channels_mask = 15
 set rx_min_usec = 850
 set rx_max_usec = 2150
 
+# The SITL servo packet must remain in logical QUADX mixer order.  Set this
+# explicitly because --config updates a persistent eeprom.bin and omission
+# would retain Boreas hardware's physical output reordering.
+set motor_output_reordering = 0,1,2,3,4,5,6,7
+# set dyn_notch_count = 1
+# set dyn_notch_q = 500
+set motor_idle = 300
+set throttle_boost = 0
+
 profile 0
 
-# Keep the SITL rate loop closer to a commanded-rate actuator.
+# Conservative SITL rate-loop tune verified with the lockstep simulator. This
+# is intentionally not the real-flight PID profile: motor transient data is
+# still required before that profile can be represented credibly in Gazebo.
+set p_roll = 5
+set i_roll = 20
+set d_roll = 0
+set p_pitch = 5
+set i_pitch = 20
+set d_pitch = 0
+set p_yaw = 45
+set i_yaw = 80
+set d_yaw = 0
 set f_roll = 0
 set f_pitch = 0
 set f_yaw = 0

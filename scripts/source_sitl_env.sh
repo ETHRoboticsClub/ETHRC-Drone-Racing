@@ -128,6 +128,7 @@ fi
 
 export GZ_SIM_RESOURCE_PATH="${_ethrc_sitl_env_dir}/sim/gazebo/models${GZ_SIM_RESOURCE_PATH:+:${GZ_SIM_RESOURCE_PATH}}"
 export GZ_SIM_SYSTEM_PLUGIN_PATH="${_ethrc_sitl_env_dir}/install/sitl_gazebo_plugins/lib:${_ethrc_sitl_env_dir}/ext/aeroloop_gazebo/plugins/build${GZ_SIM_SYSTEM_PLUGIN_PATH:+:${GZ_SIM_SYSTEM_PLUGIN_PATH}}"
+export ETHRC_BOREAS_CONFIG="${ETHRC_BOREAS_CONFIG:-${_ethrc_sitl_env_dir}/config/airframes/boreas_4s.yaml}"
 
 echo "[source_sitl_env.sh] ROS_DISTRO=${_ethrc_ros_distro} RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION} ROS_AUTOMATIC_DISCOVERY_RANGE=${ROS_AUTOMATIC_DISCOVERY_RANGE:-unset}"
 if [ -n "${FASTDDS_DEFAULT_PROFILES_FILE:-}" ]; then

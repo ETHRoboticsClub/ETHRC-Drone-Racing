@@ -210,4 +210,20 @@ The MPC module provides:
 - A constrained nonlinear MPC formulation
 - A clear interface for integration with the flight stack
 
+For Boreas SITL, mass, inertia, maximum thrust, and drag are loaded from
+`config/airframes/boreas_4s.yaml`. Public controller state uses ROS ENU/FLU with
+an `xyzw` quaternion; `DroneMpcController` converts it to the optimizer's
+internal NED/FRD, `wxyz` representation. Do not pass the ROS state directly to
+`DroneOptimizer`.
+
+The optimizer outputs mathematical FRD rates. At the Betaflight boundary,
+pitch is inverted because positive Betaflight RC pitch means nose-down, while
+positive mathematical FRD pitch means nose-up. Roll and yaw retain their FRD
+signs.
+
+MPC thrust remains a force in newtons internally. The output adapter inverts
+the shared per-motor polynomial from `boreas_4s.yaml`; for the current measured
+endpoint and quadratic prior, hover is a normalized motor command of
+approximately `0.4774`, not a linear thrust fraction.
+
 It is currently the main controller implemented in the codebase and serves as the reference control implementation.

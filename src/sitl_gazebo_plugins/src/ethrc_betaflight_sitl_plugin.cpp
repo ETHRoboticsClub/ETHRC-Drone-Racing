@@ -2,11 +2,16 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <yaml-cpp/yaml.h>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -18,11 +23,15 @@
 #include <gz/math/Quaternion.hh>
 #include <gz/math/Vector3.hh>
 #include <gz/plugin/Register.hh>
+#include <gz/msgs/double_v.pb.h>
+#include <gz/msgs/stringmsg.pb.h>
+#include <gz/msgs/wrench.pb.h>
 #include <gz/sim/Link.hh>
 #include <gz/sim/Model.hh>
 #include <gz/sim/System.hh>
 #include <gz/sim/Util.hh>
 #include <gz/sim/components/AngularVelocity.hh>
+#include <gz/sim/components/AngularVelocityCmd.hh>
 #include <gz/sim/components/Imu.hh>
 #include <gz/sim/components/Joint.hh>
 #include <gz/sim/components/JointVelocity.hh>
@@ -30,8 +39,13 @@
 #include <gz/sim/components/LinearAcceleration.hh>
 #include <gz/sim/components/Name.hh>
 #include <gz/sim/components/Pose.hh>
+#include <gz/sim/components/PoseCmd.hh>
 #include <gz/sim/components/LinearVelocity.hh>
+#include <gz/sim/components/LinearVelocityCmd.hh>
+#include <gz/transport/Node.hh>
 #include <sdf/sdf.hh>
+
+#include "sitl_gazebo_plugins/boreas_dynamics.hpp"
 
 namespace gz::sim::systems
 {
@@ -138,7 +152,8 @@ bool gMotorSocketBound = false;
 class EthrcBetaflightSITLPlugin:
   public System,
   public ISystemConfigure,
-  public ISystemPreUpdate
+  public ISystemPreUpdate,
+  public ISystemPostUpdate
 {
   public: ~EthrcBetaflightSITLPlugin() override;
 
@@ -150,6 +165,9 @@ class EthrcBetaflightSITLPlugin:
   public: void PreUpdate(const UpdateInfo &_info,
       EntityComponentManager &_ecm) override;
 
+  public: void PostUpdate(const UpdateInfo &_info,
+      const EntityComponentManager &_ecm) override;
+
   private: struct Rotor
   {
     int id{0};
@@ -158,23 +176,32 @@ class EthrcBetaflightSITLPlugin:
     math::Vector3d position{0, 0, 0};
     double turningDirection{1.0};
     double normalizedCommand{0.0};
+    ethrc::sitl::RotorDynamics dynamics;
   };
 
+  private: bool LoadConfiguration(const std::filesystem::path &_path);
   private: bool Bind();
   private: bool ReceiveMotorCommand();
   private: bool StateIsSane(EntityComponentManager &_ecm);
   private: void ResetVehicleState(EntityComponentManager &_ecm,
       const std::string &_reason);
-  private: void ApplyThrust(EntityComponentManager &_ecm);
+  private: void ApplyForces(EntityComponentManager &_ecm, double _dtSeconds);
   private: void UpdateRotorVisuals(EntityComponentManager &_ecm);
+  private: void PublishDiagnostics();
   private: void SendState(const UpdateInfo &_info,
-      EntityComponentManager &_ecm) const;
+      const EntityComponentManager &_ecm) const;
 
   private: Model model{kNullEntity};
   private: Entity modelEntity{kNullEntity};
   private: Link baseLink{kNullEntity};
   private: Entity imuEntity{kNullEntity};
   private: std::vector<Rotor> rotors;
+  private: transport::Node transportNode;
+  private: transport::Node::Publisher motorCommandPublisher;
+  private: transport::Node::Publisher motorRpmPublisher;
+  private: transport::Node::Publisher motorThrustPublisher;
+  private: transport::Node::Publisher appliedWrenchPublisher;
+  private: transport::Node::Publisher modelProfilePublisher;
 
   private: int socketFd{-1};
   private: std::string bindAddress{"127.0.0.1"};
@@ -186,11 +213,14 @@ class EthrcBetaflightSITLPlugin:
   private: int connectionTimeoutMaxCount{50};
   private: bool ownsMotorSocket{false};
 
-  private: double maxTotalThrust{36.9122306};
-  private: double yawTorqueCoefficient{0.00125};
-  private: double yawDampingCoefficient{0.006};
-  private: double maxRpm{30000.0};
+  private: ethrc::sitl::PropulsionConfig propulsionConfig{
+      {0.0, 0.0, 9.22805765}, 0.00125, 30000.0, 0.0, 0.0, 0.0, 1.0};
+  private: std::array<double, 3> translationalDrag{0.0, 0.0, 0.0};
+  private: std::array<double, 3> angularDrag{0.0, 0.0, 0.0};
+  private: std::string airframeProfile{"legacy_sdf"};
+  private: std::string calibrationStatus{"provisional"};
   private: double visualMaxRpm{3600.0};
+  private: double launchReleaseCommand{0.45};
   private: double maxWorldPosition{30.0};
   private: double minWorldAltitude{-0.5};
   private: double maxWorldAltitude{20.0};
@@ -199,7 +229,12 @@ class EthrcBetaflightSITLPlugin:
   private: math::Pose3d resetPose{0, 0, 0.5, 0, 0, 0};
   private: std::chrono::steady_clock::duration lastUpdateTime{0};
   private: bool stateGuardLatched{false};
+  private: bool launchReleased{false};
   private: bool rotorVisualsSpinning{false};
+  private: mutable bool previousOrientationValid{false};
+  private: mutable math::Quaterniond previousOrientation{1, 0, 0, 0};
+  private: math::Vector3d lastAppliedForceWorld{0, 0, 0};
+  private: math::Vector3d lastAppliedTorqueWorld{0, 0, 0};
   private: mutable std::mutex mutex;
 };
 
@@ -254,15 +289,18 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
       static_cast<uint16_t>(SdfValue<int>(_sdf, "stateOutputPort", this->stateOutputPort));
   this->connectionTimeoutMaxCount =
       SdfValue<int>(_sdf, "connectionTimeoutMaxCount", this->connectionTimeoutMaxCount);
-  this->maxTotalThrust =
-      SdfValue<double>(_sdf, "maxTotalThrust", this->maxTotalThrust);
-  this->yawTorqueCoefficient =
-      SdfValue<double>(_sdf, "yawTorqueCoefficient", this->yawTorqueCoefficient);
-  this->yawDampingCoefficient =
-      SdfValue<double>(_sdf, "yawDampingCoefficient", this->yawDampingCoefficient);
-  this->maxRpm = SdfValue<double>(_sdf, "maxRpm", this->maxRpm);
+  const double legacyMaxTotalThrust =
+      SdfValue<double>(_sdf, "maxTotalThrust", 36.9122306);
+  this->propulsionConfig.thrustCurveN =
+      {0.0, 0.0, legacyMaxTotalThrust / 4.0};
+  this->propulsionConfig.reactionMomentRatioM =
+      SdfValue<double>(_sdf, "yawTorqueCoefficient", 0.00125);
+  this->propulsionConfig.maximumRpm =
+      SdfValue<double>(_sdf, "maxRpm", 30000.0);
   this->visualMaxRpm =
       SdfValue<double>(_sdf, "visualMaxRpm", this->visualMaxRpm);
+  this->launchReleaseCommand =
+      SdfValue<double>(_sdf, "launchReleaseCommand", this->launchReleaseCommand);
   this->maxWorldPosition =
       SdfValue<double>(_sdf, "maxWorldPosition", this->maxWorldPosition);
   this->minWorldAltitude =
@@ -275,6 +313,48 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
       SdfValue<double>(_sdf, "maxAngularSpeed", this->maxAngularSpeed);
   this->resetPose =
       SdfValue<math::Pose3d>(_sdf, "resetPose", this->resetPose);
+
+  const std::string configurationFile =
+      SdfValue<std::string>(_sdf, "configurationFile", "");
+  if (!configurationFile.empty())
+  {
+    std::filesystem::path configPath(configurationFile);
+    if (configPath.is_relative())
+    {
+      const char *configuredPath = std::getenv("ETHRC_BOREAS_CONFIG");
+      if (configuredPath && std::filesystem::is_regular_file(configuredPath))
+      {
+        configPath = configuredPath;
+      }
+      else if (!_sdf->FilePath().empty())
+      {
+        configPath = std::filesystem::path(_sdf->FilePath()).parent_path() /
+            configPath;
+      }
+      else
+      {
+        configPath = std::filesystem::current_path() / configPath;
+      }
+    }
+    if (!std::filesystem::is_regular_file(configPath))
+    {
+      for (auto directory = std::filesystem::current_path(); !directory.empty();
+          directory = directory.parent_path())
+      {
+        const auto candidate =
+            directory / "config" / "airframes" / "boreas_4s.yaml";
+        if (std::filesystem::is_regular_file(candidate))
+        {
+          configPath = candidate;
+          break;
+        }
+        if (directory == directory.root_path())
+          break;
+      }
+    }
+    if (!this->LoadConfiguration(configPath.lexically_normal()))
+      return;
+  }
 
   const std::string imuName = SdfValue<std::string>(_sdf, "imuName", "imu_sensor");
   std::string sensorName = imuName;
@@ -300,7 +380,7 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
     return;
   }
 
-  if (_sdf->HasElement("rotor"))
+  if (this->rotors.empty() && _sdf->HasElement("rotor"))
   {
     auto sdfNonConst = std::const_pointer_cast<sdf::Element>(_sdf);
     sdf::ElementPtr rotorSDF = sdfNonConst->GetElement("rotor");
@@ -314,29 +394,11 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
       const std::string direction =
           rotorSDF->Get<std::string>("turningDirection", "ccw").first;
       rotor.turningDirection = direction == "cw" ? -1.0 : 1.0;
-
-      rotor.jointEntity = this->model.JointByName(_ecm, rotor.jointName);
-      if (rotor.jointEntity != kNullEntity)
-      {
-        _ecm.CreateComponent(rotor.jointEntity, components::JointVelocity());
-        _ecm.CreateComponent(rotor.jointEntity, components::JointVelocityCmd({0.0}));
-      }
-      else if (!rotor.jointName.empty())
-      {
-        gzwarn << WarnText("[EthrcBetaflightSITLPlugin] Joint [" +
-                  rotor.jointName +
-                  "] not found; thrust still applies but rotor visual won't spin.") << "\n";
-      }
+      rotor.dynamics = ethrc::sitl::RotorDynamics(this->propulsionConfig);
 
       this->rotors.push_back(rotor);
       rotorSDF = rotorSDF->GetNextElement("rotor");
     }
-
-    std::sort(this->rotors.begin(), this->rotors.end(),
-      [](const Rotor &_a, const Rotor &_b)
-      {
-        return _a.id < _b.id;
-      });
   }
 
   if (this->rotors.empty())
@@ -345,14 +407,119 @@ void EthrcBetaflightSITLPlugin::Configure(const Entity &_entity,
     return;
   }
 
+  std::sort(this->rotors.begin(), this->rotors.end(),
+    [](const Rotor &_a, const Rotor &_b)
+    {
+      return _a.id < _b.id;
+    });
+  for (auto &rotor : this->rotors)
+  {
+    rotor.jointEntity = this->model.JointByName(_ecm, rotor.jointName);
+    if (rotor.jointEntity != kNullEntity)
+    {
+      _ecm.CreateComponent(rotor.jointEntity, components::JointVelocity());
+      _ecm.CreateComponent(rotor.jointEntity, components::JointVelocityCmd({0.0}));
+    }
+    else if (!rotor.jointName.empty())
+    {
+      gzwarn << WarnText("[EthrcBetaflightSITLPlugin] Joint [" +
+                rotor.jointName +
+                "] not found; thrust still applies but rotor visual won't spin.") << "\n";
+    }
+  }
+
   if (!this->Bind())
     return;
+
+  this->motorCommandPublisher = this->transportNode.Advertise<msgs::Double_V>(
+      "/drone/sim/motor_command");
+  this->motorRpmPublisher = this->transportNode.Advertise<msgs::Double_V>(
+      "/drone/sim/motor_rpm");
+  this->motorThrustPublisher = this->transportNode.Advertise<msgs::Double_V>(
+      "/drone/sim/motor_thrust");
+  this->appliedWrenchPublisher = this->transportNode.Advertise<msgs::Wrench>(
+      "/drone/sim/applied_wrench");
+  this->modelProfilePublisher = this->transportNode.Advertise<msgs::StringMsg>(
+      "/drone/sim/model_profile");
+  msgs::StringMsg profileMessage;
+  profileMessage.set_data(this->airframeProfile + ":" + this->calibrationStatus);
+  this->modelProfilePublisher.Publish(profileMessage);
 
   gzlog << InfoText("[EthrcBetaflightSITLPlugin] Listening for Betaflight motors on " +
            this->bindAddress + ":" + std::to_string(this->motorInputPort) +
            ", sending state to " + this->betaflightAddress + ":" +
-           std::to_string(this->stateOutputPort) + ", maxTotalThrust=" +
-           std::to_string(this->maxTotalThrust) + " N.") << "\n";
+           std::to_string(this->stateOutputPort) + ", profile=" +
+           this->airframeProfile + ", calibration=" + this->calibrationStatus +
+           ", maxTotalThrust=" +
+           std::to_string(4.0 * (
+               this->propulsionConfig.thrustCurveN[0] +
+               this->propulsionConfig.thrustCurveN[1] +
+               this->propulsionConfig.thrustCurveN[2])) + " N.") << "\n";
+}
+
+bool EthrcBetaflightSITLPlugin::LoadConfiguration(
+    const std::filesystem::path &_path)
+{
+  try
+  {
+    const YAML::Node root = YAML::LoadFile(_path.string());
+    this->airframeProfile = root["airframe"].as<std::string>();
+    this->calibrationStatus = root["calibration_status"].as<std::string>();
+
+    const YAML::Node propulsion = root["propulsion"];
+    const auto thrustCurve = propulsion["thrust_curve_n"].as<std::vector<double>>();
+    if (thrustCurve.size() != 3u)
+      throw std::runtime_error("propulsion.thrust_curve_n must have three coefficients");
+    std::copy(thrustCurve.begin(), thrustCurve.end(),
+        this->propulsionConfig.thrustCurveN.begin());
+    this->propulsionConfig.reactionMomentRatioM =
+        propulsion["reaction_moment_ratio_m"].as<double>();
+    this->propulsionConfig.maximumRpm = propulsion["maximum_rpm"].as<double>();
+    this->propulsionConfig.timeConstantUpS =
+        propulsion["motor_time_constant_up_s"].as<double>();
+    this->propulsionConfig.timeConstantDownS =
+        propulsion["motor_time_constant_down_s"].as<double>();
+    this->propulsionConfig.inputMin = propulsion["input_min"].as<double>();
+    this->propulsionConfig.inputMax = propulsion["input_max"].as<double>();
+
+    const YAML::Node aerodynamics = root["aerodynamics"];
+    const auto translational =
+        aerodynamics["translational_drag"].as<std::vector<double>>();
+    const auto angular = aerodynamics["angular_drag"].as<std::vector<double>>();
+    if (translational.size() != 3u || angular.size() != 3u)
+      throw std::runtime_error("aerodynamic drag vectors must have three coefficients");
+    std::copy(translational.begin(), translational.end(), this->translationalDrag.begin());
+    std::copy(angular.begin(), angular.end(), this->angularDrag.begin());
+
+    for (const YAML::Node &rotorNode : root["rotors"])
+    {
+      Rotor rotor;
+      rotor.id = rotorNode["id"].as<int>();
+      rotor.jointName = rotorNode["joint_name"].as<std::string>();
+      const auto position = rotorNode["position_m"].as<std::vector<double>>();
+      if (position.size() != 3u)
+        throw std::runtime_error("rotor position_m must have three values");
+      rotor.position = {position[0], position[1], position[2]};
+      const std::string direction =
+          rotorNode["turning_direction"].as<std::string>();
+      if (direction != "cw" && direction != "ccw")
+        throw std::runtime_error("rotor turning_direction must be cw or ccw");
+      rotor.turningDirection = direction == "cw" ? -1.0 : 1.0;
+      rotor.dynamics = ethrc::sitl::RotorDynamics(this->propulsionConfig);
+      this->rotors.push_back(rotor);
+    }
+  }
+  catch (const std::exception &error)
+  {
+    gzerr << ErrorText("[EthrcBetaflightSITLPlugin] Invalid Boreas configuration [" +
+              _path.string() + "]: " + error.what()) << "\n";
+    this->rotors.clear();
+    return false;
+  }
+
+  gzlog << InfoText("[EthrcBetaflightSITLPlugin] Loaded airframe configuration [" +
+           _path.string() + "].") << "\n";
+  return true;
 }
 
 bool EthrcBetaflightSITLPlugin::Bind()
@@ -420,7 +587,10 @@ bool EthrcBetaflightSITLPlugin::ReceiveMotorCommand()
     {
       this->betaflightOnline = false;
       for (auto &rotor : this->rotors)
+      {
         rotor.normalizedCommand = 0.0;
+        rotor.dynamics.Reset();
+      }
       gzwarn << WarnText("[EthrcBetaflightSITLPlugin] Betaflight motor stream timed out.") << "\n";
     }
     return false;
@@ -521,11 +691,16 @@ void EthrcBetaflightSITLPlugin::ResetVehicleState(EntityComponentManager &_ecm,
     const std::string &_reason)
 {
   for (auto &rotor : this->rotors)
+  {
     rotor.normalizedCommand = 0.0;
+    rotor.dynamics.Reset();
+  }
   this->UpdateRotorVisuals(_ecm);
 
   this->betaflightOnline = false;
   this->missedPackets = 0;
+  this->launchReleased = false;
+  this->previousOrientationValid = false;
   this->model.SetWorldPoseCmd(_ecm, this->resetPose);
   this->baseLink.SetLinearVelocity(_ecm, {0, 0, 0});
   this->baseLink.SetAngularVelocity(_ecm, {0, 0, 0});
@@ -538,7 +713,8 @@ void EthrcBetaflightSITLPlugin::ResetVehicleState(EntityComponentManager &_ecm,
   }
 }
 
-void EthrcBetaflightSITLPlugin::ApplyThrust(EntityComponentManager &_ecm)
+void EthrcBetaflightSITLPlugin::ApplyForces(
+    EntityComponentManager &_ecm, const double _dtSeconds)
 {
   const auto poseComp = _ecm.Component<components::Pose>(this->modelEntity);
   if (!poseComp)
@@ -546,32 +722,90 @@ void EthrcBetaflightSITLPlugin::ApplyThrust(EntityComponentManager &_ecm)
 
   const math::Vector3d bodyUpWorld =
       poseComp->Data().Rot().RotateVector({0, 0, 1});
-  const double maxThrustPerMotor =
-      this->maxTotalThrust / static_cast<double>(this->rotors.size());
-
-  for (const auto &rotor : this->rotors)
+  this->lastAppliedForceWorld.Set(0, 0, 0);
+  this->lastAppliedTorqueWorld.Set(0, 0, 0);
+  for (auto &rotor : this->rotors)
   {
-    const double thrust =
-        maxThrustPerMotor * rotor.normalizedCommand * rotor.normalizedCommand;
+    rotor.dynamics.Step(rotor.normalizedCommand, _dtSeconds);
+    const double thrust = rotor.dynamics.ThrustN();
     const math::Vector3d forceWorld = bodyUpWorld * thrust;
     const math::Vector3d torqueWorld =
-        bodyUpWorld * (rotor.turningDirection * this->yawTorqueCoefficient * thrust);
+        bodyUpWorld * rotor.dynamics.ReactionTorqueNm(rotor.turningDirection);
 
-    this->baseLink.AddWorldWrench(_ecm, forceWorld, torqueWorld, rotor.position);
+    const math::Vector3d rotorOffsetWorld =
+        poseComp->Data().Rot().RotateVector(rotor.position);
+    this->lastAppliedForceWorld += forceWorld;
+    this->lastAppliedTorqueWorld += torqueWorld + rotorOffsetWorld.Cross(forceWorld);
     // Do not drive rotor joints with JointForceCmd here. The propulsion model
     // applies thrust directly; joint force commands would inject physical
     // torque into the airframe instead of acting as visual-only RPM.
   }
 
+  // AddWorldWrench applies at the link origin. Forming each rotor's moment
+  // about that same origin lets Gazebo account for the inertial COM offset.
+  this->baseLink.AddWorldWrench(
+      _ecm, this->lastAppliedForceWorld, this->lastAppliedTorqueWorld);
+
+  const auto linearVelComp = _ecm.Component<components::WorldLinearVelocity>(
+      this->baseLink.Entity());
   const auto angularVelComp = _ecm.Component<components::WorldAngularVelocity>(
       this->baseLink.Entity());
+  const math::Quaterniond bodyToWorld = poseComp->Data().Rot();
+
+  if (linearVelComp)
+  {
+    const math::Vector3d bodyVelocity =
+        bodyToWorld.RotateVectorReverse(linearVelComp->Data());
+    const auto drag = ethrc::sitl::QuadraticDrag(
+        {bodyVelocity.X(), bodyVelocity.Y(), bodyVelocity.Z()},
+        this->translationalDrag);
+    const math::Vector3d dragWorld =
+        bodyToWorld.RotateVector({drag[0], drag[1], drag[2]});
+    this->baseLink.AddWorldWrench(_ecm, dragWorld, {0, 0, 0});
+    this->lastAppliedForceWorld += dragWorld;
+  }
+
   if (angularVelComp)
   {
-    const double yawRate = angularVelComp->Data().Dot(bodyUpWorld);
-    const math::Vector3d dampingTorqueWorld =
-        bodyUpWorld * (-this->yawDampingCoefficient * yawRate);
-    this->baseLink.AddWorldWrench(_ecm, {0, 0, 0}, dampingTorqueWorld);
+    const math::Vector3d bodyAngularVelocity =
+        bodyToWorld.RotateVectorReverse(angularVelComp->Data());
+    const auto drag = ethrc::sitl::QuadraticDrag(
+        {bodyAngularVelocity.X(), bodyAngularVelocity.Y(), bodyAngularVelocity.Z()},
+        this->angularDrag);
+    const math::Vector3d dragWorld =
+        bodyToWorld.RotateVector({drag[0], drag[1], drag[2]});
+    this->baseLink.AddWorldWrench(_ecm, {0, 0, 0}, dragWorld);
+    this->lastAppliedTorqueWorld += dragWorld;
   }
+}
+
+void EthrcBetaflightSITLPlugin::PublishDiagnostics()
+{
+  msgs::Double_V commands;
+  msgs::Double_V rpm;
+  msgs::Double_V thrust;
+  for (const auto &rotor : this->rotors)
+  {
+    commands.add_data(rotor.normalizedCommand);
+    rpm.add_data(rotor.dynamics.Rpm());
+    thrust.add_data(rotor.dynamics.ThrustN());
+  }
+  this->motorCommandPublisher.Publish(commands);
+  this->motorRpmPublisher.Publish(rpm);
+  this->motorThrustPublisher.Publish(thrust);
+
+  msgs::Wrench wrench;
+  wrench.mutable_force()->set_x(this->lastAppliedForceWorld.X());
+  wrench.mutable_force()->set_y(this->lastAppliedForceWorld.Y());
+  wrench.mutable_force()->set_z(this->lastAppliedForceWorld.Z());
+  wrench.mutable_torque()->set_x(this->lastAppliedTorqueWorld.X());
+  wrench.mutable_torque()->set_y(this->lastAppliedTorqueWorld.Y());
+  wrench.mutable_torque()->set_z(this->lastAppliedTorqueWorld.Z());
+  this->appliedWrenchPublisher.Publish(wrench);
+
+  msgs::StringMsg profile;
+  profile.set_data(this->airframeProfile + ":" + this->calibrationStatus);
+  this->modelProfilePublisher.Publish(profile);
 }
 
 void EthrcBetaflightSITLPlugin::UpdateRotorVisuals(EntityComponentManager &_ecm)
@@ -579,12 +813,12 @@ void EthrcBetaflightSITLPlugin::UpdateRotorVisuals(EntityComponentManager &_ecm)
   bool anyRotorSpinning = false;
   for (const auto &rotor : this->rotors)
   {
-    anyRotorSpinning = anyRotorSpinning || rotor.normalizedCommand > 0.001;
+    anyRotorSpinning = anyRotorSpinning || rotor.dynamics.NormalizedSpeed() > 0.001;
 
     if (rotor.jointEntity == kNullEntity)
       continue;
 
-    const double rpm = rotor.normalizedCommand * this->visualMaxRpm;
+    const double rpm = rotor.dynamics.NormalizedSpeed() * this->visualMaxRpm;
     const double angularVelocity =
         rotor.turningDirection * rpm * 2.0 * GZ_PI / 60.0;
     _ecm.SetComponentData<components::JointVelocityCmd>(
@@ -602,18 +836,17 @@ void EthrcBetaflightSITLPlugin::UpdateRotorVisuals(EntityComponentManager &_ecm)
 }
 
 void EthrcBetaflightSITLPlugin::SendState(const UpdateInfo &_info,
-    EntityComponentManager &_ecm) const
+    const EntityComponentManager &_ecm) const
 {
   if (this->socketFd < 0)
     return;
 
   auto accelComp = _ecm.Component<components::LinearAcceleration>(this->imuEntity);
-  auto angularVelComp = _ecm.Component<components::AngularVelocity>(this->imuEntity);
   auto poseComp = _ecm.Component<components::Pose>(this->modelEntity);
   auto velComp = _ecm.Component<components::WorldLinearVelocity>(
       this->baseLink.Entity());
 
-  if (!accelComp || !angularVelComp || !poseComp || !velComp)
+  if (!accelComp || !poseComp || !velComp)
     return;
 
   FdmPacket packet{};
@@ -624,10 +857,25 @@ void EthrcBetaflightSITLPlugin::SendState(const UpdateInfo &_info,
   packet.imuLinearAccelerationXYZ[1] = linearAccel.Y();
   packet.imuLinearAccelerationXYZ[2] = linearAccel.Z();
 
-  const math::Vector3d angularVel = angularVelComp->Data();
-  packet.imuAngularVelocityRPY[0] = angularVel.X();
-  packet.imuAngularVelocityRPY[1] = angularVel.Y();
-  packet.imuAngularVelocityRPY[2] = angularVel.Z();
+  const math::Quaterniond orientation = poseComp->Data().Rot();
+  math::Vector3d angularVelBodyFlu{0, 0, 0};
+  const double dtSeconds = std::chrono::duration<double>(_info.dt).count();
+  if (this->previousOrientationValid && dtSeconds > 0.0)
+  {
+    math::Quaterniond delta = this->previousOrientation.Inverse() * orientation;
+    delta.Normalize();
+    if (delta.W() < 0.0)
+      delta = {-delta.W(), -delta.X(), -delta.Y(), -delta.Z()};
+    math::Vector3d axis;
+    double angle = 0.0;
+    delta.AxisAngle(axis, angle);
+    angularVelBodyFlu = axis * (angle / dtSeconds);
+  }
+  this->previousOrientation = orientation;
+  this->previousOrientationValid = true;
+  packet.imuAngularVelocityRPY[0] = angularVelBodyFlu.X();
+  packet.imuAngularVelocityRPY[1] = -angularVelBodyFlu.Y();
+  packet.imuAngularVelocityRPY[2] = -angularVelBodyFlu.Z();
 
   const math::Pose3d modelWorldPose = poseComp->Data();
   const math::Pose3d gazeboToNED(0, 0, 0, GZ_PI, 0, 0);
@@ -655,7 +903,7 @@ void EthrcBetaflightSITLPlugin::SendState(const UpdateInfo &_info,
   packet.velocityXYZ[2] = velNedFrame.Z();
 
   for (size_t i = 0; i < this->rotors.size() && i < 4; ++i)
-    packet.escRpm[i] = this->rotors[i].normalizedCommand * this->maxRpm;
+    packet.escRpm[i] = this->rotors[i].dynamics.Rpm();
 
   sockaddr_in sockaddr;
   MakeSockAddr(this->betaflightAddress, this->stateOutputPort, sockaddr);
@@ -675,6 +923,8 @@ void EthrcBetaflightSITLPlugin::PreUpdate(const UpdateInfo &_info,
     this->lastUpdateTime = std::chrono::steady_clock::duration{0};
     this->missedPackets = 0;
     this->stateGuardLatched = false;
+    this->launchReleased = false;
+    this->previousOrientationValid = false;
   }
   else if (_info.simTime == this->lastUpdateTime)
   {
@@ -689,20 +939,76 @@ void EthrcBetaflightSITLPlugin::PreUpdate(const UpdateInfo &_info,
 
   this->ReceiveMotorCommand();
   this->UpdateRotorVisuals(_ecm);
+  if (!this->betaflightOnline)
+  {
+    // Keep the vehicle on its virtual launch fixture while the UDP handshake
+    // starts. Send FDM state even before the first motor packet so Betaflight
+    // can initialize its simulator loop without a gravity-induced startup
+    // drop or a motor/state deadlock.
+    this->model.SetWorldPoseCmd(_ecm, this->resetPose);
+    this->baseLink.SetLinearVelocity(_ecm, {0, 0, 0});
+    this->baseLink.SetAngularVelocity(_ecm, {0, 0, 0});
+    this->lastUpdateTime = _info.simTime;
+    return;
+  }
   if (this->betaflightOnline)
   {
-    this->ApplyThrust(_ecm);
-    this->SendState(_info, _ecm);
+    if (!this->launchReleased)
+    {
+      double maximumCommand = 0.0;
+      for (const auto &rotor : this->rotors)
+        maximumCommand = std::max(maximumCommand, rotor.normalizedCommand);
+
+      if (maximumCommand < this->launchReleaseCommand)
+      {
+        // Keep disarmed SITL off contact geometry. This is a launch fixture,
+        // not an aerodynamic force, and is removed before propulsion acts.
+        this->model.SetWorldPoseCmd(_ecm, this->resetPose);
+        this->baseLink.SetLinearVelocity(_ecm, {0, 0, 0});
+        this->baseLink.SetAngularVelocity(_ecm, {0, 0, 0});
+        this->PublishDiagnostics();
+        this->lastUpdateTime = _info.simTime;
+        return;
+      }
+
+      this->launchReleased = true;
+      this->baseLink.SetLinearVelocity(_ecm, {0, 0, 0});
+      this->baseLink.SetAngularVelocity(_ecm, {0, 0, 0});
+      // Link::Set*Velocity creates persistent command components. They are
+      // useful while the virtual launch restraint is active, but must be
+      // removed before propulsion is applied or PhysX will keep forcing both
+      // velocities back to zero and suppress genuine tilted-thrust motion.
+      _ecm.RemoveComponent<components::LinearVelocityCmd>(
+          this->baseLink.Entity());
+      _ecm.RemoveComponent<components::AngularVelocityCmd>(
+          this->baseLink.Entity());
+      _ecm.RemoveComponent<components::WorldPoseCmd>(this->modelEntity);
+      gzlog << InfoText("[EthrcBetaflightSITLPlugin] Virtual launch restraint released.") << "\n";
+    }
+
+    this->ApplyForces(_ecm, std::chrono::duration<double>(_info.dt).count());
+    this->PublishDiagnostics();
   }
 
   this->lastUpdateTime = _info.simTime;
+}
+
+void EthrcBetaflightSITLPlugin::PostUpdate(const UpdateInfo &_info,
+    const EntityComponentManager &_ecm)
+{
+  if (_info.paused || this->rotors.empty() || this->socketFd < 0)
+    return;
+
+  std::lock_guard<std::mutex> lock(this->mutex);
+  this->SendState(_info, _ecm);
 }
 }  // namespace gz::sim::systems
 
 GZ_ADD_PLUGIN(gz::sim::systems::EthrcBetaflightSITLPlugin,
               gz::sim::System,
               gz::sim::ISystemConfigure,
-              gz::sim::ISystemPreUpdate)
+              gz::sim::ISystemPreUpdate,
+              gz::sim::ISystemPostUpdate)
 
 GZ_ADD_PLUGIN_ALIAS(gz::sim::systems::EthrcBetaflightSITLPlugin,
                     "gz::sim::systems::EthrcBetaflightSITLPlugin")

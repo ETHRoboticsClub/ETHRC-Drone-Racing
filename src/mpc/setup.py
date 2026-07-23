@@ -27,6 +27,7 @@ setup(
         'setuptools',
         'numpy',
         'scipy',
+        'PyYAML',
         'mavsdk',
         'casadi',
     ],

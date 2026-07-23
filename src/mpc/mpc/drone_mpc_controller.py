@@ -4,8 +4,9 @@ import numpy as np
 
 from mavsdk.offboard import AttitudeRate
 from interfaces import ControllerInterface
+from scipy.spatial.transform import Rotation
 
-DEBUG_INFO_PRINTS = True
+DEBUG_INFO_PRINTS = False
 
 class DroneMpcController(ControllerInterface):
 
@@ -43,7 +44,10 @@ class DroneMpcController(ControllerInterface):
         self.drone_mass = float(self.drone_model.m)
         self.gravity = float(self.drone_model.g)
         self.max_thrust = float(self.drone_model.constraint.thrust_max)
-        self.thrust_norm_hover = self.drone_mass * self.gravity / self.max_thrust 
+        self.thrust_curve_per_motor_n = self.drone_model.thrust_curve_per_motor_n
+        self.thrust_norm_hover = self._thrust_to_normalized(
+            self.drone_mass * self.gravity
+        )
 
         if DEBUG_INFO_PRINTS:
             print(f"\n{'='*60}")
@@ -63,7 +67,9 @@ class DroneMpcController(ControllerInterface):
                             d_constraint=self.drone_model.constraint,
                             t_horizon=self.t_H,
                             n_nodes=self.Nnodes,
-                            enable_logging=True)
+                            mass=self.drone_mass,
+                            gravity=self.gravity,
+                            enable_logging=False)
 
     def trajectory_controller_update(self, x_current :np.ndarray, goal_trajectory :np.ndarray):
         # TODO: bad, 2 change
@@ -92,9 +98,8 @@ class DroneMpcController(ControllerInterface):
 
 
     def controller_update(self, x_current :np.ndarray, goal_positon :np.ndarray) -> AttitudeRate :
-        # TODO: bad, 2 change
-        self.x_current = x_current
-        self.goal_postion = goal_positon
+        self.x_current = self._ros_enu_flu_to_mpc_ned_frd(x_current)
+        self.goal_postion = self._reference_from_goal(self.x_current, goal_positon)
 
         # Solve OCP
         # TODO: Handle mpc failure more explicitely
@@ -115,6 +120,33 @@ class DroneMpcController(ControllerInterface):
         wz_cmd = float(u0_raw[3])  # yaw rate
 
         return self.attitude_cmd_from_mpc_cmd(thrust_N,wx_cmd,wy_cmd,wz_cmd)
+
+    @staticmethod
+    def _ros_enu_flu_to_mpc_ned_frd(state: np.ndarray) -> np.ndarray:
+        """Convert the public ENU/FLU, xyzw state to MPC NED/FRD, wxyz."""
+        source = np.asarray(state, dtype=float).reshape(13)
+        result = np.zeros(13, dtype=float)
+        enu_to_ned = np.array([[0.0, 1.0, 0.0],
+                               [1.0, 0.0, 0.0],
+                               [0.0, 0.0, -1.0]])
+        frd_to_flu = np.diag([1.0, -1.0, -1.0])
+        result[0:3] = enu_to_ned @ source[0:3]
+        result[3:6] = enu_to_ned @ source[3:6]
+        rotation_enu_flu = Rotation.from_quat(source[6:10]).as_matrix()
+        rotation_ned_frd = enu_to_ned @ rotation_enu_flu @ frd_to_flu
+        quat_xyzw = Rotation.from_matrix(rotation_ned_frd).as_quat()
+        result[6:10] = [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]]
+        result[10:13] = frd_to_flu @ source[10:13]
+        return result
+
+    @staticmethod
+    def _reference_from_goal(state_ned: np.ndarray, goal_enu: np.ndarray) -> np.ndarray:
+        """Construct a stationary 13-state reference from a ROS position goal."""
+        goal = np.asarray(goal_enu, dtype=float).reshape(3)
+        reference = np.zeros(13, dtype=float)
+        reference[0:3] = [goal[1], goal[0], -goal[2]]
+        reference[6:10] = state_ned[6:10]
+        return reference
     
     def attitude_cmd_from_mpc_cmd(self, thrust_N: float, wx_cmd: float, wy_cmd: float, wz_cmd: float ):
         # Send Command
@@ -122,9 +154,11 @@ class DroneMpcController(ControllerInterface):
         # thrust_value: [0,1] normalized thrust
         thrust_normalized = self._thrust_to_normalized(thrust_N)
         
-        # Convert body rates from rad/s to deg/s
+        # Convert mathematical FRD body rates to Betaflight RC-rate signs.
+        # Positive Betaflight pitch stick is nose-down, opposite positive FRD
+        # pitch (nose-up). Roll and yaw already match its stick convention.
         roll_rate_deg  = np.degrees(wx_cmd)
-        pitch_rate_deg = np.degrees(wy_cmd)
+        pitch_rate_deg = -np.degrees(wy_cmd)
         yaw_rate_deg   = np.degrees(wz_cmd)
         
         # Safety clipping
@@ -136,8 +170,20 @@ class DroneMpcController(ControllerInterface):
         return AttitudeRate(roll_rate_deg, pitch_rate_deg, yaw_rate_deg, thrust_normalized)
 
     def _thrust_to_normalized(self, thrust_N):
-        """Convert thrust in Newtons to normalized [0,1] for MAVSDK."""
-        return float(np.clip(thrust_N / self.max_thrust, 0.0, 1.0))
+        """Invert the shared per-motor thrust curve into motor command."""
+        target = float(np.clip(thrust_N, 0.0, self.max_thrust)) / 4.0
+        a0, a1, a2 = self.thrust_curve_per_motor_n
+        if abs(a2) < 1e-12:
+            command = (target - a0) / a1 if abs(a1) >= 1e-12 else 0.0
+        else:
+            discriminant = max(a1 * a1 - 4.0 * a2 * (a0 - target), 0.0)
+            roots = (
+                (-a1 + np.sqrt(discriminant)) / (2.0 * a2),
+                (-a1 - np.sqrt(discriminant)) / (2.0 * a2),
+            )
+            valid = [root for root in roots if 0.0 <= root <= 1.0]
+            command = valid[0] if valid else roots[0]
+        return float(np.clip(command, 0.0, 1.0))
     
     def _debug_print(self, u0: np.ndarray):
         self.mpc_iter += 1
