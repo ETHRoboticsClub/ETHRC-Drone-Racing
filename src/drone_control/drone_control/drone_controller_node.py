@@ -1,12 +1,33 @@
 # Add src directory to Python path for mpc, interfaces, rl imports
 import sys
 import os
-src_path = os.path.expanduser('~/ros_ws/src')
-if src_path not in sys.path:
-    sys.path.insert(0, src_path)
-mpcc_pp_path = os.path.expanduser('~/ros_ws/src/mpcc_pp')
-if mpcc_pp_path not in sys.path:
-    sys.path.insert(0, mpcc_pp_path)
+
+current_file = os.path.abspath(__file__)
+current_dir = os.path.dirname(current_file)
+
+# Try resolving via source structure (works for symlink install)
+src_path = os.path.abspath(os.path.join(current_dir, '..', '..'))
+
+# Try resolving via standard install structure (works for normal install)
+src_path_standard = os.path.abspath(os.path.join(current_dir, '..', '..', '..', '..', '..', '..', 'src'))
+
+# Fallback search paths
+fallback_paths = [
+    os.path.expanduser('~/proj/ETHRC-Drone-Racing/src'),
+    os.path.expanduser('~/ros_ws/src'),
+]
+
+inserted = False
+for path in [src_path, src_path_standard] + fallback_paths:
+    if os.path.isdir(path) and os.path.exists(os.path.join(path, 'interfaces', '__init__.py')):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+            # Also insert mpcc_pp if it exists under src
+            mpcc_pp_path = os.path.join(path, 'mpcc_pp')
+            if os.path.isdir(mpcc_pp_path) and mpcc_pp_path not in sys.path:
+                sys.path.insert(0, mpcc_pp_path)
+        inserted = True
+        break
 
 # ros related
 import rclpy
@@ -82,6 +103,14 @@ class StateType(Enum):
     FLOAT64_MULTI_ARRAY = 'Float64MultiArray'
 
 
+_ENU_TO_NED = np.array([
+    [0.0, 1.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [0.0, 0.0, -1.0],
+])
+_FLU_TO_FRD = np.diag([1.0, -1.0, -1.0])
+
+
 def _parse_state_type(state_msg_type: str) -> StateType:
     if state_msg_type == 'PoseStamped':
         return StateType.POSE_STAMPED
@@ -114,6 +143,81 @@ def _quaternion_angle_error(q_a: np.ndarray, q_b: np.ndarray) -> float:
         return np.inf
     dot = np.dot(q_a / q_a_norm, q_b / q_b_norm)
     return 2.0 * np.arccos(np.clip(np.abs(dot), -1.0, 1.0))
+
+
+def _normalize_quat(q: np.ndarray) -> np.ndarray:
+    norm = np.linalg.norm(q)
+    if norm < 1e-12:
+        return np.array([1.0, 0.0, 0.0, 0.0])
+    return q / norm
+
+
+def _quat_to_rot(q: np.ndarray) -> np.ndarray:
+    qw, qx, qy, qz = _normalize_quat(q)
+    return np.array([
+        [1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy - qw * qz), 2 * (qx * qz + qw * qy)],
+        [2 * (qx * qy + qw * qz), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz - qw * qx)],
+        [2 * (qx * qz - qw * qy), 2 * (qy * qz + qw * qx), 1 - 2 * (qx * qx + qy * qy)],
+    ])
+
+
+def _rot_to_quat(r: np.ndarray) -> np.ndarray:
+    trace = np.trace(r)
+    if trace > 0.0:
+        s = np.sqrt(trace + 1.0) * 2.0
+        qw = 0.25 * s
+        qx = (r[2, 1] - r[1, 2]) / s
+        qy = (r[0, 2] - r[2, 0]) / s
+        qz = (r[1, 0] - r[0, 1]) / s
+    else:
+        i = int(np.argmax(np.diag(r)))
+        if i == 0:
+            s = np.sqrt(1.0 + r[0, 0] - r[1, 1] - r[2, 2]) * 2.0
+            qw = (r[2, 1] - r[1, 2]) / s
+            qx = 0.25 * s
+            qy = (r[0, 1] + r[1, 0]) / s
+            qz = (r[0, 2] + r[2, 0]) / s
+        elif i == 1:
+            s = np.sqrt(1.0 + r[1, 1] - r[0, 0] - r[2, 2]) * 2.0
+            qw = (r[0, 2] - r[2, 0]) / s
+            qx = (r[0, 1] + r[1, 0]) / s
+            qy = 0.25 * s
+            qz = (r[1, 2] + r[2, 1]) / s
+        else:
+            s = np.sqrt(1.0 + r[2, 2] - r[0, 0] - r[1, 1]) * 2.0
+            qw = (r[1, 0] - r[0, 1]) / s
+            qx = (r[0, 2] + r[2, 0]) / s
+            qy = (r[1, 2] + r[2, 1]) / s
+            qz = 0.25 * s
+    return _normalize_quat(np.array([qw, qx, qy, qz]))
+
+
+def _pose_frame_is_ned(frame_id: str) -> bool:
+    return frame_id.strip('/').lower() in ('ned', 'map_ned', 'world_ned')
+
+
+def _pose_stamped_to_ned_frd_state(pose: PoseStamped) -> np.ndarray:
+    """Convert a ROS PoseStamped into controller state [NED p, zero v, FRD q, zero w]."""
+    state = np.zeros(13, dtype=np.float64)
+    raw_pos = np.array([
+        pose.pose.position.x,
+        pose.pose.position.y,
+        pose.pose.position.z,
+    ], dtype=np.float64)
+    q_world_body = np.array([
+        pose.pose.orientation.w,
+        pose.pose.orientation.x,
+        pose.pose.orientation.y,
+        pose.pose.orientation.z,
+    ], dtype=np.float64)
+
+    if _pose_frame_is_ned(pose.header.frame_id):
+        state[0:3] = raw_pos
+        state[6:10] = _normalize_quat(q_world_body)
+    else:
+        state[0:3] = _ENU_TO_NED @ raw_pos
+        state[6:10] = _rot_to_quat(_ENU_TO_NED @ _quat_to_rot(q_world_body) @ _FLU_TO_FRD.T)
+    return state
 
 
 _CONTROLLER_REGISTRY = _build_registry()
@@ -172,6 +276,8 @@ class DroneController(Node):
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('verbose_input', False)
+        self.declare_parameter('print_mpc_inputs', False)
+        self.declare_parameter('mpc_input_debug_interval_sec', 1.0)
         self.declare_parameter('speed_report_interval_sec', 5.0)
         self.declare_parameter('threshold.position', 1.0)  # typo kept for backwards compatibility, was 0.02
         self.declare_parameter('threshold.velocity', 0.02)
@@ -189,6 +295,11 @@ class DroneController(Node):
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
         self._verbose = self.get_parameter('verbose_input').get_parameter_value().bool_value
+        self._print_mpc_inputs = self.get_parameter('print_mpc_inputs').get_parameter_value().bool_value
+        self._mpc_input_debug_interval_s = max(
+            0.1,
+            self.get_parameter('mpc_input_debug_interval_sec').get_parameter_value().double_value)
+        self._last_mpc_input_debug_time = 0.0
         self._publish_debug_counter = 0
         self._speed_report_interval_s = max(
             0.1,
@@ -274,17 +385,7 @@ class DroneController(Node):
 
     def drone_state_pose_stamped_cb(self, msg: PoseStamped):
         with self.state_lock:
-            state = np.zeros(13, dtype=np.float64)
-            state[0] = msg.pose.position.x
-            state[1] = msg.pose.position.y
-            state[2] = msg.pose.position.z
-            state[6] = msg.pose.orientation.w
-            state[7] = msg.pose.orientation.x
-            state[8] = msg.pose.orientation.y
-            state[9] = msg.pose.orientation.z
-            state[3:6] = 0.0
-            state[10:13] = 0.0
-            self.state = state
+            self.state = _pose_stamped_to_ned_frd_state(msg)
             self._state_received = True
 
     # ── Lifecycle ─────────────────────────────────────────────────────────
@@ -398,6 +499,7 @@ class DroneController(Node):
         while rclpy.ok() and time.time() < deadline and not self.stop_hover.is_set():
             with self.state_lock:
                 current_state = self.state.copy()
+            self._log_mpc_inputs(self._mpc_hover_controller, current_state, hover_state, 'mpcc_hover')
             cmd = self._mpc_hover_controller.controller_update(current_state, hover_state)
             self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
@@ -458,6 +560,7 @@ class DroneController(Node):
         while rclpy.ok() and not self.stop_hover.is_set():
             with self.state_lock:
                 current_state = self.state.copy()
+            self._log_mpc_inputs(controller, current_state, current_goal_state, 'hover')
             cmd = controller.controller_update(current_state, current_goal_state)
             self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
@@ -715,6 +818,36 @@ class DroneController(Node):
             msg.data = [float(cmd[0]), float(cmd[1]), float(cmd[2]), float(cmd[3])]
             self.rotor_command_publisher.publish(msg)
 
+    def _log_mpc_inputs(self, controller: ControllerInterface, current_state: np.ndarray,
+                        goal_state: np.ndarray, context: str) -> None:
+        """Print the state and goal passed into the MPC at a throttled rate."""
+        if not self._print_mpc_inputs or not isinstance(controller, DroneMpcController):
+            return
+
+        now = time.monotonic()
+        if now - self._last_mpc_input_debug_time < self._mpc_input_debug_interval_s:
+            return
+        self._last_mpc_input_debug_time = now
+
+        pos_error = np.linalg.norm(current_state[0:3] - goal_state[0:3])
+        self.get_logger().info(
+            '[MPC input:%s] '
+            'state p=(%.3f, %.3f, %.3f) v=(%.3f, %.3f, %.3f) '
+            'q=(%.3f, %.3f, %.3f, %.3f) w=(%.3f, %.3f, %.3f); '
+            'goal p=(%.3f, %.3f, %.3f) q=(%.3f, %.3f, %.3f, %.3f); '
+            'pos_err=%.3f state_received=%s' % (
+                context,
+                current_state[0], current_state[1], current_state[2],
+                current_state[3], current_state[4], current_state[5],
+                current_state[6], current_state[7], current_state[8], current_state[9],
+                current_state[10], current_state[11], current_state[12],
+                goal_state[0], goal_state[1], goal_state[2],
+                goal_state[6], goal_state[7], goal_state[8], goal_state[9],
+                pos_error,
+                self._state_received,
+            )
+        )
+
     def _record_speed_sample(self, current_state: np.ndarray) -> None:
         """Accumulate speed stats and print them every fixed interval."""
         now = time.monotonic()
@@ -843,16 +976,8 @@ class DroneController(Node):
             raise RuntimeError(f"Failed to load track config from '{filepath}': {e}")
 
     def _pose_stamped_to_goal_state(self, pose: PoseStamped) -> np.ndarray:
-        """Convert a PoseStamped message to a 13-dim goal state vector."""
-        goal = np.zeros(13)
-        goal[0] = pose.pose.position.x
-        goal[1] = pose.pose.position.y
-        goal[2] = pose.pose.position.z
-        goal[6] = pose.pose.orientation.w
-        goal[7] = pose.pose.orientation.x
-        goal[8] = pose.pose.orientation.y
-        goal[9] = pose.pose.orientation.z
-        return goal
+        """Convert an external PoseStamped goal to the controller's NED/FRD state."""
+        return _pose_stamped_to_ned_frd_state(pose)
 
     def terminate_action(self):
         with self.active_goal_lock:
@@ -898,6 +1023,7 @@ class DroneController(Node):
         while rclpy.ok() and not goal_handle.is_cancel_requested and not self.waypoint_reached():
             with self.state_lock:
                 current_state = self.state.copy()
+            self._log_mpc_inputs(self.controller, current_state, self.current_goal_state, 'pose_goal')
             cmd = self.controller.controller_update(current_state, self.current_goal_state)
             self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
@@ -974,6 +1100,7 @@ class DroneController(Node):
                 while rclpy.ok() and not goal_handle.is_cancel_requested and not self.waypoint_reached():
                     with self.state_lock:
                         current_state = self.state.copy()
+                    self._log_mpc_inputs(self.controller, current_state, self.current_goal_state, 'trajectory_goal')
                     cmd = self.controller.controller_update(current_state, self.current_goal_state)
                     self._publish_command(cmd, current_state)
                     self.controller_rate.sleep()

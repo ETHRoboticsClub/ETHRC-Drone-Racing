@@ -8,12 +8,14 @@ from launch.actions import GroupAction, IncludeLaunchDescription, DeclareLaunchA
 from launch.launch_description_sources import PythonLaunchDescriptionSource, FrontendLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node, SetRemap
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
     # --- Machine Detection ---
     hostname = socket.gethostname()
     is_jetson = hostname in ['zephyrus', 'boreas', 'jetson']
+    default_vicon_name = hostname if hostname in ['zephyrus', 'boreas'] else 'zephyrus'
     
     # --- Packages ---
     pkg_drone_control = get_package_share_directory('drone_control')
@@ -32,11 +34,17 @@ def generate_launch_description():
     arg_msp_port = DeclareLaunchArgument('msp_port', default_value=default_msp_port,
                                             description='Dedicated UART/USB-VCP for MSP Control commands')
     arg_attitude_topic = DeclareLaunchArgument('attitude_cmd_topic', default_value='/drone_attitude_cmd')
+    arg_roll_rate_sign = DeclareLaunchArgument('roll_rate_sign', default_value='-1.0',
+                                               description='Sign applied when mapping roll body-rate commands to RC roll')
+    arg_pitch_rate_sign = DeclareLaunchArgument('pitch_rate_sign', default_value='-1.0',
+                                                description='Sign applied when mapping pitch body-rate commands to RC pitch')
+    arg_yaw_rate_sign = DeclareLaunchArgument('yaw_rate_sign', default_value='1.0',
+                                              description='Sign applied when mapping yaw body-rate commands to RC yaw')
     arg_target_hz = DeclareLaunchArgument('target_hz', default_value='150',
                                           description='Target frequency for the published IMU messages')
     arg_use_vicon = DeclareLaunchArgument('use_vicon', default_value='true')
-    arg_vicon_subject = DeclareLaunchArgument('vicon_subject', default_value='zephyrus')
-    arg_vicon_segment = DeclareLaunchArgument('vicon_segment', default_value='zephyrus')
+    arg_vicon_subject = DeclareLaunchArgument('vicon_subject', default_value=default_vicon_name)
+    arg_vicon_segment = DeclareLaunchArgument('vicon_segment', default_value=default_vicon_name)
     arg_use_rc_sim = DeclareLaunchArgument('use_rc_sim', default_value='true',
                                              description='Whether to use MSP RC simulation for arming')
     arg_view_stream = DeclareLaunchArgument('view_stream', default_value='true',
@@ -94,6 +102,12 @@ def generate_launch_description():
     )
     arg_use_vio = DeclareLaunchArgument('use_vio', default_value='false')
     arg_use_ekf = DeclareLaunchArgument('use_ekf', default_value='false')
+    arg_pose_world_frame = DeclareLaunchArgument('pose_world_frame', default_value='enu',
+                                                description='World frame convention of Vicon poses before MPC conversion: enu or ned')
+    arg_pose_body_frame = DeclareLaunchArgument('pose_body_frame', default_value='flu',
+                                               description='Body frame convention of Vicon poses before MPC conversion: flu or frd')
+    arg_imu_body_frame = DeclareLaunchArgument('imu_body_frame', default_value='flu',
+                                              description='Body frame convention of /imu0 angular velocity before MPC conversion: flu or frd')
 
     # Bench Mode Arguments from Main
     arg_msp_bench_mode = DeclareLaunchArgument('msp_bench_mode', default_value='false',
@@ -106,11 +120,15 @@ def generate_launch_description():
     bench_config_path = os.path.join(ws_root, 'docs', 'docs', 'files', 'betaflight_conf', 'ZEPHYRUS_MSP_BENCH.txt')
     flight_config_path = os.path.join(ws_root, 'docs', 'docs', 'files', 'betaflight_conf', 'zephyrus_KAKUTEH7.txt')
 
-    # RL Controller Arguments
-    arg_controller_type = DeclareLaunchArgument('controller_type', default_value='rl',
+    # Controller arguments
+    arg_controller_type = DeclareLaunchArgument('controller_type', default_value='mpc',
                                               description='Type of controller: "mpc" or "rl"')
     arg_rate_error_scale = DeclareLaunchArgument('rate_error_scale', default_value='300.0',
                                                description='Torque-to-rate scaling for RL controller')
+    arg_print_mpc_inputs = DeclareLaunchArgument('print_mpc_inputs', default_value='true',
+                                               description='Print the state and target passed into MPC')
+    arg_mpc_input_debug_interval = DeclareLaunchArgument('mpc_input_debug_interval_sec', default_value='1.0',
+                                               description='Minimum seconds between MPC input log lines')
 
     # --- 1. IMU DRIVER: Betaflight Blackbox or MSP ---
     blackbox_node = Node(
@@ -166,7 +184,10 @@ def generate_launch_description():
         parameters=[{
             'port': LaunchConfiguration('msp_port'),
             'baudrate': 115200 if not is_jetson else 1500000,
-            'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic')
+            'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic'),
+            'roll_rate_sign': ParameterValue(LaunchConfiguration('roll_rate_sign'), value_type=float),
+            'pitch_rate_sign': ParameterValue(LaunchConfiguration('pitch_rate_sign'), value_type=float),
+            'yaw_rate_sign': ParameterValue(LaunchConfiguration('yaw_rate_sign'), value_type=float),
         }],
         condition=launch.conditions.IfCondition(
             PythonExpression([
@@ -439,7 +460,10 @@ def generate_launch_description():
             'vicon_topic': vicon_topic,
             'imu_topic': '/imu0',
             'state_topic': 'drone_state_sim',
-            'publish_rate': 100.0
+            'publish_rate': 100.0,
+            'pose_world_frame': LaunchConfiguration('pose_world_frame'),
+            'pose_body_frame': LaunchConfiguration('pose_body_frame'),
+            'imu_body_frame': LaunchConfiguration('imu_body_frame'),
         }],
         output='screen'
     )
@@ -453,7 +477,9 @@ def generate_launch_description():
             'plotjuggler': 'false',
             'use_mavsdk': 'false',
             'controller_type': LaunchConfiguration('controller_type'),
-            'rate_error_scale': LaunchConfiguration('rate_error_scale')
+            'rate_error_scale': LaunchConfiguration('rate_error_scale'),
+            'print_mpc_inputs': LaunchConfiguration('print_mpc_inputs'),
+            'mpc_input_debug_interval_sec': LaunchConfiguration('mpc_input_debug_interval_sec')
         }.items() 
     )
 
@@ -463,6 +489,9 @@ def generate_launch_description():
         arg_imu_baud,
         arg_msp_port,
         arg_attitude_topic,
+        arg_roll_rate_sign,
+        arg_pitch_rate_sign,
+        arg_yaw_rate_sign,
         arg_target_hz,
         arg_use_vicon,
         arg_vicon_subject,
@@ -487,10 +516,15 @@ def generate_launch_description():
         arg_gate_camera_topic,
         arg_use_vio,
         arg_use_ekf,
+        arg_pose_world_frame,
+        arg_pose_body_frame,
+        arg_imu_body_frame,
         arg_msp_bench_mode,
         arg_load_bf_config,
         arg_controller_type,
         arg_rate_error_scale,
+        arg_print_mpc_inputs,
+        arg_mpc_input_debug_interval,
         blackbox_node,
         msp_imu_node,
         msp_bridge_node,
