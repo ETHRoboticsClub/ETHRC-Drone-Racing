@@ -25,6 +25,12 @@ def generate_launch_description():
     waypoints_file = LaunchConfiguration('waypoints_file')
     verbose_input = LaunchConfiguration('verbose_input')
     simulation_mode = LaunchConfiguration('simulation_mode')
+    use_mavsdk = LaunchConfiguration('use_mavsdk')
+    state_topic = LaunchConfiguration('state_topic')
+    state_msg_type = LaunchConfiguration('state_msg_type')
+    publish_simulator_action = LaunchConfiguration('publish_simulator_action')
+    simulator_action_topic = LaunchConfiguration('simulator_action_topic')
+    mpcc_stabilization_sec = LaunchConfiguration('mpcc_stabilization_sec')
 
     controller_node = Node(
         package="drone_control",
@@ -35,7 +41,14 @@ def generate_launch_description():
             'waypoints_file': waypoints_file,
             'verbose_input': verbose_input,
             'simulation_mode': simulation_mode,
+            'use_mavsdk': use_mavsdk,
+            'state_topic': state_topic,
+            'state_msg_type': state_msg_type,
+            'publish_simulator_action': publish_simulator_action,
+            'simulator_action_topic': simulator_action_topic,
+            'mpcc_stabilization_sec': mpcc_stabilization_sec,
         }],
+        emulate_tty=True,
         output="screen",
     )
 
@@ -45,6 +58,7 @@ def generate_launch_description():
         name="mavsdk_client",
         parameters=[mavsdk_client_params],
         output="screen",
+        condition=IfCondition(use_mavsdk),
     )
 
     return LaunchDescription([
@@ -58,6 +72,18 @@ def generate_launch_description():
             description='Print thrust and body-rate debug info'),
         DeclareLaunchArgument('simulation_mode', default_value='false',
             description='Enable simulation-only Optuna progress/crash/missed-gate metrics'),
+        DeclareLaunchArgument('use_mavsdk', default_value='true',
+            description='Start MavSDK client and arm PX4/offboard'),
+        DeclareLaunchArgument('state_topic', default_value='drone_state_sim',
+            description='Drone state topic consumed by the controller'),
+        DeclareLaunchArgument('state_msg_type', default_value='Float64MultiArray',
+            description='State message type: PoseStamped or Float64MultiArray'),
+        DeclareLaunchArgument('publish_simulator_action', default_value='false',
+            description='Publish raw MPCC++ action for the lightweight simulator'),
+        DeclareLaunchArgument('simulator_action_topic', default_value='/mpcc_pp/mpc_action',
+            description='Topic for raw MPCC++ simulator actions'),
+        DeclareLaunchArgument('mpcc_stabilization_sec', default_value='3.0',
+            description='MPC hover time before MPCC racing; use 0 for ROS-only simulator'),
 
         # Start controller first, then mavsdk_client after 3s delay
         controller_node,

@@ -38,6 +38,7 @@ setup(
         'console_scripts': [
             'mpcc_pp_optuna_tune = mpcc_pp.tuning.optuna_tuner:main',
             'mpcc_pp_gazebo_trial = mpcc_pp.tuning.gazebo_trial_runner:main',
+            'mpcc_pp_dynamics_simulator = mpcc_pp.dynamics_simulator_node:main',
         ],
     },
 )

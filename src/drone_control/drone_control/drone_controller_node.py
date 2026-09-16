@@ -137,6 +137,7 @@ class DroneController(Node):
     mpcc_ref_path_publisher: Publisher
     mpcc_tunnel_publisher: Publisher
     mpcc_horizon_publisher: Publisher
+    mpcc_rotor_thrust_publisher: Publisher
     position_goal_server: ActionServer
     trajectory_goal_server: ActionServer
 
@@ -169,6 +170,10 @@ class DroneController(Node):
         self.declare_parameter('state_topic', 'drone_state_sim')
         self.declare_parameter('state_msg_type', 'PoseStamped')
         self.declare_parameter('simulation_mode', False)
+        self.declare_parameter('use_mavsdk', True)
+        self.declare_parameter('publish_simulator_action', False)
+        self.declare_parameter('simulator_action_topic', '/mpcc_pp/mpc_action')
+        self.declare_parameter('mpcc_stabilization_sec', 3.0)
         self.declare_parameter('attitude_command_topic', '/drone_attitude_cmd')
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
@@ -189,6 +194,15 @@ class DroneController(Node):
         state_msg_type = self.get_parameter('state_msg_type').get_parameter_value().string_value
         self._simulation_mode = (
             self.get_parameter('simulation_mode').get_parameter_value().bool_value)
+        self._use_mavsdk = (
+            self.get_parameter('use_mavsdk').get_parameter_value().bool_value)
+        self._publish_simulator_action = (
+            self.get_parameter('publish_simulator_action').get_parameter_value().bool_value)
+        simulator_action_topic = (
+            self.get_parameter('simulator_action_topic').get_parameter_value().string_value)
+        self._mpcc_stabilization_s = max(
+            0.0,
+            self.get_parameter('mpcc_stabilization_sec').get_parameter_value().double_value)
         self.state_type = _parse_state_type(state_msg_type)
         if self.state_type.value != state_msg_type:
             self.get_logger().warn(
@@ -248,6 +262,8 @@ class DroneController(Node):
             Float64MultiArray, '/drone_rotor_cmd', 10)
         self.position_command_publisher = self.create_publisher(
             Float64MultiArray, position_command_topic, 10)
+        self.simulator_action_publisher = self.create_publisher(
+            Float64MultiArray, simulator_action_topic, 10)
         self.current_target_publisher = self.create_publisher(
             PoseStamped, '/drone_current_target',
             QoSProfile(depth=1, durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
@@ -261,6 +277,8 @@ class DroneController(Node):
             MarkerArray, '/mpcc/predicted_horizon', 10)
         self.mpcc_progress_point_publisher = self.create_publisher(
             MarkerArray, '/mpcc/progress_point', 10)
+        self.mpcc_rotor_thrust_publisher = self.create_publisher(
+            Float64MultiArray, '/mpcc/optimized_rotor_thrust', 10)
         self._mpcc_pub_counter = 0
 
         # ── Controller instantiation via registry ──────────────────────────
@@ -299,9 +317,32 @@ class DroneController(Node):
     # ── State callback ────────────────────────────────────────────────────
 
     def drone_state_float64_multi_array_cb(self, msg: Float64MultiArray):
+        data = np.asarray(msg.data, dtype=np.float64)
+        if data.shape == (19,):
+            state = self._augmented_mpcc_state_to_external(data)
+            controller = getattr(self, 'controller', None)
+            sync_augmented_state = getattr(controller, 'sync_augmented_state', None)
+            if callable(sync_augmented_state):
+                sync_augmented_state(data)
+        elif data.shape == (13,):
+            state = data.copy()
+        else:
+            self.get_logger().warn(
+                f'Ignoring Float64MultiArray state with {data.size} values; expected 13 or 19.')
+            return
+
         with self.state_lock:
-            self.state = np.array(msg.data)
+            self.state = state
             self._state_received = True
+
+    @staticmethod
+    def _augmented_mpcc_state_to_external(x_aug: np.ndarray) -> np.ndarray:
+        state = np.zeros(13, dtype=np.float64)
+        state[0:3] = x_aug[0:3]
+        state[3:6] = x_aug[7:10]
+        state[6:10] = x_aug[3:7]
+        state[10:13] = x_aug[10:13]
+        return state
 
     def drone_state_pose_stamped_cb(self, msg: PoseStamped):
         with self.state_lock:
@@ -338,7 +379,11 @@ class DroneController(Node):
             self._publish_mpcc_reference_path()
             self._publish_mpcc_tunnel()
 
-        threading.Thread(target=self._arm_when_ready, daemon=True).start()
+        if self._use_mavsdk:
+            threading.Thread(target=self._arm_when_ready, daemon=True).start()
+        else:
+            self.get_logger().info(
+                'MAVSDK disabled: using ROS-only dynamics simulator loop')
 
         if START_AND_HOVER:
             self.get_logger().info("Auto-hover will start once drone state is available")
@@ -424,21 +469,24 @@ class DroneController(Node):
         """Hover 3 s with MPC to stabilise, then hand off to the MPCC racing loop."""
         self.hovering_active = True
 
-        # Phase 1: 3 s of MPC hover to stabilise before handing off to MPCC
-        deadline = time.time() + 3.0
-        while rclpy.ok() and time.time() < deadline and not self.stop_hover.is_set():
-            with self.state_lock:
-                current_state = self.state.copy()
-            cmd = self._mpc_hover_controller.controller_update(current_state, hover_state)
-            self._publish_command(cmd, current_state)
-            self.controller_rate.sleep()
+        # Phase 1: optional MPC hover before handing off to MPCC.
+        if self._mpcc_stabilization_s > 0.0:
+            deadline = time.time() + self._mpcc_stabilization_s
+            while rclpy.ok() and time.time() < deadline and not self.stop_hover.is_set():
+                with self.state_lock:
+                    current_state = self.state.copy()
+                cmd = self._mpc_hover_controller.controller_update(current_state, hover_state)
+                self._publish_command(cmd, current_state)
+                self.controller_rate.sleep()
 
-        if not rclpy.ok() or self.stop_hover.is_set():
-            self.stop_hover.clear()
-            self.hovering_active = False
-            return
+            if not rclpy.ok() or self.stop_hover.is_set():
+                self.stop_hover.clear()
+                self.hovering_active = False
+                return
 
-        self.get_logger().info("MPCC: stabilisation done, starting racing loop")
+            self.get_logger().info("MPCC: stabilisation done, starting racing loop")
+        else:
+            self.get_logger().info("MPCC: starting racing loop without MAVSDK stabilisation")
         self._reset_path_timer()
         self._optuna_progress_last_report = 0.0
         self._optuna_liftoff_time = None
@@ -726,6 +774,8 @@ class DroneController(Node):
         if isinstance(self.controller, _MPCC_CLASSES):
             self._publish_mpcc_horizon()
             self._publish_mpcc_progress_point()
+            self._publish_mpcc_simulator_action()
+            self._publish_mpcc_rotor_thrust()
 
         if self._verbose:
             self._publish_debug_counter += 1
@@ -756,6 +806,38 @@ class DroneController(Node):
             # Per-rotor thrust: np.ndarray (4,) or similar sequence
             msg.data = [float(cmd[0]), float(cmd[1]), float(cmd[2]), float(cmd[3])]
             self.rotor_command_publisher.publish(msg)
+
+    def _publish_mpcc_simulator_action(self) -> None:
+        """Publish the raw MPCC++ input consumed by the lightweight simulator."""
+        if not self._publish_simulator_action:
+            return
+        u_opt = getattr(self.controller, 'last_control_input', None)
+        if u_opt is None:
+            return
+        u_opt = np.asarray(u_opt, dtype=np.float64).reshape(-1)
+        if u_opt.shape != (5,) or not np.isfinite(u_opt).all():
+            return
+        msg = Float64MultiArray()
+        msg.data = [float(v) for v in u_opt]
+        self.simulator_action_publisher.publish(msg)
+
+    def _publish_mpcc_rotor_thrust(self) -> None:
+        """Publish the MPCC++ optimized next-step per-rotor thrust [N]."""
+        x_pred = getattr(self.controller, '_last_x_pred', None)
+        if x_pred is None:
+            return
+
+        x_pred = np.asarray(x_pred, dtype=np.float64)
+        if x_pred.ndim != 2 or x_pred.shape[0] < 2 or x_pred.shape[1] < 17:
+            return
+
+        rotor_thrust = x_pred[1, 13:17]
+        if rotor_thrust.shape != (4,) or not np.isfinite(rotor_thrust).all():
+            return
+
+        msg = Float64MultiArray()
+        msg.data = [float(v) for v in rotor_thrust]
+        self.mpcc_rotor_thrust_publisher.publish(msg)
 
     def _record_speed_sample(self, current_state: np.ndarray) -> None:
         """Accumulate speed stats and print them every fixed interval."""
