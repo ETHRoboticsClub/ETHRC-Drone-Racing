@@ -48,5 +48,14 @@ src/mpcc_pp/c_generated_code/*
 src/mpcc_pp/logs/*
 !src/mpcc_pp/logs/.gitkeep
 
+src/mpcc_pp/mpcc_pp/c_generated_code/*
+!src/mpcc_pp/mpcc_pp/c_generated_code/.gitkeep
+
+src/mpcc_pp/mpcc_pp/logs/*
+!src/mpcc_pp/mpcc_pp/logs/.gitkeep
+
+# ACADOS generated OCP descriptions
+*_acados_ocp.json
+
 .codex
 .claude
