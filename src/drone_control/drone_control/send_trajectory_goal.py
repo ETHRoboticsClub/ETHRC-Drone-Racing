@@ -16,6 +16,14 @@ import os
 # a parameter file, but for a single file example, we'll hardcode or use a CLI arg.
 DEFAULT_CONFIG_PATH = os.path.expanduser('~/ros_ws/src/drone_control/config/waypoints_config.yaml') 
 
+
+def _ned_to_enu_position(north: float, east: float, down: float) -> tuple[float, float, float]:
+    return east, north, -down
+
+
+def _ned_yaw_to_enu_yaw_rad(yaw_deg: float) -> float:
+    return math.radians(90.0 - yaw_deg)
+
 class DroneWaypointGoalClient(Node):
     def __init__(self, config_path=DEFAULT_CONFIG_PATH):
         super().__init__('drone_waypoint_goal_client')
@@ -91,8 +99,10 @@ class DroneWaypointGoalClient(Node):
         
         waypoints_list = []
         for wp in self.waypoints_data:
-            # 1. Convert Yaw to Quaternion
-            yaw_rad = math.radians(wp['yaw_deg'])
+            # Waypoint YAML is in NED. FollowWaypoints PoseStamped goals are ROS ENU.
+            east, north, up = _ned_to_enu_position(
+                float(wp['x']), float(wp['y']), float(wp['z']))
+            yaw_rad = _ned_yaw_to_enu_yaw_rad(wp.get('yaw_deg', 0.0))
             q = self.euler_to_quaternion(0.0, 0.0, yaw_rad)
             
             # 2. Create PoseStamped message
@@ -104,15 +114,15 @@ class DroneWaypointGoalClient(Node):
             # represented by a time offset. The time_from_beginning field 
             # is assumed to be in seconds.
             # We convert seconds to ROS 2 time message fields (sec, nanosec).
-            total_sec = wp['time_from_beginning']
+            total_sec = wp.get('time_from_beginning', 0.0)
             pose.header.stamp.sec = int(total_sec)
             pose.header.stamp.nanosec = int((total_sec - int(total_sec)) * 1e9)
             # The receiver (Action Server) must interpret this stamp as a desired
             # time offset from when the goal was received/started.
 
-            pose.pose.position.x = float(wp['x'])
-            pose.pose.position.y = float(wp['y'])
-            pose.pose.position.z = float(wp['z'])
+            pose.pose.position.x = east
+            pose.pose.position.y = north
+            pose.pose.position.z = up
             pose.pose.orientation = q
             
             waypoints_list.append(pose)

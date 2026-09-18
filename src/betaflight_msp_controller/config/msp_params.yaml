@@ -1,0 +1,10 @@
+msp_bridge_node:
+  ros__parameters:
+    port: "/dev/ttyTHS1"
+    baudrate: 1500000
+    attitude_cmd_topic: "/drone_attitude_cmd"
+    rc_override_topic: "/multiwii/rc/override"
+    max_rate_deg_s: 500.0
+    roll_rate_sign: -1.0
+    pitch_rate_sign: -1.0
+    yaw_rate_sign: 1.0

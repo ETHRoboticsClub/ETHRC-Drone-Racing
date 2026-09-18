@@ -28,18 +28,28 @@ cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
 ## Terminal 2
 Build ROS, then launch the drone controller
 ```bash
-sudo colcon build
+colcon build --packages-select drone_control
 source install/setup.bash
 ros2 launch drone_control drone_controller.launch.py
 ```
 
+If you only changed `drone_control`, this rebuild is sufficient. You can also use symlink install for faster iteration:
+```bash
+colcon build --packages-select drone_control --symlink-install
+source install/setup.bash
+```
+
 ## Terminal 3
-Send the goal to lift off (x=0, y=0, z<=-2)
+Send manual pose goals after setting `waypoints_file: ""` in `src/drone_control/config/drone_controller_config.yaml`.
+This disables the default trajectory so the drone will wait for explicit target poses.
 ```bash
 source install/setup.bash
-# pose goal
-ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -2.0 -yaw 0.0
-# traj goal
+ros2 run drone_control send_pose_goal
+```
+Then follow the interactive prompt to enter `x`, `y`, `z`, and `yaw` for each new target.
+
+If you want to run a full trajectory goal sequence instead, use:
+```bash
 ros2 run drone_control send_trajectory_goal goal_only
 ```
 

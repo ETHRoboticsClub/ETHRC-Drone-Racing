@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ETHRC Drone Groundstation</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #000000;
+      --surface:     #080808;
+      --border:      #1c1c1c;
+      --border-hi:   #000000;
+      --text:        #ffffff;
+      --muted:       #ffffff;
+      --warn:        #ff3b3b;
+    }
+    
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border-hi);
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 90px;
+    }
+
+    .header-bg {
+      position: absolute;
+      inset: 0;
+      background-image: url('/static/images/drone_top_down.webp');
+      background-size: cover;
+      background-position: center 40%;
+      opacity: 0.07;
+      pointer-events: none;
+    }
+
+    .header-left {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* ETHRC wordmark — inline SVG, paths from ETHRC_primary_w_blackbg.svg */
+    .ethrc-logo {
+      height: 32px;
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    .header-divider {
+      width: 1px;
+      height: 28px;
+      background: var(--border-hi);
+    }
+
+    .header-subtitle {
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .header-right {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #status {
+      font-size: 9px;
+      letter-spacing: 2px;
+      padding: 5px 14px;
+      border: 1px solid var(--border-hi);
+      color: var(--muted);
+      text-transform: uppercase;
+      transition: border-color 0.3s, color 0.3s;
+    }
+    #status.connected    { border-color: var(--text); color: var(--text); }
+    #status.disconnected { border-color: #2a2a2a; color: #333; }
+
+    /* ── Main grid ── */
+    .main {
+      flex: 1;
+      padding: 1px;
+      background: var(--border-hi);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1px;
+    }
+
+    .card {
+      background: var(--bg);
+      padding: 18px 20px;
+    }
+
+    .card h2 {
+      font-size: 8px;
+      font-weight: normal;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      color: var(--muted);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 3px 0;
+    }
+
+    .label { color: var(--muted); }
+    .value { color: var(--text); text-align: right; font-weight: bold; letter-spacing: 0.5px; }
+    .value.warn { color: var(--warn); }
+    .value.ok   { color: var(--text); }
+    .stale { opacity: 0.2; }
+
+    /* ── Footer ── */
+    .footer {
+      border-top: 1px solid var(--border-hi);
+      padding: 10px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-bg"></div>
+
+    <div class="header-left">
+      <!-- ETHRC wordmark (white paths, no background) -->
+      <svg class="ethrc-logo" viewBox="350 200 1655 330" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- E -->
+        <path d="M366 214H635V267H366V214Z" fill="white"/>
+        <path d="M366 337H635V390H366V337Z" fill="white"/>
+        <path d="M366 461H635V514H366V461Z" fill="white"/>
+        <!-- T -->
+        <path d="M703 214H976V267H703V214Z" fill="white"/>
+        <path d="M866 214V514H813V214H866Z" fill="white"/>
+        <!-- H -->
+        <path d="M1050 336H1316V389H1050V336Z" fill="white"/>
+        <path d="M1096 214V514H1043V214H1096Z" fill="white"/>
+        <path d="M1316 214V514H1263V214H1316Z" fill="white"/>
+        <!-- R -->
+        <path d="M1530.55 374.447L1577.26 348.546L1668.33 514.102L1604.9 514.103L1530.55 374.447Z" fill="white"/>
+        <path d="M1572.06 214C1619.52 214 1658 253.399 1658 302C1658 350.601 1619.52 390 1572.06 390H1539V337H1572.06C1590.31 337 1605.11 320.693 1605.11 302C1605.11 283.307 1590.26 267.609 1572 267.609H1539V214H1572.06Z" fill="white"/>
+        <path d="M1385 337H1552V390H1385V337Z" fill="white"/>
+        <path d="M1385 214H1544V267H1385V214Z" fill="white"/>
+        <path d="M1385 337H1438V514H1385V337Z" fill="white"/>
+        <!-- C -->
+        <path d="M1812.61 514C1757.04 514 1712 469.228 1712 414V314C1712 258.772 1757.04 214 1812.61 214H1987V267.333H1812.61C1786.68 267.333 1765.66 288.227 1765.66 314V414C1765.66 439.773 1786.68 460.667 1812.61 460.667H1987V514H1812.61Z" fill="white"/>
+      </svg>
+
+      <div class="header-divider"></div>
+      <div class="header-subtitle">Drone Groundstation<br>Live Telemetry</div>
+    </div>
+
+    <div class="header-right">
+      <div id="status">CONNECTING</div>
+    </div>
+  </div>
+
+  <!-- Telemetry grid -->
+  <div class="main">
+    <div class="grid" id="grid">
+
+      <div class="card" id="card-battery">
+        <h2>Battery</h2>
+        <div class="row"><span class="label">Voltage</span><span class="value" id="bat-v">—</span></div>
+        <div class="row"><span class="label">Charge</span><span class="value" id="bat-pct">—</span></div>
+      </div>
+
+      <div class="card" id="card-throttle">
+        <h2>Throttle</h2>
+        <div class="row"><span class="label">Throttle</span><span class="value" id="thr">—</span></div>
+      </div>
+
+      <div class="card" id="card-imu">
+        <h2>IMU — Orientation</h2>
+        <div class="row"><span class="label">x</span><span class="value" id="imu-ox">—</span></div>
+        <div class="row"><span class="label">y</span><span class="value" id="imu-oy">—</span></div>
+        <div class="row"><span class="label">z</span><span class="value" id="imu-oz">—</span></div>
+        <div class="row"><span class="label">w</span><span class="value" id="imu-ow">—</span></div>
+      </div>
+
+      <div class="card" id="card-angvel">
+        <h2>IMU — Angular Velocity (rad/s)</h2>
+        <div class="row"><span class="label">x</span><span class="value" id="imu-wx">—</span></div>
+        <div class="row"><span class="label">y</span><span class="value" id="imu-wy">—</span></div>
+        <div class="row"><span class="label">z</span><span class="value" id="imu-wz">—</span></div>
+      </div>
+
+      <div class="card" id="card-linacc">
+        <h2>IMU — Linear Acceleration (m/s²)</h2>
+        <div class="row"><span class="label">x</span><span class="value" id="imu-ax">—</span></div>
+        <div class="row"><span class="label">y</span><span class="value" id="imu-ay">—</span></div>
+        <div class="row"><span class="label">z</span><span class="value" id="imu-az">—</span></div>
+      </div>
+
+      <div class="card" id="card-attitude">
+        <h2>Attitude Command</h2>
+        <div class="row"><span class="label">Roll</span><span class="value" id="att-roll">—</span></div>
+        <div class="row"><span class="label">Pitch</span><span class="value" id="att-pitch">—</span></div>
+        <div class="row"><span class="label">Yaw</span><span class="value" id="att-yaw">—</span></div>
+        <div class="row"><span class="label">Thrust</span><span class="value" id="att-thrust">—</span></div>
+      </div>
+
+      <div class="card" id="card-target">
+        <h2>Current Target</h2>
+        <div class="row"><span class="label">x</span><span class="value" id="tgt-x">—</span></div>
+        <div class="row"><span class="label">y</span><span class="value" id="tgt-y">—</span></div>
+        <div class="row"><span class="label">z</span><span class="value" id="tgt-z">—</span></div>
+      </div>
+
+      <div class="card" id="card-poscmd">
+        <h2>Position Command</h2>
+        <div class="value" id="pos-cmd" style="word-break:break-all;">—</div>
+      </div>
+
+      <div class="card" id="card-rpm">
+        <h2>Motor RPM</h2>
+        <div id="rpm-values" class="value">—</div>
+      </div>
+
+      <div class="card" id="card-camera">
+        <h2>Camera</h2>
+        <div class="row"><span class="label">Resolution</span><span class="value" id="cam-res">—</span></div>
+        <div class="row"><span class="label">Distortion</span><span class="value" id="cam-dist">—</span></div>
+        <div class="row"><span class="label">Last frame</span><span class="value" id="cam-frame">—</span></div>
+        <div class="row"><span class="label">Encoding</span><span class="value" id="cam-enc">—</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span>ETHRC Aeronautics</span>
+    <span id="footer-time">—</span>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const footerTime = document.getElementById('footer-time');
+
+    setInterval(() => {
+      footerTime.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+    }, 1000);
+
+    function fmt(v, decimals = 3) {
+      return (v == null) ? '—' : Number(v).toFixed(decimals);
+    }
+
+    function set(id, text, cls) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      if (cls) el.className = 'value ' + cls;
+    }
+
+    function update(d) {
+      if (d.battery != null) {
+        const pct = d.battery.percentage;
+        set('bat-v', fmt(d.battery.voltage, 2) + ' V');
+        set('bat-pct', fmt(pct * 100, 1) + ' %', pct < 0.2 ? 'warn' : 'ok');
+      }
+      if (d.throttle != null) set('thr', fmt(d.throttle, 4));
+      if (d.imu != null) {
+        const { orientation: o, angular_velocity: w, linear_acceleration: a } = d.imu;
+        set('imu-ox', fmt(o.x)); set('imu-oy', fmt(o.y)); set('imu-oz', fmt(o.z)); set('imu-ow', fmt(o.w));
+        set('imu-wx', fmt(w.x)); set('imu-wy', fmt(w.y)); set('imu-wz', fmt(w.z));
+        set('imu-ax', fmt(a.x)); set('imu-ay', fmt(a.y)); set('imu-az', fmt(a.z));
+      }
+      if (d.attitude_cmd != null) {
+        const c = d.attitude_cmd;
+        set('att-roll', fmt(c.roll, 2)); set('att-pitch', fmt(c.pitch, 2));
+        set('att-yaw', fmt(c.yaw, 2)); set('att-thrust', fmt(c.thrust, 2));
+      }
+      if (d.current_target != null) {
+        set('tgt-x', fmt(d.current_target.x));
+        set('tgt-y', fmt(d.current_target.y));
+        set('tgt-z', fmt(d.current_target.z));
+      }
+      if (d.position_cmd != null) {
+        set('pos-cmd', '[' + d.position_cmd.map(v => fmt(v, 2)).join(', ') + ']');
+      }
+      if (d.motor_rpm != null) {
+        document.getElementById('rpm-values').innerHTML =
+          d.motor_rpm.map((r, i) =>
+            `<div class="row"><span class="label">M${i + 1}</span><span class="value">${fmt(r, 0)} RPM</span></div>`
+          ).join('');
+      }
+      if (d.camera_info != null) {
+        set('cam-res', d.camera_info.width + ' × ' + d.camera_info.height);
+        set('cam-dist', d.camera_info.distortion_model);
+      }
+      if (d.image != null) {
+        set('cam-frame', fmt(d.image.stamp, 2) + ' s');
+        set('cam-enc', d.image.encoding);
+      }
+    }
+
+    function connect() {
+      const ws = new WebSocket(`ws://${location.host}/ws`);
+      ws.onopen = () => {
+        statusEl.textContent = 'CONNECTED';
+        statusEl.className = 'connected';
+      };
+      ws.onmessage = (e) => {
+        try { update(JSON.parse(e.data)); } catch (_) {}
+      };
+      ws.onclose = () => {
+        statusEl.textContent = 'DISCONNECTED';
+        statusEl.className = 'disconnected';
+        setTimeout(connect, 2000);
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>

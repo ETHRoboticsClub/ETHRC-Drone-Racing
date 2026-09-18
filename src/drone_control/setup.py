@@ -34,6 +34,7 @@ setup(
             'send_pose_goal = drone_control.send_pose_goal:main',
             'send_trajectory_goal = drone_control.send_trajectory_goal:main',
             'waypoint_visualizer = drone_control.waypoint_visualizer:main',
+            'state_bridge_node = drone_control.state_bridge_node:main',
         ],
     },
 )

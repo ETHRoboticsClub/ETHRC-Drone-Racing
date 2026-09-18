@@ -47,6 +47,18 @@ class DronePositionNedController(ControllerInterface):
         self.t_H = t_H
         self.Nnodes = Nnodes
 
+    @classmethod
+    def from_config(cls, config):
+        """
+        Factory method to instantiate DronePositionNedController from config dict.
+        
+        For position_ned mode, the config is typically empty.
+        Uses default horizon and node parameters.
+        """
+        t_H = config.get('t_horizon', 1.0)
+        Nnodes = config.get('n_nodes', 10)
+        return cls(t_H=t_H, Nnodes=Nnodes)
+
     def initialize(self) -> None:
         """No initialization required."""
         pass
