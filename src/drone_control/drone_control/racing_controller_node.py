@@ -282,6 +282,8 @@ class DroneController(Node):
         self.declare_parameter('position_command_topic', '/drone_position_cmd')
         self.declare_parameter('controller_rate', 100.0)
         self.declare_parameter('verbose_input', False)
+        self.declare_parameter('model_logging', False)
+        self.declare_parameter('residual_model_path', '')
         self.declare_parameter('print_mpc_inputs', False)
         self.declare_parameter('mpc_input_debug_interval_sec', 1.0)
         self.declare_parameter('speed_report_interval_sec', 5.0)
@@ -318,6 +320,8 @@ class DroneController(Node):
         position_command_topic = self.get_parameter('position_command_topic').get_parameter_value().string_value
         self.control_rate = self.get_parameter('controller_rate').get_parameter_value().double_value
         self._verbose = self.get_parameter('verbose_input').get_parameter_value().bool_value
+        self._model_logging = self.get_parameter('model_logging').get_parameter_value().bool_value
+        self._residual_model_path = self.get_parameter('residual_model_path').get_parameter_value().string_value
         self._print_mpc_inputs = self.get_parameter('print_mpc_inputs').get_parameter_value().bool_value
         self._mpc_input_debug_interval_s = max(
             0.1,
@@ -408,6 +412,14 @@ class DroneController(Node):
         self.get_logger().info(f'Using controller: {controller_class.__name__}')
         if hasattr(self.controller, 'verbose'):
             self.controller.verbose = self._verbose
+        if self._model_logging and isinstance(self.controller, _MPCC_CLASSES):
+            self.controller.enable_model_logging()
+            self.get_logger().info('Model-validation logging enabled')
+        if self._residual_model_path and isinstance(self.controller, _MPCC_CLASSES):
+            if hasattr(self.controller, 'enable_residual_correction'):
+                self.controller.enable_residual_correction(self._residual_model_path)
+                self.get_logger().info(
+                    f'Residual correction enabled: {self._residual_model_path}')
         # ──────────────────────────────────────────────────────────────────
 
         self.controller_rate = self.create_rate(self.control_rate)

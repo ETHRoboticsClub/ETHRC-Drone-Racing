@@ -34,6 +34,7 @@ import casadi as ca
 from acados_template import AcadosModel
 
 from .parameters import get_section, load_mpcc_pp_parameters
+from .paper_residual_model import PaperResidualLinearModel
 
 
 def _array_param(value, default, length: int, name: str) -> np.ndarray:
@@ -89,6 +90,7 @@ class DroneMpccPpModel:
         if model_params is None:
             model_params = get_section(load_mpcc_pp_parameters(), 'model')
         physical = model_params.get('physical', {}) or {}
+        residual_cfg = model_params.get('residual', {}) or {}
         constraint_params = model_params.get('constraints', {}) or {}
 
         self.MASS = float(physical.get('mass_kg', self.MASS))
@@ -125,6 +127,14 @@ class DroneMpccPpModel:
         self.DRAG = _array_param(
             physical.get('drag_coefficients'), self.DRAG, 3,
             'model.physical.drag_coefficients')
+        self._paper_residual_model: PaperResidualLinearModel | None = None
+        if bool(residual_cfg.get('enabled', False)):
+            coeffs_path = str(residual_cfg.get('coefficients_path', '')).strip()
+            if not coeffs_path:
+                raise ValueError(
+                    "model.residual.enabled is true but model.residual.coefficients_path is empty"
+                )
+            self._paper_residual_model = PaperResidualLinearModel.load(coeffs_path)
 
         # ── State symbols ──────────────────────────────────────────────
         p  = ca.MX.sym('p',  3)   # position (NED)
@@ -210,6 +220,61 @@ class DroneMpccPpModel:
             (M_vec[2] - w_cross_Iw[2]) / self.I_ZZ,
         )
 
+        # Optional paper-style residual augmentation:
+        # learn body-frame acceleration / angular-acceleration corrections
+        # from the polynomial structure proposed in MPCC++ and inject them
+        # directly into the OCP dynamics.
+        if self._paper_residual_model is not None:
+            residual_model = self._paper_residual_model
+            v_body = R_bn.T @ v
+            vx_b, vy_b, vz_b = v_body[0], v_body[1], v_body[2]
+            mean_thrust = (f0 + f1 + f2 + f3) / 4.0
+            if residual_model.omega_sq_source == 'mean_thrust':
+                omega_sq = mean_thrust
+            elif residual_model.omega_sq_source == 'thrust_over_kf':
+                kf = residual_model.rotor_force_constant
+                if kf is None or kf <= 0.0:
+                    raise ValueError(
+                        "Paper residual model requires a positive rotor_force_constant"
+                    )
+                omega_sq = mean_thrust / float(kf)
+            else:
+                raise ValueError(
+                    "Unsupported omega_sq_source in paper residual model: "
+                    f"{residual_model.omega_sq_source!r}"
+                )
+
+            vxy_b = ca.sqrt(vx_b**2 + vy_b**2 + 1e-8)
+
+            phi_ax = ca.vertcat(vx_b, vx_b**3, omega_sq, vx_b * omega_sq)
+            phi_ay = ca.vertcat(vy_b, vy_b**3, omega_sq, vy_b * omega_sq)
+            phi_az = ca.vertcat(
+                vz_b,
+                vz_b**3,
+                vxy_b,
+                vxy_b**2,
+                vxy_b * omega_sq,
+                vz_b * omega_sq,
+                vxy_b * vz_b * omega_sq,
+            )
+            phi_wx = ca.vertcat(vy_b, omega_sq, vy_b * omega_sq)
+            phi_wy = ca.vertcat(vx_b, omega_sq, vx_b * omega_sq)
+            phi_wz = ca.vertcat(vx_b, vy_b)
+
+            accel_res_body = ca.vertcat(
+                ca.dot(ca.DM(residual_model.coefficients['ax']), phi_ax),
+                ca.dot(ca.DM(residual_model.coefficients['ay']), phi_ay),
+                ca.dot(ca.DM(residual_model.coefficients['az']), phi_az),
+            )
+            angular_res_body = ca.vertcat(
+                ca.dot(ca.DM(residual_model.coefficients['wx']), phi_wx),
+                ca.dot(ca.DM(residual_model.coefficients['wy']), phi_wy),
+                ca.dot(ca.DM(residual_model.coefficients['wz']), phi_wz),
+            )
+
+            v_dot = v_dot + R_bn @ accel_res_body
+            w_dot = w_dot + angular_res_body
+
         # 5) Rotor dynamics: ḟ = Δf  (first-order model, eq. 16)
         f_dot = df
 
@@ -276,6 +341,10 @@ class DroneMpccPpModel:
             'rotor_y_m': self.ROTOR_PY.tolist(),
             'rotor_km': self.ROTOR_KM.tolist(),
             'drag_coefficients': self.DRAG.tolist(),
+            'paper_residual_model': (
+                None if self._paper_residual_model is None
+                else self._paper_residual_model.to_dict()
+            ),
         }
 
         print(f"DroneMpccPpModel: nx={self.nx}, nu={self.nu}")

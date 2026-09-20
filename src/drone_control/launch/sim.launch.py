@@ -11,13 +11,17 @@ ENABLE_RVIZ        = True    # RViz2 waypoint/trajectory visualizer
 ENABLE_PLOTJUGGLER = False   # PlotJuggler real-time signal plotter
 VERBOSE_INPUT      = False   # Print verbose input information
 # ──────────────────────────────────────────────────────────────────────────────
+# ── Data collection & residual correction ─────────────────────────────────────
+MODEL_LOGGING         = False  # Log (x,u,x_pred,x_real) pairs to CSV for model validation
+RESIDUAL_MODEL_PATH   = ''     # Path to residual_model.pt -- empty = disabled
+# ──────────────────────────────────────────────────────────────────────────────
 
 
 def generate_launch_description():
 
     pkg = FindPackageShare('drone_control')
     controller_launch = PythonLaunchDescriptionSource(
-        PathJoinSubstitution([pkg, 'launch', 'drone_controller.launch.py']))
+        PathJoinSubstitution([pkg, 'launch', 'racing_controller.launch.py']))
 
     own_simulator_controller = IncludeLaunchDescription(
         controller_launch,
@@ -26,6 +30,8 @@ def generate_launch_description():
             'waypoints_file':  LaunchConfiguration('waypoints_file'),
             'plotjuggler':     LaunchConfiguration('plotjuggler'),
             'verbose_input':   LaunchConfiguration('verbose_input'),
+            'model_logging':   LaunchConfiguration('model_logging'),
+            'residual_model_path': LaunchConfiguration('residual_model_path'),
             'simulation_mode': 'true',
             'use_mavsdk': 'false',
             'state_topic': '/mpcc_pp/sim_state',
@@ -44,6 +50,8 @@ def generate_launch_description():
             'waypoints_file':  LaunchConfiguration('waypoints_file'),
             'plotjuggler':     LaunchConfiguration('plotjuggler'),
             'verbose_input':   LaunchConfiguration('verbose_input'),
+            'model_logging':   LaunchConfiguration('model_logging'),
+            'residual_model_path': LaunchConfiguration('residual_model_path'),
             'simulation_mode': 'true',
             'use_mavsdk': LaunchConfiguration('use_mavsdk'),
             'state_topic': 'drone_state_sim',
@@ -71,6 +79,12 @@ def generate_launch_description():
             description='Legacy PX4/Gazebo MPC hover time before MPCC racing'),
         DeclareLaunchArgument('rviz', default_value='true' if ENABLE_RVIZ else 'false',
             description='Launch RViz2 alongside the visualizer'),
+        DeclareLaunchArgument('model_logging',
+            default_value='true' if MODEL_LOGGING else 'false',
+            description='Log (x,u,x_pred,x_real) pairs to CSV in mpcc_pp/data'),
+        DeclareLaunchArgument('residual_model_path',
+            default_value=RESIDUAL_MODEL_PATH,
+            description='Path to residual_model.pt -- empty string to disable'),
         DeclareLaunchArgument('verbose_input',
             default_value='true' if VERBOSE_INPUT else 'false',
             description='Print thrust and body-rate debug info from MPCC and the publish step'),

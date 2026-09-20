@@ -29,6 +29,8 @@ Constraint is active in the OCP.  When `waypoints` are provided
 Track Constraint is effectively disabled (W=H=1000 m by default).
 """
 
+import time
+
 import numpy as np
 from mavsdk.offboard import AttitudeRate
 from interfaces import ControllerInterface
@@ -36,6 +38,12 @@ from interfaces import ControllerInterface
 from .drone_model import DroneMpccModel
 from .drone_opt import DroneOptimizerMpcc
 from .path_utils import RacingPath, GatedRacingPath
+
+try:
+    from mpcc_pp.model_logger import ModelValidationLogger as _ModelValidationLogger
+    _LOGGER_CLS = _ModelValidationLogger
+except ImportError:
+    _LOGGER_CLS = None
 
 _MAX_RATE_DEG = 200.0   # safety clip for attitude-rate output [deg/s]
 
@@ -156,6 +164,10 @@ class DroneMpccController(ControllerInterface):
         # Debug flag — set externally (e.g. from drone_controller_node via VERBOSE_INPUT)
         self.verbose: bool = False
 
+        # Model-validation logger — activated by drone_controller_node when
+        # the model_logging parameter is True.
+        self._logger = None
+
         # Normalised hover thrust for fallback commands
         self._hover_thrust_norm = float(
             self._model.MASS * self._model.G / (4.0 * self._model.F_MAX))
@@ -179,6 +191,22 @@ class DroneMpccController(ControllerInterface):
         print(f"[DroneMpccController] Optimizer ready. "
               f"Path: {mode}, length: {self._path.total_length:.2f} m")
 
+    def enable_model_logging(self, data_dir: str | None = None) -> None:
+        """Activate model-validation CSV logging.  Safe to call multiple times."""
+        if _LOGGER_CLS is None:
+            print('[DroneMpccController] model_logging requested but mpcc_pp package '
+                  'not available — logging disabled.')
+            return
+        if self._logger is not None:
+            self._logger.close()
+        self._logger = _LOGGER_CLS(data_dir=data_dir)
+
+    def disable_model_logging(self) -> None:
+        """Deactivate and close the model-validation logger."""
+        if self._logger is not None:
+            self._logger.close()
+            self._logger = None
+
     def reset(self) -> None:
         """Reset path progress and warm-start state before a new run."""
         self._theta = 0.0
@@ -193,6 +221,8 @@ class DroneMpccController(ControllerInterface):
             self._needs_start_position = True
         if self._opt is not None:
             self._opt._warm = False
+        if self._logger is not None:
+            self._logger.reset()
 
     def controller_update(self, x_current: np.ndarray,
                           goal_position: np.ndarray) -> AttitudeRate:
@@ -355,6 +385,8 @@ class DroneMpccController(ControllerInterface):
         matrix for the Track-Constraint OCP.  For plain RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
+        step_time = time.monotonic()
+
         # On the first call in gate-based mode: rebuild path with drone start
         # position so the reference trajectory begins at the drone, not gate 1.
         if self._needs_start_position:
@@ -407,6 +439,9 @@ class DroneMpccController(ControllerInterface):
         # Solve MPCC OCP
         u_opt, x_pred, info = self._opt.solve(x_aug, stage_params)
         self._last_x_pred = x_pred   # expose for debug / visualisation
+
+        if self._logger is not None:
+            self._logger.record(step_time, x_aug, u_opt, x_pred[1], x_ext)
 
         self._debug_counter += 1
         if self.verbose and self._debug_counter % 50 == 0:
