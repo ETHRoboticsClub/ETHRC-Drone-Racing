@@ -22,7 +22,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
+try:
+    from tqdm import tqdm
+except ImportError:
+    # tqdm is only used by the training loop (train_one_epoch); inference
+    # callers (detector_node) don't need it. Degrade to a no-op so this
+    # module imports cleanly when tqdm isn't installed.
+    def tqdm(iterable, *_args, **_kwargs):
+        return iterable
 
 
 IMG_SIZE   = 384

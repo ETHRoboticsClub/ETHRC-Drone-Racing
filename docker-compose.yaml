@@ -5,6 +5,9 @@ services:
       context: .
       dockerfile: docker/untracked/Dockerfile.base
       target: shared-perception-controls-deps
+      network: host
+      args:
+        BASE_IMAGE: ros:humble-ros-base
     image: 916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
 
   dev:
@@ -46,6 +49,8 @@ services:
       - ./.git:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/.git
       # Mount scripts directory
       - ./scripts:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/scripts:rw
+      # Mount external model/policy folder
+      - ./ext:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/ext:ro
       # # Mount other useful directories
       # - ./bags_ros2:/home/${CONTAINER_USERNAME:-drone_dev}/bags_ros2:ro
       # - ./results:/home/${CONTAINER_USERNAME:-drone_dev}/results:rw

@@ -25,9 +25,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'checkpoints'), glob('checkpoints/*.pth')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -39,6 +39,7 @@ setup(
     entry_points={
         'console_scripts': [
             'detector_node = gate_detection.detector_node:main',
+            'detector_node_v34 = gate_detection.detector_node_v34:main',
             'inference_standalone = gate_detection.scripts.inference_standalone:main',
             'viewer_standalone = gate_detection.scripts.viewer_standalone:main',
         ],

@@ -51,7 +51,10 @@ public:
     port_ = static_cast<uint16_t>(declare_parameter<int>("udp_port", 5600));
     bind_address_ = declare_parameter<std::string>("udp_bind_address", "0.0.0.0");
     frame_id_ = declare_parameter<std::string>("frame_id", "cam0");
-    use_sim_timestamp_ = declare_parameter<bool>("use_sim_timestamp", true);
+    // Camera packets carry server epoch time while HIGHRES_IMU carries simulator
+    // boot time. Until those clocks are explicitly synchronized, local receive
+    // time is the only coherent ROS timebase for IMU/vision fusion.
+    use_sim_timestamp_ = declare_parameter<bool>("use_sim_timestamp", false);
     declare_parameter<int>("width", 640);
     declare_parameter<int>("height", 360);
     build_camera_info();
@@ -164,6 +167,12 @@ private:
     const uint32_t payload_size = h.payload_size;
     const uint64_t sim_time_ns = h.sim_time_ns;
 
+    // Revision 3390 transmits every completed frame twice with the same id.
+    // Once published, never recreate that frame from its duplicate packet set.
+    if (static_cast<int64_t>(frame_id) <= last_published_frame_id_) {
+      return;
+    }
+
     if (sizeof(PacketHeader) + payload_size > len) {
       RCLCPP_WARN_THROTTLE(
         get_logger(), *get_clock(), 1000, "Dropped packet: payload truncated");
@@ -188,7 +197,8 @@ private:
     if (fb.chunks.size() >= fb.total_chunks) {
       FrameBuffer done = std::move(fb);
       frames_.erase(frame_id);
-      publish_frame(done);
+      last_published_frame_id_ = frame_id;
+      publish_frame(done, now());
     }
   }
 
@@ -199,7 +209,7 @@ private:
     }
   }
 
-  void publish_frame(const FrameBuffer & fb)
+  void publish_frame(const FrameBuffer & fb, const rclcpp::Time & receipt_stamp)
   {
     const bool want_mono = image_raw_pub_->get_subscription_count() > 0;
     const bool want_rgb = image_rgb_pub_->get_subscription_count() > 0;
@@ -226,7 +236,7 @@ private:
 
     const rclcpp::Time stamp = use_sim_timestamp_
       ? rclcpp::Time(static_cast<int64_t>(fb.sim_time_ns))
-      : now();
+      : receipt_stamp;
 
     if (want_mono) {
       image_raw_pub_->publish(to_image(bgr, "mono8", 1, cv::COLOR_BGR2GRAY, stamp));
@@ -262,7 +272,7 @@ private:
 
   std::string bind_address_;
   std::string frame_id_;
-  bool use_sim_timestamp_{true};
+  bool use_sim_timestamp_{false};
   uint16_t port_{5600};
   int fd_{-1};
   std::atomic<bool> running_{false};
@@ -270,6 +280,7 @@ private:
 
   std::map<uint32_t, FrameBuffer> frames_;
   int64_t latest_frame_id_{-1};
+  int64_t last_published_frame_id_{-1};
 
   sensor_msgs::msg::CameraInfo info_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_raw_pub_;

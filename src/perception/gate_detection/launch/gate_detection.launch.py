@@ -42,7 +42,7 @@ def generate_launch_description():
         ),
         Node(
             package='gate_detection',
-            executable='detector_node',
+            executable='detector_node_v34',
             name='gate_detector_node',
             output='screen',
             parameters=[{

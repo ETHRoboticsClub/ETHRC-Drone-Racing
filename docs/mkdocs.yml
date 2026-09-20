@@ -95,6 +95,7 @@ nav:
     - Betaflight MSP Control: controls/msp_control.md
     - Manual Betaflight Config: controls/betaflight_manual_config.md
     - MAVSDK: controls/mavsdk.md
+    - AIGP Simulation: controls/aigp_simulation.md
     - MPC: controls/mpc.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md

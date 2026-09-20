@@ -29,8 +29,11 @@ setup(
     entry_points={
         'console_scripts': [
             'drone_controller_node = drone_control.drone_controller_node:main',
+            'aigp_characterization = drone_control.aigp_characterization:main',
             'send_pose_goal = drone_control.send_pose_goal:main',
             'send_trajectory_goal = drone_control.send_trajectory_goal:main',
+            'teleop_keyboard_node = drone_control.teleop_keyboard_node:main',
+            'estimator_visualizer_node = drone_control.estimator_visualizer_node:main',
         ],
     },
 )
