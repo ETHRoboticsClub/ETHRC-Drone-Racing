@@ -5,9 +5,9 @@ aigp_vision_driver_node:
     width: 640
     height: 360
     frame_id: "cam0"
-    # When true, stamp images with the simulator clock (sim_time_ns from the
-    # packet header) so they share a timebase with the IMU stream for VIO.
-    use_sim_timestamp: true
+    # Revision 3390 uses server epoch ns here but boot-relative us for IMU.
+    # Stamp both at local receipt until explicit TIMESYNC conversion is wired.
+    use_sim_timestamp: false
 
     # Pinhole camera, no lens distortion (spec VADR-TS-002 sec. 3.8):
     #   resolution 640x360, [cx, cy] = [320, 180], [fx, fy] = [320, 320].

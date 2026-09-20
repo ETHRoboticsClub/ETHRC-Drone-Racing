@@ -18,6 +18,7 @@ from geometry_msgs.msg import PoseStamped, Pose
 from mavsdk.offboard import AttitudeRate, PositionNedYaw
 from rl.drone_rl_controller import DroneRLController
 from mpc.drone_mpc_controller import DroneMpcController
+from drone_control.random_controller import DroneRandomController
 from interfaces import ControllerInterface
 
 # general
@@ -100,6 +101,9 @@ class DroneController(Node):
         if controller_type == 'mpc':
             self.controller = DroneMpcController()
             self.get_logger().info("Using MPC Controller")
+        elif controller_type == 'random':
+            self.controller = DroneRandomController()
+            self.get_logger().info("Using Random Controller")
         else:
             self.controller = DroneRLController()
             self.get_logger().info("Using RL Controller")

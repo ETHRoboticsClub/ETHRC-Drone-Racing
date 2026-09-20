@@ -24,6 +24,12 @@
       "dockerfile": "docker/Dockerfile",
       "target": "mpc",
       "trigger_paths": ["docker/Dockerfile", "src/mpc/", "src/drone_control/", "src/utils/", "src/my_mavsdk/"]
+    },
+    {
+      "image_name": "aigp",
+      "dockerfile": "docker/Dockerfile",
+      "target": "dev",
+      "trigger_paths": ["docker/Dockerfile", "src/", "launch/", "docker-compose.yaml"]
     }
   ]
 }
