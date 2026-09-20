@@ -13,6 +13,9 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'config'), glob('config/*')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*launch.[pxy][yma]*')),
+        (os.path.join('share', package_name, 'config'), glob('config/*')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools', 'mavsdk'],
     zip_safe=True,
@@ -28,6 +31,11 @@ setup(
     entry_points={
         'console_scripts': [
             'mavsdk_client = my_mavsdk.mavsdk_client:main',
+            'px4_imu_publisher = my_mavsdk.px4_imu_publisher_node:main',
+            'px4_attitude_rate_offboard = my_mavsdk.px4_attitude_rate_offboard_node:main',
+            'px4_motor_torque_publisher = my_mavsdk.px4_motor_torque_publisher_node:main',
+            'pid_tracking_monitor = my_mavsdk.pid_tracking_monitor_node:main',
+            'sin_thrust_publisher = my_mavsdk.sin_thrust_publisher_node:main',
         ],
     },
 )

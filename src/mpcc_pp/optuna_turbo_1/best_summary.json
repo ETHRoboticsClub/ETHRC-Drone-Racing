@@ -1,0 +1,34 @@
+{
+  "best_parameters_file": "src/mpcc_pp/optuna_turbo_1/best_parameters.yaml",
+  "best_params": {
+    "Qw": 0.0038316778904483933,
+    "R_df": 0.007025276669991555,
+    "mu": 19.267753166604766,
+    "qc_gate": 8.465832032119241,
+    "qc_gate_ratio": 1.0246919485776191,
+    "qc_nom": 8.261831318056819,
+    "ql": 0.306028828851725,
+    "r_dvt": 0.012516924583073291,
+    "track_weight": 2.534192834249805
+  },
+  "best_trial_number": 21,
+  "best_user_attrs": {
+    "crashed_repeats": 0,
+    "mean_missed_gates": 4.333333333333333,
+    "mean_progress": 1.0,
+    "mean_solver_fail_rate": 0.006979,
+    "metrics_file": "src/mpcc_pp/optuna_turbo_1/trial_00021/trial_metrics.json",
+    "missed_gates": 13,
+    "parameter_file": "src/mpcc_pp/optuna_turbo_1/trial_00021/parameters.yaml",
+    "repeat_aggregation": "mean",
+    "repeat_count": 3,
+    "repeat_rewards": [
+      816.7832999999999,
+      463.24260000000004,
+      678.7804
+    ],
+    "success": true,
+    "successful_repeats": 3
+  },
+  "best_value": 652.9354333333334
+}

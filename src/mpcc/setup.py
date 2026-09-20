@@ -1,0 +1,33 @@
+from setuptools import find_packages, setup
+
+package_name = 'mpcc'
+
+setup(
+    name=package_name,
+    version='0.0.1',
+    packages=find_packages(exclude=['test']),
+    package_data={
+        'mpcc': [
+            'acados_models/**',
+            'drone_mpcc_acados_ocp.json',
+        ],
+    },
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+    ],
+    install_requires=[
+        'setuptools',
+        'numpy',
+        'scipy',
+        'casadi',
+    ],
+    zip_safe=True,
+    maintainer='todo',
+    maintainer_email='todo@todo.com',
+    description='MPCC for drone racing',
+    license='TODO',
+    extras_require={'test': ['pytest']},
+    entry_points={'console_scripts': []},
+)

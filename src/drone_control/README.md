@@ -1,27 +1,78 @@
-# Building the package
+# Setup
 
-We need to downgrade the `setuptools` version we currently use
-```sh
-sudo python3 -m pip uninstall -y setuptools
-sudo python3 -m pip install setuptools==79.0.1
+Clone this branch recursively and build+run the docker container. When rebuilding, delete the old image and clear the cache (```docker system prune```).
+```bash
+git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
+cd ETHRC-Drone-Racing
+# Prepare host volumes
+./scripts/prepare_colcon_volumes.sh
+
+# Start the development container
+xhost +local:root
+docker compose up mpc -d
+docker compose exec mpc bash
+
+Open 4 terminals and enter the container in each one.
+```bash
+docker exec -it erc-aeronautics bash
 ```
 
-Install nav2 msgs
-```sh
-sudo apt install ros-humble-nav2-msgs
+### Simulation vs Hardware deployment
+Modify the [config](config/drone_controller_config.yaml) file to use the correct topic and message type for state updates, depending if we are on simulation or real hardware: 
+
+## Terminal 1
+Run gazebo
+```bash
+cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+```
+## Terminal 2
+Build ROS, then launch the drone controller
+```bash
+colcon build --packages-select drone_control
+source install/setup.bash
+ros2 launch drone_control drone_controller.launch.py
 ```
 
-# Fix port is bound:
-Disconnect from container and do this:
-```sh
-$ sudo lsof -i :50051
-COMMAND   PID       USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-code    62707 papaveneti   42u  IPv4 762084      0t0  TCP localhost:50051->localhost:39538 (CLOSE_WAIT)
-$ kill 62707 # copy the PID 
+If you only changed `drone_control`, this rebuild is sufficient. You can also use symlink install for faster iteration:
+```bash
+colcon build --packages-select drone_control --symlink-install
+source install/setup.bash
 ```
+
+## Terminal 3
+Send manual pose goals after setting `waypoints_file: ""` in `src/drone_control/config/drone_controller_config.yaml`.
+This disables the default trajectory so the drone will wait for explicit target poses.
+```bash
+source install/setup.bash
+ros2 run drone_control send_pose_goal
+```
+Then follow the interactive prompt to enter `x`, `y`, `z`, and `yaw` for each new target.
+
+If you want to run a full trajectory goal sequence instead, use:
+```bash
+ros2 run drone_control send_trajectory_goal goal_only
+```
+
+## Terminal 4
+If you wish to cancel a goal: 
+```bash
+source install/setup.bash
+ros2 run drone_control send_pose_goal cancel
+```
+This might cause bugs and it is therefore recommended to wait out goals instead of cancelling them unnecessarily.
+
+## Finally
+Now that the first goal has been set, in the PlotJuggler at "Layout", load ```src/drone_control/config/control_plotjuggler.xml```
+
+## Remarks
+- The drone starts from the ground. It is therefore necessary to ensure the first goal does not contain changes in the x and y coordinates which could lead to it leaning into the ground immediately.
+- The drone sometimes disarms itself automatically. If a pose goal is rejected by the server or the drone seems to not react, reactivate it with ```ros2 service call /arm_drone std_srvs/srv/SetBool "{data: true}"```
+
 
 # Run the node
-This runs the MPC controller node:
+This is part of the old README. Expect some parts to be redundant with the "Setup" section above.
+
+This runs the mpc controller && the plotjuggler visualization
 ```sh
 ros2 launch drone_control drone_controller.launch.py
 ```
@@ -54,7 +105,27 @@ Trajectory goals:
 ```sh
 ros2 run drone_control send_trajectory_goal goal_only
 ```
+04/03/2026 Temporary Update:
+To run the simulation toy need to:
 
+First terminal:
+```sh
+cd ~/ros_ws/px4/PX4-Autopilot && make px4_sitl gz_x500
+```
+Second terminal:
+```sh
+ros2 run drone_control drone_controller_node
+```
+
+Third terminal:
+```sh
+ros2 run my_mavsdk mavsdk_client
+```
+
+Fourth terminal:
+```sh
+ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z -1.0 -yaw 0.0
+```
 # Integration with GS and Perception - Seperate Package RoadMap:
 > flags: MWP: minimum working product/ done 
 

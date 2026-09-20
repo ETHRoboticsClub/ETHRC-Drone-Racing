@@ -1,0 +1,17 @@
+# waypoints.yaml
+# Waypoint positions for the drone controller (NED frame).
+# z is negative because NED Down axis points down (z = -1.0 → 1 m altitude).
+#
+# Figure-8 track at 1 m altitude.
+# Used by any controller that requires a pre-defined path (e.g. MPCC).
+
+waypoints:
+  - {x:  0.0, y:  0.0, z: -6.0} # Safe takeoff waypoint
+  - {x:  8.0, y:  8.0, z: -6.0}
+  - {x:  16.0, y:  0.0, z: -6.0}
+  - {x:  8.0, y: -8.0, z: -6.0}
+  - {x:  0.0, y:  0.0, z: -6.0}
+  - {x: -8.0, y:  8.0, z: -6.0}
+  - {x: -16.0, y:  0.0, z: -6.0}
+  - {x: -8.0, y: -8.0, z: -6.0}
+  - {x:  0.0, y:  0.0, z: -6.0}

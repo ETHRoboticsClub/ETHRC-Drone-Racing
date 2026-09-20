@@ -49,6 +49,10 @@ class DroneMpcController(ControllerInterface):
             self.drone_mass * self.gravity
         )
 
+        # Consumed by racing_controller_node's RViz horizon publishing.
+        self.horizon_publish_every = 10
+        self._last_x_pred = None
+
         if DEBUG_INFO_PRINTS:
             print(f"\n{'='*60}")
             print(f"Drone parameters:")
@@ -56,6 +60,13 @@ class DroneMpcController(ControllerInterface):
             print(f"  Hover thrust: {self.drone_mass * self.gravity:.2f} N")
             print(f"  Max thrust: {self.max_thrust:.2f} N")
             print(f"{'='*60}\n")
+
+    @classmethod
+    def from_config(cls, config):
+        """Instantiate from a config dict; MPC needs no waypoints."""
+        t_H = config.get('t_horizon', 1.5)
+        Nnodes = config.get('n_nodes', 15)
+        return cls(t_H=t_H, Nnodes=Nnodes)
 
     def initialize(self):
         """
@@ -106,6 +117,7 @@ class DroneMpcController(ControllerInterface):
         try:
             #TODO: bound solution time, ensure RT
             u0_raw, _, _, _ = self.opt.compute_control_once(self.x_current, self.goal_postion)
+            self._last_x_pred = getattr(self.opt, 'last_x_pred', None)
 
             if DEBUG_INFO_PRINTS:
                 self._debug_print(u0_raw)

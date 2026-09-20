@@ -1,0 +1,106 @@
+# MPCC++ Optuna tuning configuration.
+#
+# Run with:
+#
+#   ros2 run mpcc_pp mpcc_pp_optuna_tune --config src/mpcc_pp/mpcc_pp/tuning/optuna_config.yaml
+#
+# CLI flags can still override values from this file. For example:
+#
+#   ros2 run mpcc_pp mpcc_pp_optuna_tune \
+#     --config src/mpcc_pp/mpcc_pp/tuning/optuna_config.yaml \
+#     --n-trials 5 --stream-logs
+#
+# Keys use argparse-style names with underscores. Hyphenated CLI-style names
+# such as "n-trials" are also accepted.
+
+# Base MPCC++ controller parameter file. The tuner copies this for each trial,
+# patches in the sampled Optuna values, and passes the trial-specific file to
+# the controller through MPCC_PP_PARAMETERS_FILE.
+base_parameters: src/mpcc_pp/mpcc_pp/parameters.yaml
+
+# Directory for study.db, trial directories, logs, generated trial YAML files,
+# best_parameters.yaml, and best_summary.json.
+output_dir: src/mpcc_pp/optuna_turbo_1
+
+# Optuna study identity.
+# If study.db already exists with this study name, Optuna resumes it.
+study_name: optuna_turbo_1
+
+# Number of Optuna parameter vectors to evaluate. With repeats_per_trial: 3,
+# n_trials: 30 means 90 fresh simulator episodes.
+n_trials: 10
+
+# Optuna sampler: "tpe" is the robust default. "random" is a baseline.
+# "gp" requires an Optuna version that provides GPSampler.
+# "turbo" uses OptunaHub TuRBOSampler and requires optunahub, torch, and scipy.
+sampler: turbo
+seed: null
+
+# TuRBO sampler settings. These are used only when sampler: turbo.
+# null lets OptunaHub use its TuRBOSampler default.
+# n_startup_trials is the number of initial trials per trust region.
+n_startup_trials: 16
+n_trust_region: 8
+
+# PX4/Gazebo settings passed to mpcc_pp_gazebo_trial.
+px4_model: gz_zephyros
+
+# Startup timing for each fresh episode.
+# startup_timeout_s is how long to wait for readiness log patterns.
+# startup_delay_s is the extra delay before launching ROS after readiness.
+startup_timeout_s: 60.0
+startup_delay_s: 1.0
+
+# Gazebo/PX4 process behavior.
+# sim_speed_factor sets PX4_SIM_SPEED_FACTOR when not null. null explicitly
+# removes PX4_SIM_SPEED_FACTOR from the PX4 child environment so the simulator
+# runs at normal speed even if the parent shell exported a value earlier.
+sim_speed_factor: null
+
+# ROS launch settings passed to mpcc_pp_gazebo_trial.
+controller_type: mpcc_pp
+rviz: false
+
+# Episode and repeat settings.
+# laps_per_episode is the number of laps each fresh episode must complete.
+# repeats_per_trial is the number of fresh PX4/Gazebo episodes run for the same
+# Optuna candidate parameters.
+laps_per_episode: 3
+repeats_per_trial: 3
+
+# Reward aggregation across repeats:
+#   mean   penalizes unstable parameters because failed repeats keep -1e6
+#   median reduces sensitivity to one unlucky repeat
+#   min    optimizes worst-case repeat behavior
+repeat_aggregation: mean
+
+# Maximum wall-clock seconds for each episode repeat.
+timeout_s: 120.0
+
+# Reward parameters:
+#   complete:   reward = 1000 - sum(lap_times)
+#                        - gamma * solver_fail_rate
+#                        - missed_gate_penalty_multiplier * missed_gates
+#   incomplete: reward = 1000 * progress
+#                        - timeout_penalty_multiplier * timeout_s
+#                        - gamma * solver_fail_rate
+#                        - missed_gate_penalty_multiplier * missed_gates
+# max_solver_fail_rate turns high solver failure rates into a hard episode
+# failure.
+gamma: 100.0
+timeout_penalty_multiplier: 4.0
+missed_gate_penalty_multiplier: 70.0
+max_solver_fail_rate: 0.30
+
+# Mirror simulator output to the terminal. Leave false for normal tuning; use
+# true when debugging startup or controller behavior.
+stream_logs: false
+
+# Per-episode *.log retention policy:
+#   all     keeps episode.log, px4_gazebo.log, and ros_launch.log for every repeat
+#   failed  keeps those logs only when a repeat fails
+#   none    removes all repeat logs after metrics are parsed
+log_retention: failed
+
+# Write one center-point trial YAML and exit without launching the evaluator.
+dry_run: false

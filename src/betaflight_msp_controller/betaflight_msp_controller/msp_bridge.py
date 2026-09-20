@@ -28,6 +28,10 @@ class MspBridge(Node):
         self.declare_parameter('write_timeout_s', 0.0)
         self.declare_parameter('serial_warning_interval_s', 1.0)
         self.declare_parameter('joy_udp_port', 9010)
+        # RC rate sign inversion, from feature/mpc-main (axis orientation fix).
+        self.declare_parameter('roll_rate_sign', -1.0)
+        self.declare_parameter('pitch_rate_sign', -1.0)
+        self.declare_parameter('yaw_rate_sign', 1.0)
         
         self.port_name = self.get_parameter('port').value
         self.baudrate = self.get_parameter('baudrate').value
@@ -38,6 +42,9 @@ class MspBridge(Node):
         self.write_timeout_s = self.get_parameter('write_timeout_s').value
         self.serial_warning_interval_s = self.get_parameter('serial_warning_interval_s').value
         self.joy_udp_port = int(self.get_parameter('joy_udp_port').value)
+        self.roll_rate_sign = self.get_parameter('roll_rate_sign').value
+        self.pitch_rate_sign = self.get_parameter('pitch_rate_sign').value
+        self.yaw_rate_sign = self.get_parameter('yaw_rate_sign').value
         
         # RC State [Roll, Pitch, Throttle, Yaw, AUX1, AUX2, AUX3, AUX4]
         self.rc_channels = [1500, 1500, 1000, 1500, 1000, 1500, 1500, 1500]
@@ -81,7 +88,11 @@ class MspBridge(Node):
         # Timer (50Hz for RC heartbeat)
         self.timer = self.create_timer(0.02, self.timer_callback)
         
-        self.get_logger().info('MSP Bridge Initialized (Handles Joy and Attitude Cmd)')
+        self.get_logger().info(
+            'MSP Bridge Initialized (Handles Joy and Attitude Cmd); '
+            f'RC rate signs roll={self.roll_rate_sign:+.0f}, '
+            f'pitch={self.pitch_rate_sign:+.0f}, yaw={self.yaw_rate_sign:+.0f}'
+        )
 
     def attitude_cmd_callback(self, msg):
         if not self.use_override:
@@ -90,9 +101,9 @@ class MspBridge(Node):
             return
 
         # msg.data = [roll_rate, pitch_rate, yaw_rate, thrust]
-        roll_rate = msg.data[0]
-        pitch_rate = msg.data[1]
-        yaw_rate = msg.data[2]
+        roll_rate = self.roll_rate_sign * msg.data[0]
+        pitch_rate = self.pitch_rate_sign * msg.data[1]
+        yaw_rate = self.yaw_rate_sign * msg.data[2]
         thrust = msg.data[3]
 
         # Update RC stick channels (AETR)

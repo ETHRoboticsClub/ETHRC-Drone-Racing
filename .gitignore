@@ -84,3 +84,19 @@ scripts/perception/bag_analysis/
 
 # Local docker compose overrides (extra mounts etc.) — auto-loaded by compose
 docker-compose.override.yaml
+
+# ─── MPCC / MPCC++ (from feature/mpc-main) ───────────────────────────
+# ACADOS regenerates these on first solve; paths match the nested
+# ament_python layout (src/<pkg>/<pkg>/), not the flat one the branch had.
+src/mpcc/mpcc/c_generated_code/
+src/mpcc_pp/mpcc_pp/c_generated_code/
+src/mpcc/logs/
+src/mpcc_pp/logs/
+src/mpcc_pp/mpcc_pp/logs/
+src/mpc/logs/*
+!src/mpc/logs/.gitkeep
+
+# Optuna sweep output: keep best_parameters.yaml / best_summary.json,
+# drop the per-trial artifacts and the raw study database.
+src/mpcc_pp/optuna_turbo_1/trial_*/
+**/study.db

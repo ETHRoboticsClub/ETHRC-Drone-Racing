@@ -5,6 +5,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     # Package Directory
@@ -32,6 +33,21 @@ def generate_launch_description():
         default_value='/drone_attitude_cmd',
         description='Topic for incoming attitude commands'
     )
+    declare_roll_rate_sign_cmd = DeclareLaunchArgument(
+        'roll_rate_sign',
+        default_value='-1.0',
+        description='Sign applied when mapping roll body-rate commands to RC roll channel'
+    )
+    declare_pitch_rate_sign_cmd = DeclareLaunchArgument(
+        'pitch_rate_sign',
+        default_value='-1.0',
+        description='Sign applied when mapping pitch body-rate commands to RC pitch channel'
+    )
+    declare_yaw_rate_sign_cmd = DeclareLaunchArgument(
+        'yaw_rate_sign',
+        default_value='1.0',
+        description='Sign applied when mapping yaw body-rate commands to RC yaw channel'
+    )
 
     # MSP Bridge Node
     msp_bridge_node = Node(
@@ -45,6 +61,9 @@ def generate_launch_description():
                 'port': LaunchConfiguration('port'),
                 'baudrate': LaunchConfiguration('baudrate'),
                 'attitude_cmd_topic': LaunchConfiguration('attitude_cmd_topic'),
+                'roll_rate_sign': ParameterValue(LaunchConfiguration('roll_rate_sign'), value_type=float),
+                'pitch_rate_sign': ParameterValue(LaunchConfiguration('pitch_rate_sign'), value_type=float),
+                'yaw_rate_sign': ParameterValue(LaunchConfiguration('yaw_rate_sign'), value_type=float),
             }
         ]
     )
@@ -53,5 +72,8 @@ def generate_launch_description():
         declare_port_cmd,
         declare_baudrate_cmd,
         declare_att_topic_cmd,
+        declare_roll_rate_sign_cmd,
+        declare_pitch_rate_sign_cmd,
+        declare_yaw_rate_sign_cmd,
         msp_bridge_node
     ])

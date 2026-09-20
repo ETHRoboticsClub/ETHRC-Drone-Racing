@@ -1,0 +1,452 @@
+# gates_config.yaml
+# Multi-track configuration — NED frame (z negative = altitude above ground)
+#
+# To select a track, change the value of active_track:
+#   active_track: horizontal        → straight constant-altitude row with lead-in
+#   active_track: wavy_horizontal   → straight row with gentle altitude waves
+#   active_track: vertical          → straight climbing row with lead-in
+#   active_track: circular          → 8 gates equally spaced on an offset circle
+#   active_track: SplitS       → circuit with one Split-S maneuver:
+#                                G4 (entry) directly above G5 (exit), 3.5 m lower,
+#                                yaw reversed 180° — drone rolls inverted and
+#                                pulls a downward half-loop between the two gates.
+#
+# Gate fields:
+#   name      — label shown in RViz
+#   x, y, z   — gate centre in NED [m]  (z negative = altitude above ground)
+#   yaw_deg   — direction of flight through the gate in NED convention
+#               (0 = North, 90 = East, 180 = South, -90 = West)
+#               Computed as the bisector of the incoming and outgoing track vectors.
+#   width     — inner aperture width  [m]  (horizontal, perpendicular to yaw)
+#   height    — inner aperture height [m]  (vertical)
+#
+# track section — global tunnel parameters:
+#   W_nominal    tunnel half-width  between gates [m]
+#   H_nominal    tunnel half-height between gates [m]
+#   sigma_gate   Gaussian σ for W/H transitions [m]
+#   qc_nom       nominal contouring weight
+#   qc_gate      gate contouring weight
+#   sigma_qc     Gaussian σ for qc transition [m]
+#   track_weight penalty weight for track-constraint soft barrier in OCP cost
+#   SHOW_TUNNEL  publish the MPCC tunnel in RViz
+
+active_track: SplitS  # horizontal, wavy_horizontal, vertical, circular, or SplitS
+
+tracks:
+
+  # ──────────────────────────────────────────────────────────────────
+  # HORIZONTAL — straight row, all gates at z = -3.0 m.
+  # G1 is 8 m ahead of spawn, leaving a smooth lead-in.
+  # ──────────────────────────────────────────────────────────────────
+  horizontal:
+    track:
+      SHOW_TUNNEL:   true
+      W_nominal:    4.0
+      H_nominal:    3.5
+      sigma_gate:   3.0
+      qc_nom:       3.0
+      qc_gate:      15.0
+      sigma_qc:     0.5
+      track_weight: 10.0
+    gates:
+      # G1-G8 — straight horizontal row
+      - name: G1
+        x:  8.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G2
+        x: 16.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G3
+        x: 24.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G4
+        x: 32.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G6
+        x: 48.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G7
+        x: 56.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G8
+        x: 64.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+
+  # ──────────────────────────────────────────────────────────────────
+  # WAVY_HORIZONTAL — straight row with gentle altitude waves.
+  # x increases like the horizontal track, y stays centred, and z oscillates
+  # around -3.0 m so the drone flies a mild up/down profile.
+  # ──────────────────────────────────────────────────────────────────
+  wavy_horizontal:
+    track:
+      SHOW_TUNNEL:   true
+      W_nominal:    4.0
+      H_nominal:    4.0
+      sigma_gate:   3.0
+      qc_nom:       3.0
+      qc_gate:      15.0
+      sigma_qc:     0.5
+      track_weight: 10.0
+    gates:
+      # G1-G8 — horizontal line with small altitude oscillations
+      - name: G1
+        x:  8.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G2
+        x: 16.0
+        y:  0.0
+        z: -3.8
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G3
+        x: 24.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G4
+        x: 32.0
+        y:  0.0
+        z: -2.2
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G6
+        x: 48.0
+        y:  0.0
+        z: -3.8
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G7
+        x: 56.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G8
+        x: 64.0
+        y:  0.0
+        z: -2.2
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+  # ──────────────────────────────────────────────────────────────────
+  # VERTICAL — straight climbing row.
+  # x increases while z changes, so the drone can pass each upright gate smoothly.
+  # ──────────────────────────────────────────────────────────────────
+  vertical:
+    track:
+      SHOW_TUNNEL:   true
+      W_nominal:    4.0
+      H_nominal:    5.0
+      sigma_gate:   3.5
+      qc_nom:       3.0
+      qc_gate:      15.0
+      sigma_qc:     0.5
+      track_weight: 10.0
+    gates:
+      # G1-G8 — straight vertical row
+      - name: G1
+        x:  8.0
+        y:  0.0
+        z: -1.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G2
+        x: 16.0
+        y:  0.0
+        z: -2.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G3
+        x: 24.0
+        y:  0.0
+        z: -3.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G4
+        x: 32.0
+        y:  0.0
+        z: -4.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -5.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G6
+        x: 48.0
+        y:  0.0
+        z: -6.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G7
+        x: 56.0
+        y:  0.0
+        z: -7.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      - name: G8
+        x: 64.0
+        y:  0.0
+        z: -8.5
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+  # ──────────────────────────────────────────────────────────────────
+  # CIRCULAR — 8 gates equally spaced on a circle
+  #            centre (24, 0), radius 16 m
+  #            G1 starts 8 m ahead of spawn for a smooth lead-in.
+  # ──────────────────────────────────────────────────────────────────
+  circular:
+    track:
+      SHOW_TUNNEL:   true
+      W_nominal:    4.0
+      H_nominal:    3.5
+      sigma_gate:   3.0
+      qc_nom:       3.0
+      qc_gate:      15.0
+      sigma_qc:     0.5
+      track_weight: 10.0
+    gates:
+      # G1 — left side of the circle, after lead-in from spawn
+      - name: G1
+        x:  8.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:  68.0
+        width:  2.0
+        height: 2.0
+
+      - name: G2
+        x: 12.7
+        y: 11.3
+        z: -3.2
+        yaw_deg:  22.0
+        width:  2.0
+        height: 2.0
+
+      - name: G3
+        x: 24.0
+        y: 16.0
+        z: -3.5
+        yaw_deg: -22.0
+        width:  2.0
+        height: 2.0
+
+      - name: G4
+        x: 35.3
+        y: 11.3
+        z: -3.8
+        yaw_deg: -68.0
+        width:  2.0
+        height: 2.0
+
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -4.0
+        yaw_deg: -112.0
+        width:  2.0
+        height: 2.0
+
+      - name: G6
+        x: 35.3
+        y: -11.3
+        z: -3.8
+        yaw_deg: -158.0
+        width:  2.0
+        height: 2.0
+
+      - name: G7
+        x: 24.0
+        y: -16.0
+        z: -3.5
+        yaw_deg: 158.0
+        width:  2.0
+        height: 2.0
+
+      - name: G8
+        x: 12.7
+        y: -11.3
+        z: -3.2
+        yaw_deg: 112.0
+        width:  2.0
+        height: 2.0
+
+  # ──────────────────────────────────────────────────────────────────
+  # SplitS — circuit with exactly one Split-S maneuver
+  #
+  #   G4 (entry)  x=40, y=0, z=-3.0, yaw=  0°  ← heading North
+  #   G5 (exit)   x=40, y=0, z=-6.5, yaw=180°  ← heading South, 3.5 m lower
+  #
+  #   G4 and G5 share the same (x, y) — one gate literally above the other.
+  #   The drone rolls inverted at G4, pulls a downward half-loop, and exits
+  #   G5 in the opposite direction 3.5 m below the entry altitude.
+  #   H_nominal is enlarged to accommodate the altitude gap within the tunnel.
+  # ──────────────────────────────────────────────────────────────────
+  SplitS:
+    track:
+      SHOW_TUNNEL:   true
+      W_nominal:    4.0
+      H_nominal:    6.0
+      sigma_gate:   3.5
+      qc_nom:       3.0
+      qc_gate:      15.0
+      sigma_qc:     0.5
+      track_weight: 10.0
+    gates:
+      # G1 — start / finish, 8 m ahead of spawn
+      - name: G1
+        x:  8.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      # G2 — outbound straight
+      - name: G2
+        x: 18.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      # G3 — slight right kink before Split-S
+      - name: G3
+        x: 30.0
+        y: -4.0
+        z: -3.0
+        yaw_deg: -12.0
+        width:  2.0
+        height: 2.0
+
+      # G4 — SPLIT-S ENTRY: heading North
+      - name: G4
+        x: 40.0
+        y:  0.0
+        z: -3.0
+        yaw_deg:   0.0
+        width:  2.0
+        height: 2.0
+
+      # G5 — SPLIT-S EXIT: same (x,y), 3.5 m lower, now heading South
+      - name: G5
+        x: 40.0
+        y:  0.0
+        z: -6.5
+        yaw_deg: 180.0
+        width:  2.0
+        height: 2.0
+
+      # G6 — recovery, climbing South-West
+      - name: G6
+        x: 30.0
+        y:  6.0
+        z: -5.0
+        yaw_deg: 150.0
+        width:  2.0
+        height: 2.0
+
+      # G7 — return leg heading West
+      - name: G7
+        x: 18.0
+        y:  7.0
+        z: -4.0
+        yaw_deg: 170.0
+        width:  2.0
+        height: 2.0
+
+      # G8 — final turn back toward start
+      - name: G8
+        x:  4.0
+        y:  6.0
+        z: -3.0
+        yaw_deg: -60.0
+        width:  2.0
+        height: 2.0
