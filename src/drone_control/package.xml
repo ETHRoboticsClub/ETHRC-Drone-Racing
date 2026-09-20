@@ -4,7 +4,7 @@
   <name>drone_control</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="michael.d.papadakis@gmail.com">papaveneti</maintainer>
+  <maintainer email="mattiademartino@ethz.ch">Mattia De Martino</maintainer>
   <license>TODO: License declaration</license>
 
   <test_depend>ament_copyright</test_depend>

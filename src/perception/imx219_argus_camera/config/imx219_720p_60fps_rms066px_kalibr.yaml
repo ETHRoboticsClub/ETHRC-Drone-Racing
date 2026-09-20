@@ -1,0 +1,11 @@
+# Kalibr-style camera chain for the IMX219 wide-angle.
+# Drop-in compatible with OpenVINS configs in src/perception/VIO/open_vins/config/.
+# Distortion model = equidistant (Kannala-Brandt 4 coefficients).
+cam0:
+  cam_overlaps: []
+  camera_model: pinhole
+  distortion_coeffs: [0.0670286312, -0.02854181394, -0.01821324581, 0.05872486157]
+  distortion_model: equidistant
+  intrinsics: [559.3817837, 559.4544914, 637.6885196, 352.8232945]
+  resolution: [1280, 720]
+  rostopic: /cam0/image_raw

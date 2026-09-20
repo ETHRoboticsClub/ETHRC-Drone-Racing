@@ -1,0 +1,12 @@
+# Runtime dependencies for src/rl/rl/ (HoveringExperiment + DroneRLController).
+# Install with:  pip install -r src/rl/requirements.txt
+#
+# Local (non-PyPI) dependency, not listed here:
+#   - interfaces  (src/interfaces/  — provides ControllerInterface)
+#     Install via the ROS workspace, or add src/interfaces to PYTHONPATH.
+
+numpy>=1.24
+scipy>=1.10
+torch>=2.0
+mavsdk>=2.0          # only needed for the AttitudeRate dataclass used as the return type
+onnxruntime>=1.16    # optional — only needed if loading .onnx policies via PolicyModel

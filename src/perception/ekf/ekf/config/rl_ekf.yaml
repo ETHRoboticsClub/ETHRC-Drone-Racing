@@ -1,0 +1,143 @@
+ekf_filter_node:
+  ros__parameters:
+    frequency: 100.0
+    sensor_timeout: 0.1
+    publish_tf: true
+    two_d_mode: false
+
+    map_frame: world
+    base_link_frame: base_link
+    odom_frame: odom
+    world_frame: world
+
+    # VIO as Odometry
+    # [x, y, z, qw, qx, qy, qz, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    odom0: /ov_msckf/odomimu
+    odom0_config: [true, true, true,   true, true, true, true,   true, true, true,
+                   true, true, true,  false, false, false]
+    odom0_differential: false
+
+    # Vision absolute pose
+    # [x, y, z, qw, qx, qy, qz, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    pose0: /gate_detection/drone_pose
+    pose0_config: [true, true, true,   true, true, true, true,
+                   false, false, false, false, false, false, false, false, false]
+    pose0_differential: false
+
+    # Vicon absolute pose -- NOT ACTIVE.
+    # Carried over from feature/rl_deploy_verification (Dimetri, 2026-05-09),
+    # where it was the only enabled input for Vicon-only bring-up flights.
+    # Left disabled because that config predates the quaternion EKF: the
+    # vector below is the old 15-element Euler layout and must be widened to
+    # the 16-element [x, y, z, qw, qx, qy, qz, ...] layout used above before
+    # it will work against the pinned robot_localization fork.
+    # pose1: /vicon/zephyrus/zephyrus
+    # pose1_config: [true, true, true,   true, true, true,
+    #                false, false, false, false, false, false, false, false, false]
+    # pose1_differential: false
+
+    # If we have an IMU later:
+    # imu0: /imu/data
+    # imu0_config: [false, false, false,  true, true, true, true,
+    #               false, false, false,  true, true, true,  false, false, false]
+    # imu0_remove_gravitational_acceleration: true
+
+    # =======================
+    # --- core filter behavior & observability ---
+    # =======================
+    predict_to_current_time: true        # Reduces output lag by propagating last state to "now"
+    # target_frame: base_link              # All measurements fused in that frame
+    transform_timeout: 0.02              # How long to wait for TF (sec); tune with your TF latencies
+    transform_time_offset: 0.0           # Nonzero if you know all TFs are consistently early/late
+
+    # --- logging & health checks (turn on while tuning) ---
+    print_diagnostics: true
+    debug: false                         # True only when you’re investigating; large files
+    debug_out_file: "/tmp/ekf_debug.txt"
+
+    # --- process & initial covariances ---
+    # State order: [x y z qw qx qy qz vx vy vz vroll vpitch vyaw ax ay az]
+    # process_noise_covariance: [
+    #   1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+1, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+1, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+1, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3
+    # ]
+
+
+    # initial_estimate_covariance: [
+    #   1.0e-4, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    1.0e-4, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    1.0e-4, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    1.0e-2, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    1.0e-2, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-2, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e-2, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+3, 0.0,    0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+4, 0.0,    0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+4, 0.0,
+    #   0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    0.0,    1.0e+4
+    # ]
+
+
+
+    # --- smoothing & delayed measurements (handy with VIO + vision) ---
+    smooth_lagged_data: true             # Enable partial back-update for delayed/out-of-order messages
+    history_length:  0.5                 # Seconds of state history to keep for smoothing; tune to our typical vision delay
+
+    # =======================
+    # VIO as Odometry (odom0)
+    # =======================
+    odom0_queue_size: 10                 # Buffer for delayed/out-of-order VIO
+    odom0_nodelay: false                 # If true, fuse immediately on receipt (good for low-latency links)
+    odom0_relative: false                # VIO publishes absolute pose in odom frame; keep false
+    # odom0_pose_rejection_threshold: 5.0  # Mahalanobis gating; 0 disables. Start 4–7 and refine via NIS
+    # odom0_twist_rejection_threshold: 5.0
+    # odom0_remove_gravitational_acceleration: false  # (only for IMU messages)
+
+    # =========================
+    # Vision absolute pose (pose0)
+    # =========================
+    pose0_queue_size: 10
+    pose0_nodelay: false
+    pose0_relative: false                # Keep absolute; this is your "global" correction
+    # pose0_rejection_threshold: 7.5       # Slightly higher than VIO; vision updates are sparse and may be noisier
+
+    # --- outputs (optional but nice while tuning) ---
+    publish_acceleration: true          # Publish estimated linear acceleration (to accel/filtered)
+
+    # Controls
+    use_control: false                   # Whether to use control inputs
+    stamped_control: true               # Whether control inputs are stamped
+    control_timeout: 0.2                # Timeout for control inputs (sec)
+    control0: cmd_vel                   # Topic for control input; Can't be changed, just written here for clarity
+
+    # [vx, vy, vz, vroll, vpitch, vyaw]
+    control_config: [true, true, true,
+                      false, false, false] 
+
+    # acceleration_limits: [6.9, 6.9, 6.9,
+    #                       6.9, 6.9, 6.9]  
+    # deceleration_limits: [6.9, 6.9, 6.9,
+    #                       6.9, 6.9, 6.9]
+    # acceleration_gains: [1.0, 1.0, 1.0,
+    #                      1.0, 1.0, 1.0]
+    # deceleration_gains: [1.0, 1.0, 1.0,
+    #                      1.0, 1.0, 1.0]

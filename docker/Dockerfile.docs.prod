@@ -1,0 +1,13 @@
+# Stage 1: Build the static site
+FROM python:3.10-slim AS builder
+RUN pip install --no-cache-dir "mkdocs<2.0" "mkdocs-material==9.5.34" "pymdown-extensions<11.0"
+COPY docs /docs
+WORKDIR /docs
+RUN mkdocs build
+
+# Stage 2: Serve with Nginx
+FROM nginx:alpine
+# Copy the built static site from the builder stage
+COPY --from=builder /docs/site /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

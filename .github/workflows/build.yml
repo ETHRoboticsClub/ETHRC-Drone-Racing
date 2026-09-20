@@ -18,6 +18,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-2
+
 jobs:
   build:
     name: Build ${{ matrix.service }}
@@ -25,9 +32,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [dev]
+        service: [dev, aigp]
 
     steps:
+      - name: Fix workspace permissions
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/ws -w /ws alpine chown -R $(id -u):$(id -g) . || true
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
@@ -61,6 +71,25 @@ jobs:
           echo "Initializing Perception and Vicon submodules..."
           git submodule update --init --recursive --force src/perception/VIO/open_vins
           git submodule update --init --recursive --force src/ros2-vicon-receiver
+          git submodule update --init --recursive --force src/h264_image_transport
+          
+          echo "Initializing MSP and Multiwii submodules..."
+          git submodule update --init --recursive --force src/msp
+          git submodule update --init --recursive --force src/multiwii_ros2
+          git submodule update --init --recursive --force src/px4_msgs
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Service
         run: |
@@ -68,12 +97,12 @@ jobs:
           export COMPOSE_PROJECT_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
           export CONTAINER_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
           # Use docker-compose to build the specific service.
-          docker compose build --no-cache ${{ matrix.service }}
+          docker compose build ${{ matrix.service }}
 
       - name: Cleanup
         if: always()
         run: |
-          # Remove the specific image built in this run to save space
-          # Docker compose uses specific tagging usually, but we prune for safety
+          # Remove the specific project containers but preserve the build cache for future runs
+          export COMPOSE_PROJECT_NAME="ci_${{ github.run_id }}_${{ matrix.service }}"
+          docker compose down -v
           docker system prune -f
-          docker builder prune -a -f

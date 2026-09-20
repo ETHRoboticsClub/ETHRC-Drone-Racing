@@ -1,0 +1,35 @@
+{
+  "_comment": "This file is used by the GitHub Action that manages auto-building of Docker images.",
+  "targets": [
+    {
+      "image_name": "docs",
+      "dockerfile": "docker/Dockerfile",
+      "target": "docs",
+      "trigger_paths": ["docker/Dockerfile", "docs/"]
+    },
+    {
+      "image_name": "dev",
+      "dockerfile": "docker/Dockerfile",
+      "target": "dev",
+      "trigger_paths": ["docker/Dockerfile", "src/", "launch/"]
+    },
+    {
+      "image_name": "perception",
+      "dockerfile": "docker/Dockerfile",
+      "target": "perception",
+      "trigger_paths": ["docker/Dockerfile", "src/perception/", "src/ros2-vicon-receiver/", "src/utils/", "launch/perception.launch.py"]
+    },
+    {
+      "image_name": "mpc",
+      "dockerfile": "docker/Dockerfile",
+      "target": "mpc",
+      "trigger_paths": ["docker/Dockerfile", "src/mpc/", "src/drone_control/", "src/utils/", "src/my_mavsdk/"]
+    },
+    {
+      "image_name": "aigp",
+      "dockerfile": "docker/Dockerfile",
+      "target": "dev",
+      "trigger_paths": ["docker/Dockerfile", "src/", "launch/", "docker-compose.yaml"]
+    }
+  ]
+}

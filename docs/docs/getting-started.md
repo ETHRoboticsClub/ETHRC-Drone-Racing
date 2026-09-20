@@ -4,225 +4,134 @@
 
 ---
 
-This repository provides a ready-to-use drone racing environment using Docker. By containerizing the development environment, we ensure consistency across different host systems and simplify the setup of complex robotics software.
+Welcome to the ETHRC Drone Racing project! This repository provides a high-performance development environment for autonomous drone racing, featuring advanced perception, control, and simulation tools.
 
-## Environment Overview
+## 📜 Project History & Evolution
 
-The environment bundles the following core components:
-
-*   **ROS 2 Humble**: Our primary robotics framework.
-*   **Gazebo (gz)**: A high-fidelity 3D simulator for drones.
-*   **PX4 SITL**: The autopilot software running in simulation.
-*   **MAVROS / MAVSDK**: Communication bridges between PX4 and ROS.
-*   **Workspace (`/ws`)**: The location for custom ROS 2 packages.
+The project has evolved through several stages to achieve competitive racing performance:
+1.  **Initial Phase**: Focused on PX4 Autopilot with MAVSDK/MAVROS for offboard control.
+2.  **Performance Optimization**: Identified latencies in the PX4 offboard pipeline that limited extreme agility.
+3.  **Current State**: We use **Betaflight** as our primary flight controller firmware for all current hardware deployments. Betaflight's racing-optimized PID loops and ultra-low-latency protocols provide the agility required for high-speed autonomous flight.
 
 > [!IMPORTANT]
-> **Host OS**: Ubuntu/Linux is highly recommended for GUI compatibility.  
-> **Requirements**: Docker Engine + Compose v2.
+> **FC Firmware**: We use **Betaflight** for now as our core flight controller firmware. Simulation still supports PX4 SITL for initial testing, but the real-world focus is on the Betaflight/MSP stack.
 
 ---
 
-## Docker Infrastructure
+## 🚀 Key Features
 
-```mermaid
-graph TD
-    B["<b>Base</b><br/>(Core ROS & Tools)"]:::m-base --> SPCD["<b>shared-perception-<br/>controls-deps</b>"]:::m-dep
-    B --> D["<b>docs</b>"]:::m-dep
-    SPCD --> P["<b>perception</b>"]:::m-target
-    SPCD --> SMRD["<b>shared-mpc-rl-deps</b>"]:::m-dep
-    SMRD --> M["<b>mpc</b>"]:::m-target
-    SMRD --> R["<b>rl</b>"]:::m-target
-    P --> DEV["<b>dev</b><br/>(Full Environment)"]:::m-final
-    M --> DEV
-    R --> DEV
-    D -.-> DEV
-```
-
-### Build Targets
-
-- **`base`**: The core foundation containing ROS 2, system tools, and base dependencies.
-- **`docs`**: A lightweight environment for building and serving this documentation.
-- **`perception`**: Specialized for camera-based tracking and state estimation (OpenVINS, ArUco).
-- **`mpc`**: Optimized for high-performance controls and trajectory tracking (MAVSDK, ACADOS).
-- **`rl`**: Includes neural network and reinforcement learning libraries (PyTorch, Stable Baselines 3).
-- **`dev`**: The complete, integrated environment containing all components above.
+*   **Dockerized Environment**: Consistent development across host systems.
+*   **High-Speed Perception**: 90Hz+ camera pipelines and optimized VIO.
+*   **Advanced Control**: MPC and RL-based controllers for time-optimal racing.
+*   **Betaflight Integration**: Low-latency control via the MSP protocol and high-rate Blackbox telemetry.
 
 ---
 
-## Quick Start
+## 🛠️ Environment Setup
 
-Follow these steps to get the environment running.
+We use Docker to containerize our development environment, ensuring consistency and simplifying the setup of ROS 2 Humble and its dependencies.
 
-### Step 0: SSH Setup
-We use SSH for Git operations to avoid repeated password prompts.  
-[Follow GitHub's SSH guide here](https://docs.github.com/en/authentication/connecting-to-github-with-ssh).
+### Step 0: Prerequisites
+*   **Host OS**: Ubuntu 22.04+ (Highly recommended for GUI compatibility).
+*   **Docker Engine + Compose v2**.
+*   **SSH Setup**: [Follow GitHub's SSH guide](https://docs.github.com/en/authentication/connecting-to-github-with-ssh) to enable seamless git operations.
 
 ### Step 1: Clone the Repository
-Ensure you clone with submodules to include the PX4 Autopilot.
+Ensure you clone with submodules to include all dependencies (VIO, Vicon, etc.).
 ```bash
 git clone --recurse-submodules git@github.com:ETHRoboticsClub/ETHRC-Drone-Racing.git
 cd ETHRC-Drone-Racing
 git submodule update --init --recursive
 ```
 
-### Step 2: Build and Prepare
-Build the Docker image and prepare the host volumes for ROS 2. We use multi-stage builds to provide specialized environments for different teams.
+### Step 2: Build the Environment
+We use multi-stage builds to provide specialized environments for different teams.
 
 ```bash
-# To build the FULL development environment (Default)
+# To build the FULL development environment (Recommended)
 docker compose build dev
 
-# To build only for the Perception team
-docker compose build perception
-
-# To build only for the MPC / Control team
-docker compose build mpc
-
-# To build only for the RL team
-docker compose build rl
-
-# To build ONLY the documentation
-docker compose build docs
-```
-
-Ensure host volumes are prepared:
-```bash
-./scripts/prepare_colcon_volumes.sh
+# Or build for a specific team:
+# docker compose build perception
+# docker compose build mpc
+# docker compose build rl
 ```
 
 ### Step 3: Start Services
-Allow GUI applications and start your preferred container target.
-
+Allow GUI applications (like RViz and Gazebo) and start the container.
 ```bash
 xhost +local:root
-
-# Start the full environment
 docker compose up dev -d
-
-# OR start a specific team environment
-docker compose up mpc -d
 ```
 
-### Step 4: Access and Build
-Attach to the running container and build the workspace.
-
+### Step 4: Access and Build Workspace
+Attach to the container and run the initial build.
 ```bash
 docker compose exec dev bash
 
 # Inside the container:
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
-```
-
-#### Build Command Breakdown
-
-- **`--symlink-install`**: Instead of copying files, ROS 2 creates symbolic links to your source files. This means changes to Python scripts or configuration files take effect **instantly** without needing another build.
-- **`-DCMAKE_BUILD_TYPE=RelWithDebInfo`**: Compiles with optimizations (for performance) while keeping debug symbols (for troubleshooting).
-
-> [!IMPORTANT]
-> ### 💡 Sourcing the Workspace
-> After building, or whenever you open a **new terminal tab**, you MUST source the workspace to make the packages visible to ROS 2:
-> ```bash
-> source install/setup.bash
-> ```
-> If you omit this, you will see `Package 'drone_control' not found` errors.
-
----
-
----
-
-## Flying the Drone
-
-Once the simulation and controller are running, you can command the drone using our standard goal-sending utilities.
-
-### Step 1: Launch the Controller
-In a container terminal, start the MPC controller:
-```bash
-ros2 launch drone_control drone_controller.launch.py
-```
-
-### Step 2: Send a Pose Goal (Takeoff)
-In a **separate** container terminal, use the `send_pose_goal` script to command a takeoff to 2 meters:
-```bash
-ros2 run drone_control send_pose_goal goal_only -x 0.0 -y 0.0 -z 2.0 -yaw 90
-```
-
-#### Argument Breakdown
-
-| Argument | Description |
-| :--- | :--- |
-| `goal_only` | Sends the goal and waits for completion. Use `cancel` to stop an active mission. |
-| `-x`, `-y`, `-z` | Target coordinates in meters. |
-| `-yaw` | Target orientation in **degrees**. |
-
-### Step 3: Monitor in PlotJuggler
-The controller launch automatically opens PlotJuggler. Look for the `/drone_state_sim` and `/drone_current_target` topics to verify the drone is tracking the reference accurately.
-
----
-
-## Running Simulation
-
-To launch the default simulation environment:
-
-1.  **Source the workspace**:
-    ```bash
-    source install/setup.bash
-    ```
-2.  **Launch PX4 SITL with Gazebo**:
-    ```bash
-    cd /home/drone_dev/ros_ws/px4/PX4-Autopilot
-    make px4_sitl gz_x500_mono_cam 
-    ```
-
----
-
-## Visualization and Monitoring
-
-Visualizing the internal state of the drone is crucial for debugging perception and control algorithms.
-
-### RViz Visualization
-We use RViz2 to visualize sensor data, ArUco detections, and EKF state. To launch RViz with the ArUco monitor:
-```bash
-source install/setup.bash
-ros2 launch aruco_pose_estimation aruco_pose_estimation.launch.py rviz:=true
-```
-
-### Full Perception Launch
-You can launch the integrated perception stack (VIO + ArUco + EKF) using:
-```bash
-source install/setup.bash
-ros2 launch launch/perception.launch.py
-```
-
----
-
-## Troubleshooting & Common Issues
-
-### Permission Errors
-If you see permission denied errors during build or when accessing volumes, run the preparation script on the **host**:
-```bash
-sudo ./scripts/prepare_colcon_volumes.sh
-```
-
-### Submodule Issues
-If the build fails due to missing source files in `src/perception/VIO` or `src/ros2-vicon-receiver`, ensure your submodules are up to date:
-```bash
-git submodule update --init --recursive
-```
-
-### Package Not Found After Docker Compose Up
-If `ros2 launch` fails with "Package not found", the host's empty `.colcon/install` volume is masking the container's build. Rebuild inside the container:
-```bash
+./scripts/prepare_colcon_volumes.sh # Ensure volumes are ready
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 source install/setup.bash
 ```
 
+---
+
+## 📂 Navigating the Documentation
+
+Once you are set up, explore the following sections for more details:
+
+*   [**Perception Stack**](perception/index.md): VIO, Gate Detection, and Sensor Fusion.
+*   [**Controls & Planning**](controls/index.md): MPC, RL, and how to [**Fly the Drone**](controls/flying_the_drone.md).
+*   [**Drone Setup**](drone-setup/index.md): Hardware assembly and [**Betaflight Configuration**](betaflight.md).
+*   [**Infrastructure**](infrastructure/index.md): AWS setup and Docker details.
+*   [**Updates & Roadmap**](updates.md): Latest changes and future plans.
 
 ---
 
-## Next Steps
+## Native Execution (Non-Docker)
 
-Now that your environment is set up, explore the following resources:
+While Docker is great for simulation and development on a workstation, you may want to run part of the stack **natively** on your companion computer (e.g., Jetson Orin NX) to reduce overhead or access specific hardware pins.
 
-*   [**Perception Modules**](perception/index.md): Learn about VIO, ArUco tracking, and state estimation.
-*   [**Control Algorithms**](controls/index.md): Understand MPC and RL-based drone control.
-*   [**Development Guidelines**](guidelines.md): Review our coding standards and Git workflow.
+### 1. Prerequisites
+Ensure you have ROS 2 installed on your host system (this project targets **Humble**, though it is compatible with **Jazzy**). 
+```bash
+# Example for installing colcon
+sudo apt update && sudo apt install python3-colcon-common-extensions
+```
+
+### 2. Build the Workspace
+From the project root:
+```bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+```
+
+### 3. Fast Bringup (The "Big Button")
+Once built, you can launch the entire racing stack across all modules (Comms, Perception, and Control) using the unified bringup script:
+
+```bash
+source install/setup.bash
+ros2 launch drone_control racing_bringup.launch.py controller_type:=rl
+```
+
+#### Bringup Arguments
+
+| Argument | Default | Description |
+| :--- | :--- | :--- |
+| `controller_type` | `rl` | Choice of high-level controller: `rl` or `mpc`. |
+| `rate_error_scale`| `300.0`| **(RL Only)** Scaling factor to map neural network torques to Betaflight attitude rates. |
+| `msp_port` | `/dev/ttyTCU0`| Serial port for Betaflight MSP control (dedicated port). |
+| `imu_port` | `/dev/ttyTHS1`| Serial port for Blackbox high-rate IMU telemetry. |
+| `use_vicon` | `true` | Whether to launch the Vicon receiver for ground truth. |
+| `use_rc_sim` | `true` | Whether to simulate an RC receiver for arming via MSP. |
+| `view_stream` | `true` | Start the video decoding/republishing pipeline (GS only). |
+
+### 4. Configuration Tips
+- **Serial Ports:** If you are using a USB-to-Serial adapter instead of the internal UART, use `msp_port:=/dev/ttyUSB0`.
+- **RL Tuning:** If the drone feels sluggish under RL control, increase `rate_error_scale` (e.g., to `500.0`). If it oscillates, decrease it.
+- **Persisting Settings:** You can edit the default parameters in `src/drone_control/config/drone_controller_config.yaml` so you don't have to pass them every time.
+
+---
+
+## ❓ Troubleshooting
+If you encounter issues with permissions or missing packages, refer to our [**General Troubleshooting Guide**](controls/troubleshooting.md) or the [**Guidelines**](guidelines.md).

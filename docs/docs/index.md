@@ -23,6 +23,7 @@ Welcome to the ETHRC Drone Racing project documentation! This repository provide
 Everyone in the project is free to commit changes to the docs and we really encourage you to do so!
 If you are unsure whether the information belongs here or on our Notion page, then feel free to ask.
 Relevant technical details (implementation, designs, etc.) should live here.
+The project has recently migrated to **Betaflight** as the primary flight controller firmware for hardware deployments to achieve superior racing performance.
 
 ## 🏗 System Architecture
 
@@ -37,9 +38,10 @@ The project integrates high-fidelity simulation with advanced sensing and contro
 - **Hierarchical Build Tree**: Restructured Docker for faster builds and better caching (merging `dev` target).
 - **Theme-Aware UI**: Added light/dark mode support for project logos and documentation branding.
 - **Enhanced Perception**: Correctly integrated `open_vins` and `ros2-vicon-receiver` as submodules.
-- **Visualization Suite**: New instructions for RViz and Gazebo monitoring are now available in the [**Getting Started**](getting-started.md#visualization-and-monitoring) guide.
+- **Betaflight Migration**: Successfully transitioned to Betaflight/MSP for low-latency autonomous control.
+- **Visualization Suite**: New instructions for RViz and Gazebo monitoring are now available in the [**Perception Overview**](perception/index.md#visualization-and-monitoring).
 
-**[Read the full summary of recent changes here &raquo;](updates.md)**
+**[Read the full Updates & Roadmap here &raquo;](updates.md)**
 
 ## Quick Links
 
@@ -47,7 +49,7 @@ The project integrates high-fidelity simulation with advanced sensing and contro
 - [**Guidelines**](guidelines.md): Learn about our documentation standards and development workflow.
 - [**Perception**](perception/index.md): Documentation for the Perception team and modules.
 - [**Controls**](controls/index.md): Documentation for the Controls team and algorithms.
-- [**Hardware**](hardware/index.md): Documentation for the Hardware team and electronics.
+- [**Drone Setup**](drone-setup/index.md): Documentation for the hardware, electronics, and onboard setup.
 - [**Groundstation**](groundstation/index.md): Documentation for the Groundstation team and software.
 
 ## Project Layout
@@ -76,5 +78,5 @@ Find the following subsystems:
 
 - [**Perception**](perception/index.md): Documentation for the Perception team and modules.
 - [**Controls**](controls/index.md): Documentation for the Controls team and algorithms.
-- [**Hardware**](hardware/index.md): Documentation for the Hardware team and electronics.
+- [**Drone Setup**](drone-setup/index.md): Documentation for the hardware, electronics, and onboard setup.
 - [**Groundstation**](groundstation/index.md): Documentation for the Groundstation team and software.

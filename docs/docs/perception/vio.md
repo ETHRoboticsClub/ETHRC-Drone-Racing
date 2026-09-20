@@ -22,8 +22,12 @@ The VIO system subscribes to the following ROS 2 topics:
 - **Monocular Mode**:
   - **Topic**: `/cam0/image_raw` (default, configurable via `topic_camera0` parameter)
   - **Type**: `sensor_msgs/msg/Image`
-  - **Description**: Raw camera images from a single camera
-  - **Frequency**: Typically 20-30 Hz
+  - **Description**: Mono `mono8` images from the IMX219 racing pipeline
+  - **Frequency**: 60 Hz on the IMX219 Jetson racing pipeline
+
+The camera path is shared with optional H.264 streaming. OpenVINS should stay on
+`/cam0/image_raw`; do not subscribe VIO to `/cam0/image_rgb` or
+`/cam0/image_h264`. See [Jetson Camera Pipeline](camera_pipeline.md).
 
 - **Stereo Mode**:
   - **Topics**: `/cam0/image_raw` and `/cam1/image_raw` (default, configurable)

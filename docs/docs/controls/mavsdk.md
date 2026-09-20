@@ -1,6 +1,6 @@
 # MAVSDK
 
-**Page Owner:** [Saad Lahlou](https://github.com/saadl27)
+**Page Owner:** Controls Team
 
 ---
 

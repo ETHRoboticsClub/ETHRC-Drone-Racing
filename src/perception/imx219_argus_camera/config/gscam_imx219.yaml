@@ -1,0 +1,24 @@
+# gscam2 configuration for IMX219 CSI camera on Jetson Orin NX.
+#
+# Uses nvarguscamerasrc (same libargus ISP as Isaac ROS) with
+# GPU-accelerated color conversion via nvvidconv.
+#
+# IMX219 sensor modes (from device tree):
+#   mode 0 : 3280x2464 @ 21 fps
+#   mode 1 : 3280x1848 @ 28 fps
+#   mode 2 : 1920x1080 @ 30 fps
+#   mode 3 : 1640x1232 @ 30 fps
+#   mode 4 : 1280x720  @ 90 fps   <-- default for racing (requires 90Hz driver mod)
+#
+# The pipeline string is overridden at launch time so that sensor-mode
+# and framerate can be set from launch arguments.
+
+gscam_publisher:
+  ros__parameters:
+    preroll: false
+    use_gst_timestamps: true
+    image_encoding: "rgb8"
+    frame_id: "cam0"
+    camera_info_url: ""
+    camera_name: "imx219"
+    sync_sink: false

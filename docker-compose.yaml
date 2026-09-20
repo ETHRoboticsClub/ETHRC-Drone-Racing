@@ -1,12 +1,27 @@
 services:
+  # --- Base Dependencies (For offline local building) ---
+  base:
+    build:
+      context: .
+      dockerfile: docker/untracked/Dockerfile.base
+      target: shared-perception-controls-deps
+      network: host
+      args:
+        BASE_IMAGE: ros:humble-ros-base
+    image: 916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
+
   dev:
     build:
+      # If 'docker compose build dev' fails because the AWS ECR base image is unreachable,
+      # you can build the base image locally first by running:
+      #   docker compose build base
+      # Then re-run 'docker compose build dev' (without the --pull flag).
       context: .
       dockerfile: docker/Dockerfile
       target: dev
       network: host
       args:
-        BASE_IMAGE: osrf/ros:humble-desktop
+        BASE_IMAGE: ros:humble-ros-base
         WORKSPACE: ${PWD}
         USERNAME: ${CONTAINER_USERNAME:-drone_dev}
         USER_UID: ${USER_UID:-1000}
@@ -49,8 +64,12 @@ services:
       - ./sim:/home/${CONTAINER_USERNAME:-drone_dev}/sim:rw
       # Mount .git 
       - ./.git:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/.git
+      # Mount ext directory containing external plugins
+      - ./ext:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/ext:rw
       # Mount scripts directory
       - ./scripts:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/scripts:rw
+      # Mount external model/policy folder
+      - ./ext:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/ext:ro
       # # Mount other useful directories
       # - ./bags_ros2:/home/${CONTAINER_USERNAME:-drone_dev}/bags_ros2:ro
       # - ./results:/home/${CONTAINER_USERNAME:-drone_dev}/results:rw
@@ -63,6 +82,7 @@ services:
       # --- ROS Configuration ---
       ROS_DOMAIN_ID: 1
       RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+      CYCLONEDDS_URI: /home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src/cyclonedds.xml
 
       # --- Gazebo Resource Paths ---
       GZ_SIM_RESOURCE_PATH: ${GZ_SIM_RESOURCE_PATH:-/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/models:/home/${CONTAINER_USERNAME:-drone_dev}/sim/gazebo/worlds}
@@ -89,12 +109,24 @@ services:
 
       # --- Documentation Team ---
   docs:
-    extends: dev
     build:
       context: .
       dockerfile: docker/Dockerfile
       target: docs
-    command: [ "mkdocs", "serve", "-f", "/home/drone_dev/docs/mkdocs.yml", "-a", "0.0.0.0:8000" ]
+    network_mode: host
+    working_dir: /docs
+    volumes:
+      - ./docs:/docs:rw
+    command: [ "mkdocs", "serve", "-a", "0.0.0.0:8000" ]
+
+  # --- Documentation Production ---
+  docs-prod:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.docs.prod
+    ports:
+      - "8080:80"
+    restart: always
 
   # --- Perception Team ---
   perception:
@@ -119,3 +151,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       target: rl
+
+  # --- AIGP Simulation / Pilot Team ---
+  aigp:
+    extends: dev

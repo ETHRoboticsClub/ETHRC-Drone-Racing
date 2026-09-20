@@ -1,0 +1,9 @@
+<launch>
+
+<rosparam file="$(find drone_acc_mass_description)/launch/controller.yaml" command="load"/>
+<node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" ns="drone_acc_mass" args="joint_state_controller "/>
+<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" respawn="false" output="screen">
+  <remap from="/joint_states" to="/drone_acc_mass/joint_states"/>
+</node>
+
+</launch>

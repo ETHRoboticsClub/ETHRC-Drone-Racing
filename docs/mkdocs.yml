@@ -63,23 +63,58 @@ plugins:
 
 nav:
   - Home: index.md
-  - Recent Updates: updates.md
-  - Getting Started: getting-started.md
+  - Updates & Roadmap: updates.md
+  - Getting Started:
+    - Overview: getting-started.md
+    - SITL Simulation: getting-started/sitl_simulation.md
+    - SITL Propulsion Calibration: getting-started/sitl_propulsion_calibration.md
+    - AIGP Racing Bringup: aigp_bringup.md
+    - ROS Racing Bringup: racing_bringup.md
   - Guidelines: guidelines.md
+  - Infrastructure:
+    - Overview: infrastructure/index.md
+    - AWS Setup: infrastructure/aws_setup.md
+    - AWS EC2 Instances: infrastructure/aws_ec2.md
+    - AWS ECR: infrastructure/aws_ecr.md
+    - AWS Batch RL Training: infrastructure/aws_batch_rl_training.md
+    - ROS Bags (S3): infrastructure/ros_bags.md
   - Perception:
     - Overview: perception/index.md
+    - Gazebo SITL Validation Plan: perception/gazebo_sitl_validation_plan.md
+    - Jetson Camera Pipeline: perception/camera_pipeline.md
+    - Blackbox Driver: perception/blackbox.md
     - VIO: perception/vio.md
     - Vicon: perception/vicon.md
-    - ArUco: perception/ArUco.md
+    - Gate Detection: perception/gate_detection.md
     - EKF: perception/EKF.md
+    - Camera Calibration:
+      - Overview: calibration/index.md
+      - IMX219 Intrinsics: calibration/imx219_intrinsics.md
+      - Kalibr Camera-IMU Calibration: perception/kalibr_calibration.md
   - Controls:
     - Overview: controls/index.md
+    - Racing Bringup: controls/racing_bringup.md
     - Drone Control: controls/drone_control.md
+    - Flying the Drone: controls/flying_the_drone.md
+    - Betaflight MSP Control: controls/msp_control.md
+    - Manual Betaflight Config: controls/betaflight_manual_config.md
     - MAVSDK: controls/mavsdk.md
+    - AIGP Simulation: controls/aigp_simulation.md
     - MPC: controls/mpc.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md
-  - Hardware: hardware/index.md
-  - Groundstation: groundstation/index.md
-
-
+  - Drone Setup:
+    - Overview: drone-setup/index.md
+    - Zephyrus (6S): drone-setup/zephyrus.md
+    - Boreas (4S): drone-setup/boreas.md
+    - Flight Controller Communication: drone-setup/drone_flight_controller_comunication.md
+    - IMX219 90Hz Tuning: drone-setup/imx219_90hz_tuning.md
+    - VIO Synchronization: drone-setup/vio_synchronization.md
+    - Betaflight Setup: betaflight.md
+  - Groundstation:
+    - Overview: groundstation/index.md
+    - Video Streaming: groundstation/video-streaming.md
+    - Web Server: groundstation/web-server.md
+  - Contributors: contributors.md
+  - Deprecated:
+    - ArUco: deprecated/ArUco.md

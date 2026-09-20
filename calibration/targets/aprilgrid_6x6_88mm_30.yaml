@@ -1,0 +1,5 @@
+target_type: 'aprilgrid'
+tagCols: 6
+tagRows: 6
+tagSize: 0.088      # [m] outer black tag edge; measure the printed target and update if needed
+tagSpacing: 0.3     # gap between tags as a fraction of tagSize

@@ -1,61 +1,102 @@
-# Build / install outputs (colcon)
+# IDEs and System
+.vscode/
+.codex/
+.devcontainer/
+.DS_Store
+*:Zone.Identifier
+ext/
+
+# Build and Install
 build/
 install/
 log/
+.colcon/
+docs/site/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
 *.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
 
-# ROS bags
+# ROS 2 / Robotics
 rosbag/
 *.bag
+*.mcap
 
-# Editors / OS
-.vscode/
-.DS_Store
-*.swp
-*.swo
+# Bags: ignore data, keep tools + top-level README.
+bags/*
+!bags/tools/
+!bags/README.md
+bags/tools/__pycache__/
 
-# Dev tooling
-.devcontainer/
-.colcon/
-
-# Secrets / local config
-.env
-
-# Generated / local artifacts
+# Project Specific
+get-docker.sh
 repo_artifact/
-plots/
+aws/
+ext/
+eeprom.bin
 
-# MPC generated code (keep .gitkeep placeholders)
-src/mpc_dev/*
+awscliv2.zip
+CLAUDE.md
+handover.md
+# v3.4 perception checkpoint (~87 MB) — rsync from qolam, do not commit:
+#   rsync -avP qolam:'~/uni/DroneRacing_GateDetection/checkpoints/best_deeplabv3plus_keypoint_multi_balanced_v3_nextgate_seed42.pth' \
+#       src/perception/gate_detection/checkpoints/
+src/perception/gate_detection/checkpoints/best_deeplabv3plus_*.pth
+aigp/
 
-src/mpc/c_generated_code/*
-!src/mpc/c_generated_code/.gitkeep
+# MPC / Acados specific
+src/mpc/mpc/c_generated_code/
+src/mpc/mpc/drone_thrust_acados_ocp.json
+src/mpc/logs/
+
+# LaTeX build artefacts
+docs/**/*.aux
+docs/**/*.log
+docs/**/*.out
+docs/**/*.toc
+docs/**/*.synctex.gz
+.codex
+.antigravitycli
+kalibr_20260430_1005
+/src/mpc/mpc/c_generated_code
+
+# Windows metadata from downloaded / copied assets
+desktop.ini
+*:Zone.Identifier
+
+# Bag analysis output
+out/
+
+# Offline post-flight analysis tools
+scripts/perception/bag_analysis/
+
+# Local docker compose overrides (extra mounts etc.) — auto-loaded by compose
+docker-compose.override.yaml
+
+# ─── MPCC / MPCC++ (from feature/mpc-main) ───────────────────────────
+# ACADOS regenerates these on first solve; paths match the nested
+# ament_python layout (src/<pkg>/<pkg>/), not the flat one the branch had.
+src/mpcc/mpcc/c_generated_code/
+src/mpcc_pp/mpcc_pp/c_generated_code/
+src/mpcc/logs/
+src/mpcc_pp/logs/
+src/mpcc_pp/mpcc_pp/logs/
 src/mpc/logs/*
 !src/mpc/logs/.gitkeep
 
-src/mpcc/c_generated_code/*
-!src/mpcc/c_generated_code/.gitkeep
-src/mpcc/logs/*
-!src/mpcc/logs/.gitkeep
-
-src/mpcc_pp/c_generated_code/*
-!src/mpcc_pp/c_generated_code/.gitkeep
-src/mpcc_pp/logs/*
-!src/mpcc_pp/logs/.gitkeep
-
-src/mpcc_pp/mpcc_pp/c_generated_code/*
-!src/mpcc_pp/mpcc_pp/c_generated_code/.gitkeep
-
-src/mpcc_pp/mpcc_pp/logs/*
-!src/mpcc_pp/mpcc_pp/logs/.gitkeep
-
-# ACADOS generated OCP descriptions
-*_acados_ocp.json
-
-.codex
-.claude
+# Optuna sweep output: keep best_parameters.yaml / best_summary.json,
+# drop the per-trial artifacts and the raw study database.
+src/mpcc_pp/optuna_turbo_1/trial_*/
+**/study.db

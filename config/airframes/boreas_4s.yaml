@@ -1,0 +1,77 @@
+schema_version: 1
+airframe: boreas_4s
+calibration_status: partially_measured
+description: >-
+  Boreas 4S control-validation model. Rigid-body properties come from the
+  authoritative CAD-derived URDF. Static maximum propeller thrust is measured;
+  the intermediate thrust curve, motor transients, reaction torque, and drag
+  remain provisional until full thrust-stand and Vicon identification data are
+  available.
+
+rigid_body:
+  source_urdf: ../../sim/gazebo/models/anemos_drone/raw/drone_acc_mass_description/urdf/drone_acc_mass.urdf
+  mass_kg: 0.8351086449771665
+  center_of_mass_m: [0.004839178109627602, 0.0034084153156952045, 0.00927557259352703]
+  inertia_kg_m2:
+    ixx: 0.002158
+    iyy: 0.002919
+    izz: 0.002743
+    ixy: 0.000001
+    ixz: -0.000085
+    iyz: -0.000043
+  provenance: cad_urdf
+
+propulsion:
+  model: normalized_rotor_speed_polynomial
+  # Measured static maximum: 916 gram-force per propeller. With only the
+  # endpoint available, the intermediate curve remains a quadratic prior.
+  thrust_curve_n: [0.0, 0.0, 8.9828914]
+  reaction_moment_ratio_m: 0.00125
+  maximum_rpm: 30000.0
+  # No motor step response has been measured. Keep the actuator instantaneous
+  # instead of inventing a lag; replace both values after identification.
+  motor_time_constant_up_s: 0.0
+  motor_time_constant_down_s: 0.0
+  input_min: 0.0
+  input_max: 1.0
+  provenance: measured_boreas_static_max_916_gf_per_prop
+
+aerodynamics:
+  # Body-frame coefficients in N/(m/s)^2 and N*m/(rad/s)^2.
+  translational_drag: [0.010, 0.010, 0.020]
+  angular_drag: [0.00020, 0.00020, 0.00040]
+  provenance: provisional_conservative_prior
+
+battery:
+  enabled: false
+  nominal_voltage_v: 14.8
+  provenance: deferred_until_measurement
+
+rotors:
+  # Betaflight uses FRD body axes (right is +Y), while Gazebo uses FLU
+  # (left is +Y).  The CAD prop names were authored in Betaflight's lateral
+  # convention, so right/left prop links are swapped when bound to Gazebo.
+  - id: 0
+    betaflight_motor: 1
+    name: back_right
+    joint_name: Revolute_17
+    position_m: [-0.082176, -0.068017, 0.040514]
+    turning_direction: cw
+  - id: 1
+    betaflight_motor: 2
+    name: front_right
+    joint_name: Revolute_15
+    position_m: [0.088628, -0.068017, 0.040514]
+    turning_direction: ccw
+  - id: 2
+    betaflight_motor: 3
+    name: back_left
+    joint_name: Revolute_18
+    position_m: [-0.081841, 0.071798, 0.040514]
+    turning_direction: ccw
+  - id: 3
+    betaflight_motor: 4
+    name: front_left
+    joint_name: Revolute_16
+    position_m: [0.088431, 0.072039, 0.040514]
+    turning_direction: cw

@@ -15,9 +15,10 @@ Output:
 import os
 import sys
 
-# Ensure project src directory is on Python path for local import resolution
+# Ensure the package root is on the path so `import mpcc` resolves to
+# src/mpcc/mpcc/ (the ament_python layout, matching sibling mpcc_pp).
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
-PROJECT_SRC = os.path.abspath(os.path.join(SCRIPT_DIR, '..'))
+PROJECT_SRC = SCRIPT_DIR
 if PROJECT_SRC not in sys.path:
     sys.path.insert(0, PROJECT_SRC)
 
