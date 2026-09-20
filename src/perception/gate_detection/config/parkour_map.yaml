@@ -1,0 +1,49 @@
+# Parkour map — gate poses in world frame for the v3.4 detector.
+#
+# World frame convention: NED (North-East-Down).
+#   X = North, Y = East, Z = Down (Z increases toward the ground).
+#
+# Gate-local frame convention:
+#   * Gate inner-corner 3-D points live in the gate-local frame with X = 0
+#     for all four corners (the gate is planar in the local YZ plane).
+#   * Gate local +X is the gate normal (the axis the drone flies through).
+#   * Gate local +Y points along the gate's "right" edge in the world.
+#   * Gate local +Z points along the gate's "down" edge.
+#
+# "All gates have the same orientation" => identity rotation w.r.t. world.
+# The drone enters each gate from the +X side and exits the -X side, flying
+# along world -X (north-to-south) through the course.
+#
+# The dimensions below are the OUTER gate frame width/height (m); the v3.4
+# detector uses INNER-corner geometry hard-coded in detector_node.py
+# (_GATE_INNER_CORNERS_3D). The width/height here is informational for the
+# parkour map only — change them if the course mixes gate sizes.
+
+world_frame: NED
+all_gates_have_same_orientation: true
+
+gates:
+  - id: 0
+    position_ned: [ -23.298,  -0.400,  -0.032]
+    width_m:  2.72
+    height_m: 2.72
+  - id: 1
+    position_ned: [ -46.894,  -2.500,   5.068]
+    width_m:  2.72
+    height_m: 2.72
+  - id: 2
+    position_ned: [ -74.594,   1.200,  13.668]
+    width_m:  2.72
+    height_m: 2.72
+  - id: 3
+    position_ned: [-111.494,  -5.100,  24.568]
+    width_m:  2.72
+    height_m: 2.72
+  - id: 4
+    position_ned: [-135.494,  -0.800,  25.356]
+    width_m:  2.72
+    height_m: 2.72
+  - id: 5
+    position_ned: [-159.194,  -4.400,  25.968]
+    width_m:  2.72
+    height_m: 2.72
