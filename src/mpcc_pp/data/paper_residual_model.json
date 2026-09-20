@@ -1,0 +1,151 @@
+{
+  "coefficients": {
+    "ax": [
+      -0.8025872182338374,
+      0.0011392770833237326,
+      -0.11979620571393292,
+      0.10477656368791506
+    ],
+    "ay": [
+      -1.4169815104270231,
+      0.0023327721155587816,
+      0.06196056566483856,
+      0.179310240884173
+    ],
+    "az": [
+      0.4500890875758914,
+      -0.0004501061514619528,
+      3.275216109904114,
+      -0.6488827186950927,
+      1.070561507968987,
+      -0.45847945675837204,
+      0.04929806932740182
+    ],
+    "wx": [
+      -1.1453542819301323,
+      -2.2991000653558533,
+      -0.012382756876142828
+    ],
+    "wy": [
+      0.9001496383583408,
+      -2.280312333627572,
+      0.01962583505491283
+    ],
+    "wz": [
+      0.21275773486146216,
+      0.19057238787273587
+    ]
+  },
+  "csv_files": [
+    "/home/drone_dev/ros_ws/src/mpcc_pp/data/model_validation_20260520_225200.csv",
+    "/home/drone_dev/ros_ws/src/mpcc_pp/data/model_validation_20260521_091226.csv",
+    "/home/drone_dev/ros_ws/src/mpcc_pp/data/model_validation_20260521_091420.csv",
+    "/home/drone_dev/ros_ws/src/mpcc_pp/data/model_validation_20260521_091705.csv",
+    "/home/drone_dev/ros_ws/src/mpcc_pp/data/model_validation_20260521_091951.csv"
+  ],
+  "dt_by_file_s": {
+    "model_validation_20260520_225200.csv": 0.023525034499471076,
+    "model_validation_20260521_091226.csv": 0.03267475500024375,
+    "model_validation_20260521_091420.csv": 0.033465145000263874,
+    "model_validation_20260521_091705.csv": 0.0340380229999937,
+    "model_validation_20260521_091951.csv": 0.021827815000051487
+  },
+  "feature_names": {
+    "ax": [
+      "vx",
+      "vx_cubed",
+      "omega_sq",
+      "vx_omega_sq"
+    ],
+    "ay": [
+      "vy",
+      "vy_cubed",
+      "omega_sq",
+      "vy_omega_sq"
+    ],
+    "az": [
+      "vz",
+      "vz_cubed",
+      "vxy",
+      "vxy_squared",
+      "vxy_omega_sq",
+      "vz_omega_sq",
+      "vxy_vz_omega_sq"
+    ],
+    "wx": [
+      "vy",
+      "omega_sq",
+      "vy_omega_sq"
+    ],
+    "wy": [
+      "vx",
+      "omega_sq",
+      "vx_omega_sq"
+    ],
+    "wz": [
+      "vx",
+      "vy"
+    ]
+  },
+  "model_type": "paper_polynomial_residual",
+  "nominal_dt_s": 0.029106154500004776,
+  "notes": [
+    "Targets are body-frame residual linear acceleration and body-frame residual angular acceleration derived from the logged one-step prediction error.",
+    "This is closer to the MPCC++ paper than the MLP post-solve correction, but still depends on the fidelity of the logged dt and the thrust proxy used for omega_sq."
+  ],
+  "omega_sq_source": "mean_thrust",
+  "rotor_force_constant_n_per_rad_s2": null,
+  "target_type": "body_accel_and_body_angular_accel",
+  "train_metrics": {
+    "ax": {
+      "r2": 0.031417079415800186,
+      "rmse": 7.651037988585934
+    },
+    "ay": {
+      "r2": 0.09241364518767259,
+      "rmse": 7.569728571568777
+    },
+    "az": {
+      "r2": 0.31575447684408564,
+      "rmse": 12.528402337625874
+    },
+    "wx": {
+      "r2": 0.008705462281656029,
+      "rmse": 78.65516459816966
+    },
+    "wy": {
+      "r2": 0.021623885416411248,
+      "rmse": 46.84097290070483
+    },
+    "wz": {
+      "r2": 0.004320428451788927,
+      "rmse": 19.869586624656986
+    }
+  },
+  "validation_metrics": {
+    "ax": {
+      "r2": 0.03505910798046996,
+      "rmse": 7.382838416272139
+    },
+    "ay": {
+      "r2": 0.1000267988244391,
+      "rmse": 7.3734119465573125
+    },
+    "az": {
+      "r2": 0.299161910747196,
+      "rmse": 12.44173168447048
+    },
+    "wx": {
+      "r2": 0.005093730730957646,
+      "rmse": 83.49976571451859
+    },
+    "wy": {
+      "r2": 0.01047223699083688,
+      "rmse": 46.00039906560948
+    },
+    "wz": {
+      "r2": 0.005762913073910525,
+      "rmse": 20.89790937368492
+    }
+  }
+}

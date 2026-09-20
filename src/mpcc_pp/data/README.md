@@ -2,6 +2,11 @@
 
 Pipeline completa per raccogliere dati di validazione del modello durante la simulazione, analizzare i residui e allenare un MLP correttivo.
 
+Nota importante: il file `train_residual_model.py` allena un MLP che corregge
+`x_pred[1]` dopo il solve OCP. Questo e` utile per analisi e prototipazione,
+ma non e` la stessa cosa del termine residuale di MPCC++, che entra direttamente
+nella dinamica del modello usato dal solver.
+
 ---
 
 ## Struttura
@@ -95,6 +100,25 @@ python3 train_residual_model.py
 
 Il training usa Adam, learning rate scheduling (`ReduceLROnPlateau`) ed early stopping (patience 20 epoche). Al termine stampa RMSE per canale sul validation set e salva `residual_model.pt`.
 
+### Variante piu` vicina al paper: fit polinomiale lineare
+
+Se vuoi seguire piu` da vicino la struttura del paper MPCC++, usa:
+
+```bash
+python3 fit_paper_residual_model.py
+```
+
+Questo script:
+
+- usa feature polinomiali leggere in stile paper;
+- stima un modello lineare con least-squares;
+- produce `paper_residual_model.json`;
+- salva coefficienti interpretabili per residui su accelerazione lineare body-frame e accelerazione angolare body-frame.
+
+Il file generato puo` essere caricato dentro `mpcc_pp/mpcc_pp/drone_model.py`
+tramite `parameters.yaml`, quindi il residuo entra nella dinamica usata da
+ACADOS invece di correggere solo la predizione a posteriori.
+
 ---
 
 ## 4. Attivazione del modello correttivo nel controller
@@ -118,6 +142,21 @@ ros2 launch drone_control sim.launch.py \
 
 Per disabilitarlo: lasciare `RESIDUAL_MODEL_PATH = ''` o non passare il parametro.
 
+### Attivazione del residuo "paper-style" dentro il modello OCP
+
+In `src/mpcc_pp/mpcc_pp/parameters.yaml`:
+
+```yaml
+model:
+  residual:
+    enabled: true
+    coefficients_path: /home/mattia/ETHRC-Drone-Racing/src/mpcc_pp/data/paper_residual_model.json
+```
+
+Quando abiliti questa opzione, il solver ACADOS viene rigenerato per includere
+il termine residuale dentro `v_dot` e `w_dot`. Questo e` l'approccio piu`
+coerente con MPCC++.
+
 ---
 
 ## Flusso completo
@@ -135,7 +174,15 @@ Per disabilitarlo: lasciare `RESIDUAL_MODEL_PATH = ''` o non passare il parametr
         ↓
    residual_model.pt
 
+3b. fit_paper_residual_model.py
+        ↓
+   paper_residual_model.json
+
 4. sim.launch.py  (RESIDUAL_MODEL_PATH=...)
         ↓
    Correzione residuale attiva a runtime
+
+4b. parameters.yaml  (model.residual.enabled=true)
+        ↓
+   Residuo polinomiale attivo dentro la dinamica OCP
 ```
