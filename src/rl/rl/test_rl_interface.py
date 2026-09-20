@@ -4,47 +4,17 @@ import numpy as np
 import sys
 import os
 
-# Add the src directory to Python path
-sys.path.insert(0, '/home/ubuntu/ETHRC/experimental/ETHRC-Drone-Racing/src')
+# Add package directories dynamically to Python path
+this_dir = os.path.dirname(os.path.abspath(__file__))
+rl_pkg_dir = os.path.abspath(os.path.join(this_dir, '..'))
+interfaces_pkg_dir = os.path.abspath(os.path.join(this_dir, '..', '..', 'interfaces'))
 
-# Also try sourcing ROS setup if available
-ros_setup = '/home/drone_dev/ros_ws/install/setup.bash'
-if os.path.exists(ros_setup):
-    import subprocess
-    subprocess.run(['bash', '-c', f'source {ros_setup} && env'], capture_output=True)
-    # This won't affect the current process, but let's try importing directly
+if rl_pkg_dir not in sys.path:
+    sys.path.insert(0, rl_pkg_dir)
+if interfaces_pkg_dir not in sys.path:
+    sys.path.insert(0, interfaces_pkg_dir)
 
-# Try direct import with full path as fallback
-try:
-    from rl.drone_rl_controller import DroneRLController
-except ImportError:
-    import importlib.util
-    
-    # Load interfaces first
-    spec_interfaces = importlib.util.spec_from_file_location("interfaces", "/home/drone_dev/ros_ws/src/interfaces/__init__.py")
-    if spec_interfaces and spec_interfaces.loader:
-        interfaces_module = importlib.util.module_from_spec(spec_interfaces)
-        spec_interfaces.loader.exec_module(interfaces_module)
-        sys.modules['interfaces'] = interfaces_module
-    
-    # Load controller_interface
-    spec_ci = importlib.util.spec_from_file_location("controller_interface", "/home/drone_dev/ros_ws/src/interfaces/controller_interface.py")
-    if spec_ci and spec_ci.loader:
-        ci_module = importlib.util.module_from_spec(spec_ci)
-        spec_ci.loader.exec_module(ci_module)
-        interfaces_module.ControllerInterface = ci_module.ControllerInterface
-    
-    # Load policy_model
-    spec_pm = importlib.util.spec_from_file_location("policy_model", "/home/drone_dev/ros_ws/src/rl/policy_model.py")
-    if spec_pm and spec_pm.loader:
-        pm_module = importlib.util.module_from_spec(spec_pm)
-        spec_pm.loader.exec_module(pm_module)
-    
-    # Load drone_rl_controller
-    spec = importlib.util.spec_from_file_location("drone_rl_controller", "/home/drone_dev/ros_ws/src/rl/drone_rl_controller.py")
-    rl_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(rl_module)
-    DroneRLController = rl_module.DroneRLController
+from rl.drone_rl_controller import DroneRLController
 
 from mavsdk.offboard import AttitudeRate
 

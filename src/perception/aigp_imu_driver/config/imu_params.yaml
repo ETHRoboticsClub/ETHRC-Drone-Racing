@@ -1,0 +1,13 @@
+aigp_imu_bridge_node:
+  ros__parameters:
+    # pymavlink connection string. udpin:// = bind and listen; the peer sends to
+    # us. The AI-GP simulator pushes its MAVLink stream to UDP 14550 (see
+    # PyAIPilotExample/main.py: SIM_SERVER_UDP_PORT = 14550), so we bind 14550.
+    # Both "udpin://host:port" and the bare mavutil "udpin:host:port" are accepted.
+    # (PX4 SITL / my_mavsdk use 14540 instead - override here if testing those.)
+    connection_url: "udpin://0.0.0.0:14550"
+    imu_topic: "/imu0"
+    frame_id: "imu_link"
+    # When true, stamp the IMU message with the simulator clock (HIGHRES_IMU
+    # time_usec) so it shares a timebase with the camera stream for VIO.
+    use_sim_timestamp: true

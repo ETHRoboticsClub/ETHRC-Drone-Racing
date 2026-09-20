@@ -1,0 +1,19 @@
+aigp_vision_driver_node:
+  ros__parameters:
+    udp_port: 5600
+    udp_bind_address: "0.0.0.0"
+    width: 640
+    height: 360
+    frame_id: "cam0"
+    # Revision 3390 uses server epoch ns here but boot-relative us for IMU.
+    # Stamp both at local receipt until explicit TIMESYNC conversion is wired.
+    use_sim_timestamp: false
+
+    # Pinhole camera, no lens distortion (spec VADR-TS-002 sec. 3.8):
+    #   resolution 640x360, [cx, cy] = [320, 180], [fx, fy] = [320, 320].
+    # K matrix (row-major 3x3): [fx, 0, cx, 0, fy, cy, 0, 0, 1]
+    camera_matrix: [320.0, 0.0, 320.0,
+                    0.0,   320.0, 180.0,
+                    0.0,   0.0,   1.0]
+    distortion_coefficients: [0.0, 0.0, 0.0, 0.0, 0.0]
+    distortion_model: "plumb_bob"

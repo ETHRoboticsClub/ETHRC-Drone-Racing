@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [dev]
+        service: [dev, aigp]
 
     steps:
       - name: Fix workspace permissions

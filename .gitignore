@@ -4,6 +4,7 @@
 .devcontainer/
 .DS_Store
 *:Zone.Identifier
+ext/
 
 # Build and Install
 build/
@@ -40,6 +41,7 @@ repo_artifact/
 aws/
 awscliv2.zip
 CLAUDE.md
+aigp/
 
 # MPC / Acados specific
 src/mpc/mpc/c_generated_code/
