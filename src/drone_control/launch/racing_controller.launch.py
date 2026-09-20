@@ -58,6 +58,10 @@ def generate_launch_description():
                 as_bool(context.launch_configurations['verbose_input']),
             'simulation_mode':
                 as_bool(context.launch_configurations['simulation_mode']),
+            'model_logging':
+                as_bool(context.launch_configurations['model_logging']),
+            'residual_model_path':
+                context.launch_configurations.get('residual_model_path', ''),
             'use_mavsdk':
                 as_bool(context.launch_configurations['use_mavsdk']),
             'publish_simulator_action':
@@ -139,6 +143,10 @@ def generate_launch_description():
             description='Print thrust and body-rate debug info'),
         DeclareLaunchArgument('simulation_mode', default_value='false',
             description='Enable simulation-only Optuna progress/crash/missed-gate metrics'),
+        DeclareLaunchArgument('model_logging', default_value='false',
+            description='Log (x,u,x_pred,x_real) pairs to CSV in mpcc_pp/data'),
+        DeclareLaunchArgument('residual_model_path', default_value='',
+            description='Path to residual_model.pt -- empty string to disable'),
         DeclareLaunchArgument('use_mavsdk', default_value='true',
             description='Start MavSDK client and arm PX4/offboard'),
         DeclareLaunchArgument('state_topic', default_value='drone_state_sim',

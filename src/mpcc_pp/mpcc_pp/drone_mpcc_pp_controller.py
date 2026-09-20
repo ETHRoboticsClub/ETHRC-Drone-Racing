@@ -29,12 +29,16 @@ Constraint is active in the OCP.  When `waypoints` are provided
 Track Constraint is effectively disabled (W=H=1000 m by default).
 """
 
+import time
+
 import numpy as np
 from mavsdk.offboard import AttitudeRate
 from interfaces import ControllerInterface
 
 from .drone_model import DroneMpccPpModel
 from .drone_opt import DroneOptimizerMpccPp
+from .model_logger import ModelValidationLogger
+from .residual_model import ResidualModelPredictor
 from .parameters import (
     apply_legacy_track_overrides,
     apply_track_profile,
@@ -257,6 +261,13 @@ class DroneMpccPpController(ControllerInterface):
         # Debug flag — set externally (e.g. from drone_controller_node via VERBOSE_INPUT)
         self.verbose: bool = False
 
+        # Model-validation logger -- activated by racing_controller_node when
+        # the model_logging parameter is True.
+        self._logger: ModelValidationLogger | None = None
+
+        # Residual model -- loaded via enable_residual_correction()
+        self._residual_predictor: ResidualModelPredictor | None = None
+
         # Normalized PX4 motor-speed command for fallback hover.
         self._hover_thrust_norm = float(np.mean(
             self._model.rotor_forces_to_motor_controls(self._model.f_hover)))
@@ -283,6 +294,27 @@ class DroneMpccPpController(ControllerInterface):
         print(f"[DroneMpccPpController] Optimizer ready. "
               f"Path: {mode}, length: {self._path.total_length:.2f} m")
 
+    def enable_residual_correction(self, model_path: str) -> None:
+        """Load a trained residual model and apply it during _run_step."""
+        self._residual_predictor = ResidualModelPredictor.load(model_path)
+        print(f'[DroneMpccPpController] Residual correction loaded from {model_path}')
+
+    def disable_residual_correction(self) -> None:
+        """Remove the residual model."""
+        self._residual_predictor = None
+
+    def enable_model_logging(self, data_dir: str | None = None) -> None:
+        """Activate model-validation CSV logging.  Safe to call multiple times."""
+        if self._logger is not None:
+            self._logger.close()
+        self._logger = ModelValidationLogger(data_dir=data_dir)
+
+    def disable_model_logging(self) -> None:
+        """Deactivate and close the model-validation logger."""
+        if self._logger is not None:
+            self._logger.close()
+            self._logger = None
+
     def reset(self) -> None:
         """Reset path progress and warm-start state before a new run."""
         self._theta = 0.0
@@ -299,6 +331,8 @@ class DroneMpccPpController(ControllerInterface):
             self._needs_start_position = True
         if self._opt is not None:
             self._opt._warm = False
+        if self._logger is not None:
+            self._logger.reset()
 
     def controller_update(self, x_current: np.ndarray,
                           goal_position: np.ndarray) -> AttitudeRate:
@@ -589,6 +623,8 @@ class DroneMpccPpController(ControllerInterface):
         RacingPath (no gates),
         get_tunnel_params() returns large W=H=1000 so the barrier is inactive.
         """
+        step_time = time.monotonic()
+
         # On the first call in gate-based mode: rebuild path with drone start
         # position so the reference trajectory begins at the drone, not gate 1.
         if self._needs_start_position:
@@ -653,6 +689,13 @@ class DroneMpccPpController(ControllerInterface):
         self._record_solver_info(info)
         self._last_u_opt = np.asarray(u_opt, dtype=np.float64).copy()
         self._last_x_pred = x_pred   # expose for debug / visualisation
+
+        if self._residual_predictor is not None:
+            delta = self._residual_predictor.predict(x_aug, u_opt)
+            x_pred[1, 0:13] += delta
+
+        if self._logger is not None:
+            self._logger.record(step_time, x_aug, u_opt, x_pred[1], x_ext)
 
         self._debug_counter += 1
         if self.verbose and self._debug_counter % self._debug_log_interval == 0:
