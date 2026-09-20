@@ -61,8 +61,11 @@ def create_controller(controller_type: str):
     if normalized == 'mpc':
         from mpc.drone_mpc_controller import DroneMpcController
         return DroneMpcController()
+    if normalized == 'random':
+        from drone_control.random_controller import DroneRandomController
+        return DroneRandomController()
     raise ValueError(
-        f"Unsupported controller_type '{controller_type}'; expected 'rl' or 'mpc'."
+        f"Unsupported controller_type '{controller_type}'; expected 'rl', 'mpc' or 'random'."
     )
 
 

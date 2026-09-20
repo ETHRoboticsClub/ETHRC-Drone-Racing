@@ -68,6 +68,8 @@ nav:
     - Overview: getting-started.md
     - SITL Simulation: getting-started/sitl_simulation.md
     - SITL Propulsion Calibration: getting-started/sitl_propulsion_calibration.md
+    - AIGP Racing Bringup: aigp_bringup.md
+    - ROS Racing Bringup: racing_bringup.md
   - Guidelines: guidelines.md
   - Infrastructure:
     - Overview: infrastructure/index.md
@@ -97,6 +99,7 @@ nav:
     - Betaflight MSP Control: controls/msp_control.md
     - Manual Betaflight Config: controls/betaflight_manual_config.md
     - MAVSDK: controls/mavsdk.md
+    - AIGP Simulation: controls/aigp_simulation.md
     - MPC: controls/mpc.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md

@@ -12,6 +12,8 @@ Below is a breakdown of the documentation, aligned with our navigation system.
 - [🏠 Home](docs/index.md)
 - [🆕 Recent Updates](docs/updates.md)
 - [🚀 Getting Started](docs/getting-started.md)
+- [🎮 AIGP Racing Bringup](docs/aigp_bringup.md)
+- [⚡ ROS Racing Bringup](docs/racing_bringup.md)
 - [📋 Guidelines](docs/guidelines.md)
 - [👥 Contributors](docs/contributors.md)
 
