@@ -104,7 +104,7 @@ def generate_launch_description():
         DeclareLaunchArgument('raw_output_encoding', default_value='nv12'),
         DeclareLaunchArgument(
             'publish_mono',
-            default_value='false',
+            default_value='true',
             description='Publish /cam0/image_raw as mono8 for VIO and other CPU ROS consumers',
         ),
         DeclareLaunchArgument(

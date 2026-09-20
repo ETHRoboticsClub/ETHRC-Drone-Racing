@@ -12,9 +12,11 @@ import yaml
 import os
 
 # --- Default Config Path ---
-# NOTE: In a real ROS 2 setup, you would use rclpy.get_parameters_from_file or 
-# a parameter file, but for a single file example, we'll hardcode or use a CLI arg.
-DEFAULT_CONFIG_PATH = os.path.expanduser('~/ros_ws/src/drone_control/config/waypoints_config.yaml') 
+try:
+    from ament_index_python.packages import get_package_share_directory
+    DEFAULT_CONFIG_PATH = os.path.join(get_package_share_directory('drone_control'), 'config', 'waypoints_config.yaml')
+except Exception:
+    DEFAULT_CONFIG_PATH = os.path.expanduser('~/proj/ETHRC-Drone-Racing/src/drone_control/config/waypoints_config.yaml') 
 
 class DroneWaypointGoalClient(Node):
     def __init__(self, config_path=DEFAULT_CONFIG_PATH):
@@ -132,7 +134,7 @@ class DroneWaypointGoalClient(Node):
     def goal_response_callback(self, future, mode):
         goal_handle = future.result()
         if not goal_handle.accepted:
-            self.get_logger().warn('Goal rejected by server.')
+            self.get_logger().warning('Goal rejected by server.')
             rclpy.shutdown()
             return
 
@@ -141,12 +143,12 @@ class DroneWaypointGoalClient(Node):
         
         if mode == 'cancel':
             # --- START CANCELLATION TIMER ---
-            self.get_logger().warn(f'Mode "cancel": Setting up timer to cancel in {self._cancel_delay_sec:.2f} seconds.')
+            self.get_logger().warning(f'Mode "cancel": Setting up timer to cancel in {self._cancel_delay_sec:.2f} seconds.')
             # Create a one-shot timer (period=delay, callback=send_cancel_action)
             if self._cancel_delay_sec > 0:
                  self._cancel_timer = self.create_timer(self._cancel_delay_sec, self.send_cancel_action)
             else:
-                 self.get_logger().warn("Cancel delay is 0 or less, cancelling immediately.")
+                 self.get_logger().warning("Cancel delay is 0 or less, cancelling immediately.")
                  self.send_cancel_action()
 
         self._get_result_future = goal_handle.get_result_async()
@@ -163,7 +165,7 @@ class DroneWaypointGoalClient(Node):
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info(f'Goal SUCCEEDED! ✅ All waypoints reached.')
         elif status == GoalStatus.STATUS_CANCELED:
-            self.get_logger().warn(f'Goal was CANCELED. 🛑')
+            self.get_logger().warning(f'Goal was CANCELED. 🛑')
         elif status == GoalStatus.STATUS_ABORTED:
             self.get_logger().error(f'Goal ABORTED. ❌')
         else:

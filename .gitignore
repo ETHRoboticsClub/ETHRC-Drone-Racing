@@ -33,12 +33,20 @@ pip-delete-this-directory.txt
 rosbag/
 *.bag
 *.mcap
-bags/
+
+# Bags: ignore data, keep tools + top-level README.
+bags/*
+!bags/tools/
+!bags/README.md
+bags/tools/__pycache__/
 
 # Project Specific
 get-docker.sh
 repo_artifact/
 aws/
+ext/
+eeprom.bin
+
 awscliv2.zip
 CLAUDE.md
 handover.md
@@ -60,7 +68,13 @@ docs/**/*.out
 docs/**/*.toc
 docs/**/*.synctex.gz
 .codex
+.antigravitycli
 kalibr_20260430_1005
+/src/mpc/mpc/c_generated_code
+
+# Windows metadata from downloaded / copied assets
+desktop.ini
+*:Zone.Identifier
 
 # Bag analysis output
 out/

@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <world name="sitl_plant_validation">
+    <physics name="control_validation" type="ignored">
+      <real_time_factor>1</real_time_factor>
+      <max_step_size>0.001</max_step_size>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+
+    <light name="sun" type="directional">
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <!-- No contact geometry: this world validates the airborne plant only. -->
+    <include>
+      <uri>model://drone_sitl</uri>
+      <name>drone</name>
+      <pose>0 0 2 0 0 0</pose>
+    </include>
+  </world>
+</sdf>

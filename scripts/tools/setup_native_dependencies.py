@@ -50,30 +50,71 @@ def setup_native():
     
     # ROS distro detection
     ros_distro = "humble"
-    if os.path.exists("/opt/ros/jazzy"):
+    if os.path.exists("/opt/ros/rolling"):
+        ros_distro = "rolling"
+    elif os.path.exists("/opt/ros/jazzy"):
         ros_distro = "jazzy"
     print(f"Detected ROS distro: {ros_distro}")
 
     # ROS 2 specific dependencies
-    sys_deps.extend([
+    ros_deps = [
         f"ros-{ros_distro}-mavros",
         f"ros-{ros_distro}-mavros-msgs",
-        f"ros-{ros_distro}-nav2-msgs",
         f"ros-{ros_distro}-camera-calibration-parsers",
         f"ros-{ros_distro}-cv-bridge",
         f"ros-{ros_distro}-image-transport",
         f"ros-{ros_distro}-diagnostic-updater",
         f"ros-{ros_distro}-foxglove-bridge",
-    ])
+    ]
+    if ros_distro != "rolling":
+        ros_deps.append(f"ros-{ros_distro}-nav2-msgs")
 
-    # Core NITROS dependencies (only on Jetson Orin / aarch64)
+    sys_deps.extend(ros_deps)
+
+    if ros_distro in ["rolling", "jazzy"]:
+        if "libatlas-base-dev" in sys_deps:
+            sys_deps.remove("libatlas-base-dev")
+
+    # Check if ROS Rolling needs nav2_msgs from source
+    if ros_distro == "rolling":
+        ws_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        if not os.path.exists(os.path.join(ws_root, "src/nav2_msgs")):
+            print("--- Cloning nav2_msgs for ROS Rolling ---")
+            run(f"git clone -b main --filter=blob:none --sparse https://github.com/ros-navigation/navigation2.git /tmp/navigation2 && "
+                f"cd /tmp/navigation2 && git sparse-checkout set nav2_msgs && "
+                f"cp -r nav2_msgs {ws_root}/src/ && rm -rf /tmp/navigation2")
+
     if arch == "aarch64":
+        # Core NITROS dependencies (only on Jetson Orin / aarch64)
         sys_deps.extend([
             f"ros-{ros_distro}-isaac-ros-argus-camera",
             f"ros-{ros_distro}-isaac-ros-image-proc",
         ])
+        print("--- Adding Jetson CUDA, cuDNN and Profiling libraries ---")
+        sys_deps.extend([
+            "libcudnn9-cuda-12",
+            "cuda-cupti-12-6",
+            "cuda-libraries-12-6",
+            "cuda-libraries-dev-12-6"
+        ])
 
     run(f"sudo apt-get update || echo 'Warning: apt-get update failed' && sudo apt-get install -y {' '.join(sys_deps)}")
+
+    if arch == "aarch64":
+        print("--- Installing cuSPARSELt library on Jetson (aarch64) ---")
+        if not os.path.exists("/usr/lib/aarch64-linux-gnu/libcusparseLt.so.0"):
+            try:
+                run("cd /tmp && "
+                    "wget -q https://developer.download.nvidia.com/compute/cusparselt/redist/libcusparse_lt/linux-aarch64/libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive.tar.xz && "
+                    "tar xf libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive.tar.xz && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/include/* /usr/local/cuda/include/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/lib/* /usr/local/cuda/targets/aarch64-linux/lib/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/include/* /usr/local/cuda-12.6/include/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/lib/* /usr/local/cuda-12.6/targets/aarch64-linux/lib/ && "
+                    "sudo cp -a libcusparse_lt-linux-aarch64-0.8.1.1_cuda12-archive/lib/* /usr/lib/aarch64-linux-gnu/ && "
+                    "sudo ldconfig")
+            except Exception as e:
+                print(f"Warning: cuSPARSELt library setup failed: {e}")
 
     # Isaac ROS Compression is the preferred H.264 path for racing bringup.
     # h264_image_transport and jetson_h264_publisher remain in-tree as fallback/debug
@@ -153,8 +194,10 @@ def setup_native():
     run("pip3 uninstall -y serial || true")
     
     # Core dependencies
-    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "setuptools==58.2.0"]
-    
+    py_deps = ["pyserial", "numpy<2.0", "scipy", "mavsdk", "casadi", "cython", "onnxruntime", "onnx"]
+    if ros_distro == "humble":
+        py_deps.append("setuptools==58.2.0")
+
     # RL/Inference dependencies
     # On Jetson, we use the NVIDIA-optimized torch wheels for CUDA support
     if arch == "aarch64":
@@ -162,7 +205,7 @@ def setup_native():
         # Default for JetPack 6.2 (JP6.2 / CUDA 12.6)
         torch_url = "https://developer.download.nvidia.com/compute/redist/jp/v62/pytorch/torch-2.5.0a0+872d974e.nv24.08-cp310-cp310-linux_aarch64.whl"
         torchvision_url = "https://developer.download.nvidia.com/compute/redist/jp/v62/pytorch/torchvision-0.20.0a0+635759a-cp310-cp310-linux_aarch64.whl"
-        
+
         try:
             # Adding torch-tensorrt for maximum inference performance on Orin
             run(f"pip3 install --user {torch_url} {torchvision_url} torch-tensorrt")
@@ -171,11 +214,21 @@ def setup_native():
         except Exception as e:
             print(f"Warning: Optimized Torch install failed: {e}. Falling back to standard pip.")
     
+    # Check if PEP 668 externally managed environment requires --break-system-packages
+    pip_extra = ""
+    try:
+        import glob
+        if sys.prefix == sys.base_prefix:
+            if glob.glob("/usr/lib/python3.*/EXTERNALLY-MANAGED") or os.path.exists("/usr/lib/EXTERNALLY-MANAGED"):
+                pip_extra = " --break-system-packages"
+    except Exception:
+        pass
+
     # Quote dependencies to prevent shell redirection (e.g., 'numpy<2.0')
     quoted_deps = [f"'{d}'" for d in py_deps]
     
-    run(f"pip3 install --user {' '.join(quoted_deps)}")
-    run(f"pip3 install --user -e {acados_path}/interfaces/acados_template")
+    run(f"pip3 install --user{pip_extra} {' '.join(quoted_deps)}")
+    run(f"pip3 install --user{pip_extra} --use-pep517 -e {acados_path}/interfaces/acados_template")
 
     # 7. Environment Variables
     bashrc = os.path.expanduser("~/.bashrc")

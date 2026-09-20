@@ -13,6 +13,25 @@ This page summarizes recent changes to the ETHRC Drone Racing project and outlin
 - **Vicon Motion Capture Ecosystem**: Detailed instructions and wiring diagrams for Vicon hardware deployment, including dynamic wand calibration.
 - **Documentation**: New [**Vicon Setup Guide**](perception/vicon.md) and [**IMX219 90Hz Tuning**](drone-setup/imx219_90hz_tuning.md).
 
+### 🧪 Boreas Betaflight SITL Control Model
+
+- Added a shared Boreas 4S airframe profile backed by the CAD-derived URDF.
+- Added motor dynamics, reaction torque, body drag, and plant diagnostics.
+- Added automated plant, RL, and MPC SITL validation reports.
+- Corrected QUADX rotor order, the Betaflight IMU mount, ROS angular-rate
+  conversion, and the controller-to-Betaflight pitch convention.
+- Added a one-shot virtual launch restraint to remove physical-pad contact
+  impulses from control-policy evaluation.
+- Made MPC invert the shared quadratic thrust curve when converting force in
+  newtons to Betaflight throttle.
+- Added the measured Boreas maximum of 916 gf per propeller and updated the
+  derived 4.387:1 thrust-to-weight and 0.4774 hover-command baselines.
+- Aligned RL/SITL with the real linear 500 deg/s Boreas rate profile and
+  hardware PID profile. The resulting hardware-faithful RL hover test currently
+  fails, exposing a policy transfer issue rather than masking it with caps.
+- Corrected MPC from the legacy X500 mass and made `controller_type:=mpc`
+  functional. Propulsion and drag remain provisional pending physical tests.
+
 ### 🔄 Firmware & Hardware Evolution
 - **Betaflight Migration**: The project has officially migrated to **Betaflight** as the primary flight controller firmware. This provides superior PID loops and lower latency for competitive racing.
 - **Custom PX4 v1.15.4**: (Legacy) Developed custom build with modified UART mappings for multi-instance MAVLink.

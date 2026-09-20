@@ -9,5 +9,6 @@
 
     <remap from="cmd_vel" to="/control/command"/>
     <remap from="odometry/filtered" to="/ekf/odometry"/>
+    <remap from="/vicon/zephyrus/zephyrus" to="$(var pose1)"/>
   </node>
 </launch>

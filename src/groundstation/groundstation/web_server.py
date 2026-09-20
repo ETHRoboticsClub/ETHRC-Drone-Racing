@@ -136,7 +136,7 @@ class GroundstationNode(Node):
             elif msg.encoding == 'bgr8':
                 bgr = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
             else:
-                self.get_logger().warn(
+                self.get_logger().warning(
                     f"Unsupported image encoding '{msg.encoding}'",
                     throttle_duration_sec=10.0,
                 )
@@ -144,7 +144,7 @@ class GroundstationNode(Node):
             _, jpeg = cv2.imencode('.jpg', bgr, [cv2.IMWRITE_JPEG_QUALITY, 80])
             self.state.update_frame(jpeg.tobytes())
         except Exception as exc:
-            self.get_logger().warn(f'image_rgb decode error: {exc}', throttle_duration_sec=5.0)
+            self.get_logger().warning(f'image_rgb decode error: {exc}', throttle_duration_sec=5.0)
 
     def _image_h264_cb(self, msg: CompressedImage):
         self.state.update('image', {
@@ -171,7 +171,7 @@ class GroundstationNode(Node):
                     self.state.update_frame(jpeg.tobytes())
                     return
         except Exception as exc:
-            self.get_logger().warn(f'H264 decode error: {exc}', throttle_duration_sec=5.0)
+            self.get_logger().warning(f'H264 decode error: {exc}', throttle_duration_sec=5.0)
 
     def _throttle_cb(self, msg: Float64):
         self.state.update('throttle', msg.data)
@@ -223,7 +223,7 @@ class GroundstationNode(Node):
         live = self._killswitch_live
         self._killswitch_live = None
         if live is None or live['samples'] == 0:
-            self.get_logger().warn('Killswitch bounds: no samples recorded')
+            self.get_logger().warning('Killswitch bounds: no samples recorded')
             self.state.update('killswitch_bounds', {'active': False, 'bounds': None})
             return {'active': False, 'bounds': None, 'samples': 0}
 
@@ -260,7 +260,7 @@ class GroundstationNode(Node):
         """
         if self._killswitch_monitor_sub is None:
             if self.killswitch_bounds is None:
-                self.get_logger().warn('Killswitch activate refused: no bounds recorded yet')
+                self.get_logger().warning('Killswitch activate refused: no bounds recorded yet')
                 return {'active': False, 'error': 'No bounds recorded. Configure killswitch bounds first.'}
             self._killswitch_triggered = False
             self.killswitch_pub.publish(Bool(data=False))

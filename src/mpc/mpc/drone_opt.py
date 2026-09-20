@@ -6,6 +6,7 @@ import os
 import sys
 import shutil
 import errno
+from pathlib import Path
 import numpy as np
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSimSolver
@@ -33,9 +34,10 @@ class DroneOptimizer(object):
     """ACADOS OCP wrapper for drone MPC with thrust/body rate control."""
 
     """Lambda to normalize quaternions"""
-    normalize_quat = lambda q: q / np.linalg.norm(q) if np.linalg.norm(q) > 1e-12 else np.array([0., 0., 0., 1.])
+    normalize_quat = lambda q: q / np.linalg.norm(q) if np.linalg.norm(q) > 1e-12 else np.array([1., 0., 0., 0.])
 
-    def __init__(self, d_model, d_constraint, t_horizon, n_nodes, enable_logging=True):
+    def __init__(self, d_model, d_constraint, t_horizon, n_nodes,
+                 mass, gravity, enable_logging=True):
         model = d_model
         self.T = t_horizon
         self.N = n_nodes
@@ -43,12 +45,14 @@ class DroneOptimizer(object):
         self.log_failures = True
         
         # Store physical parameters for reference
-        self.m = 2.5372
-        self.g = 9.81
+        self.m = float(mass)
+        self.g = float(gravity)
 
 
-        os.chdir(os.path.dirname(os.path.realpath(__file__)))
-        self.acados_models_dir = './acados_models'
+        self.generated_dir = Path(
+            os.environ.get("ETHRC_ACADOS_CACHE", "~/.cache/ethrc_mpc")
+        ).expanduser()
+        self.acados_models_dir = str(self.generated_dir / 'acados_models')
         safe_mkdir_recursive(self.acados_models_dir)
 
         acados_source_path = os.environ.get('ACADOS_SOURCE_DIR', '')
@@ -66,6 +70,7 @@ class DroneOptimizer(object):
 
         ocp = AcadosOcp()
         ocp.model = model
+        ocp.code_export_directory = str(self.generated_dir / 'c_generated_code')
         ocp.solver_options.N_horizon = self.N
         ocp.solver_options.tf = self.T
 
@@ -197,7 +202,7 @@ class DroneOptimizer(object):
             ocp.solver_options.qp_solver_cond_ric_alg = 0
 
         # Generate and compile solver
-        json_file = os.path.join('./' + model.name + '_acados_ocp.json')
+        json_file = str(self.generated_dir / f'{model.name}_acados_ocp.json')
         self.solver = AcadosOcpSolver(ocp, json_file=json_file)
         self.integrator = AcadosSimSolver(ocp, json_file=json_file)
 
@@ -328,7 +333,7 @@ class DroneOptimizer(object):
         if (status not in [0, 2]):
             print(f"[WARNING] ACADOS solver status {status}")
             if self.log_failures:
-                self.log_solver_failures(self, x_current,x_ref[:,-1])
+                self.log_solver_failures(x_current, x_ref)
             raise Exception(f"acados ocp solver returned status {status}")
                 
         # Extract optimal control & optimal next state
@@ -343,12 +348,25 @@ class DroneOptimizer(object):
     def log_solver_failures(self, x_current :np.ndarray,x_ref :np.ndarray):
         # Handle solver status
         
-        safe_mkdir_recursive('./logs', overwrite=False)
+        logs_directory = self.generated_dir / 'logs'
+        safe_mkdir_recursive(str(logs_directory), overwrite=False)
         try:
-            np.savetxt('./logs/debug_x0.csv', x_current.reshape(1, -1), delimiter=',')
-            np.savetxt('./logs/debug_xref.csv', x_ref.reshape(1, -1), delimiter=',')
+            np.savetxt(
+                logs_directory / 'debug_x0.csv',
+                x_current.reshape(1, -1),
+                delimiter=',',
+            )
+            np.savetxt(
+                logs_directory / 'debug_xref.csv',
+                x_ref.reshape(1, -1),
+                delimiter=',',
+            )
             residuals = self.solver.get_residuals()
-            np.savetxt('./logs/debug_residuals.csv', residuals.reshape(1, -1), delimiter=',')
+            np.savetxt(
+                logs_directory / 'debug_residuals.csv',
+                residuals.reshape(1, -1),
+                delimiter=',',
+            )
         except Exception as e:
             if self.enable_logging:
                 print("Error saving debug logs:", e)

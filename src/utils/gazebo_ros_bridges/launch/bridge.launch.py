@@ -31,10 +31,22 @@ def launch_setup(context, *args, **kwargs):
         gz_type = bridge["gz_type"]
         remap_to = bridge.get("remap_to")
 
+        direction = bridge.get("direction", "GZ_TO_ROS").upper()
+        direction_symbols = {
+            "BIDIRECTIONAL": "@",
+            "GZ_TO_ROS": "[",
+            "ROS_TO_GZ": "]",
+        }
+        if direction not in direction_symbols:
+            raise ValueError(
+                f"Invalid bridge direction '{direction}' for {gz_topic}; "
+                "expected BIDIRECTIONAL, GZ_TO_ROS, or ROS_TO_GZ"
+            )
+
         # Build parameter_bridge argument:
-        #   "<gz_topic>@<ros2_type>@<gz_type>"
+        #   "<topic>@<ros2_type><direction><gz_type>"
         arguments.append(
-            f"{gz_topic}@{ros2_type}@{gz_type}"
+            f"{gz_topic}@{ros2_type}{direction_symbols[direction]}{gz_type}"
         )
 
         if remap_to:

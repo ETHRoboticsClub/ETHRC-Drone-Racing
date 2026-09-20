@@ -19,6 +19,9 @@ setup(
     name=package_name,
     version='0.0.1',
     packages=find_packages(exclude=['test']),
+    package_data={
+        'rl': ['models/*.pt', 'models/**/*.pt'],
+    },
     data_files=data_files,
     install_requires=['setuptools'],
     zip_safe=True,

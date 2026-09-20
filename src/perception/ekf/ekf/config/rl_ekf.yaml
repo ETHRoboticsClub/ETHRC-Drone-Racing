@@ -24,6 +24,18 @@ ekf_filter_node:
                    false, false, false, false, false, false, false, false, false]
     pose0_differential: false
 
+    # Vicon absolute pose -- NOT ACTIVE.
+    # Carried over from feature/rl_deploy_verification (Dimetri, 2026-05-09),
+    # where it was the only enabled input for Vicon-only bring-up flights.
+    # Left disabled because that config predates the quaternion EKF: the
+    # vector below is the old 15-element Euler layout and must be widened to
+    # the 16-element [x, y, z, qw, qx, qy, qz, ...] layout used above before
+    # it will work against the pinned robot_localization fork.
+    # pose1: /vicon/zephyrus/zephyrus
+    # pose1_config: [true, true, true,   true, true, true,
+    #                false, false, false, false, false, false, false, false, false]
+    # pose1_differential: false
+
     # If we have an IMU later:
     # imu0: /imu/data
     # imu0_config: [false, false, false,  true, true, true, true,

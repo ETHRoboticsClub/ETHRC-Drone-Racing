@@ -11,7 +11,7 @@ from std_srvs.srv import SetBool
 
 import asyncio
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from mavsdk import System
 from mavsdk.offboard import AttitudeRate, PositionNedYaw
@@ -23,10 +23,13 @@ import numpy as np
 
 @dataclass
 class DroneState():
-    p: np.ndarray = np.zeros(3)
-    v: np.ndarray = np.zeros(3)
-    q: np.ndarray = np.zeros(4)
-    w: np.ndarray = np.zeros(3)
+    # State layout published as drone_state_sim: [p(3), v(3), q_xyzw(4), w(3)].
+    # q is initialised to the identity rotation in xyzw order so the very first
+    # publish (before any telemetry callback fires) carries a valid quaternion.
+    p: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    v: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    q: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0, 0.0, 1.0]))
+    w: np.ndarray = field(default_factory=lambda: np.zeros(3))
 
     def as_ndarray(self):
         return np.concatenate((self.p,self.v,self.q,self.w))
@@ -210,7 +213,9 @@ class MavSDKClient(Node):
         """Expressed in Earth Frame NED frame"""
         async for att in self.drone.telemetry.attitude_quaternion():
             with self.state_lock:
-                self.state.q = np.array([att.w, att.x, att.y, att.z])
+                # xyzw order — matches drone_state_sim layout consumed by
+                # state_bridge_node and rl/hovering_experiment.
+                self.state.q = np.array([att.x, att.y, att.z, att.w])
 
     async def _odometry_listener(self):
         """Expresses in Body NED frame (roll, pitch, yaw)"""
