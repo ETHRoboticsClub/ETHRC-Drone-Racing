@@ -56,3 +56,12 @@ docs/**/*.toc
 docs/**/*.synctex.gz
 .codex
 kalibr_20260430_1005
+
+# Bag analysis output
+out/
+
+# Offline post-flight analysis tools
+scripts/perception/bag_analysis/
+
+# Local docker compose overrides (extra mounts etc.) — auto-loaded by compose
+docker-compose.override.yaml

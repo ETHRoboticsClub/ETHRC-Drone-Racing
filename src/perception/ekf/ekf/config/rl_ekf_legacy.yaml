@@ -1,0 +1,78 @@
+ekf_filter_node:
+  ros__parameters:
+    # Same fusion topology as rl_ekf.yaml, but every *_config array is
+    # trimmed to 15 booleans so it loads cleanly in a robot_localization
+    # build *before* the 16-state quaternion refactor.
+    #
+    # Use this config when running `launch/perception_replay.launch.py`
+    # against a legacy worktree (see PHASE 4 of the analysis plan):
+    #
+    #     git worktree add ../ETHRC-Drone-Racing-legacy <pre_refactor_commit>
+    #     cd ../ETHRC-Drone-Racing-legacy
+    #     colcon build --symlink-install \
+    #         --packages-select robot_localization ekf gate_detection ov_msckf
+    #     source install/setup.bash
+    #     # Make sure the launch picks up THIS file:
+    #     ros2 launch /path/to/main_repo/launch/perception_replay.launch.py \
+    #         ekf_config_file:=rl_ekf_legacy.yaml
+    #
+    # Legacy state ordering (15-state Euler):
+    #   [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    # vs. new ordering (16-state quaternion):
+    #   [x, y, z, qw, qx, qy, qz, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    # Mapping for the *_config arrays:
+    #   - drop one orientation slot (4 quaternion booleans → 3 RPY booleans)
+    #   - everything else stays at the same logical position
+
+    frequency: 100.0
+    sensor_timeout: 0.1
+    publish_tf: true
+    two_d_mode: false
+
+    map_frame: world
+    base_link_frame: base_link
+    odom_frame: odom
+    world_frame: world
+
+    # VIO as Odometry
+    # [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]
+    odom0: /ov_msckf/odomimu
+    odom0_config: [true, true, true,   true, true, true,   true, true, true,
+                   true, true, true,   false, false, false]
+    odom0_differential: false
+
+    # Vision absolute pose
+    pose0: /gate_detection/drone_pose
+    pose0_config: [true, true, true,   true, true, true,
+                   false, false, false, false, false, false, false, false, false]
+    pose0_differential: false
+
+    predict_to_current_time: true
+    transform_timeout: 0.02
+    transform_time_offset: 0.0
+
+    print_diagnostics: true
+    debug: false
+    debug_out_file: "/tmp/ekf_legacy_debug.txt"
+
+    smooth_lagged_data: true
+    history_length: 0.5
+
+    odom0_queue_size: 10
+    odom0_nodelay: false
+    odom0_relative: false
+
+    pose0_queue_size: 10
+    pose0_nodelay: false
+    pose0_relative: false
+
+    publish_acceleration: true
+
+    use_control: false
+    stamped_control: true
+    control_timeout: 0.2
+    control0: cmd_vel
+
+    # [vx, vy, vz, vroll, vpitch, vyaw]
+    control_config: [true, true, true,
+                     false, false, false]

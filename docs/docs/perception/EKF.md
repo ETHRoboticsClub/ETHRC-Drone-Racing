@@ -6,23 +6,23 @@
 
 ## Overview
 
-The EKF package provides sensor fusion for drone state estimation by leveraging the Robot Localization package's Extended Kalman Filter implementation. The filter fuses visual-inertial odometry (VIO) from OpenVINS with absolute pose measurements from **Gate Detection** to produce a robust, high-frequency state estimate. The current implementation uses the standard `robot_localization` package without drone-specific model adaptations.
+The EKF package provides sensor fusion for drone state estimation. It fuses visual-inertial odometry (VIO) from OpenVINS with absolute pose measurements from **Gate Detection** to produce a robust, high-frequency state estimate. The filter is built on a **modified fork of `robot_localization`** (submodule at `src/perception/ekf/robot_localization/`) that replaces the stock 15-state Euler EKF with a **16-state quaternion model driven by quadrotor physics** — quaternion kinematics, gravity-coupled acceleration, and first-order angular-rate decay in the predict step. The quaternion state eliminates the gimbal-lock singularity of the Euler formulation and improves predict-step accuracy during aggressive maneuvers. The full physics derivation lives in the package `SETUP.md`.
 
 ## Input Topics
 
-The EKF system subscribes to the following ROS 2 topics. Orientation data arrives as quaternions but is internally converted to roll, pitch, yaw (RPY) for the filter's 15-dimensional state vector: `[x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw, ax, ay, az]`.
+The EKF system subscribes to the following ROS 2 topics. Orientation is represented natively as a unit quaternion in the filter's 16-dimensional state vector: `[X, Y, Z, Qw, Qx, Qy, Qz, Vx, Vy, Vz, Vroll, Vpitch, Vyaw, Ax, Ay, Az]` — world-frame (ENU) position, body→world quaternion, body-frame linear velocity, body angular rates, and body-frame acceleration.
 
 ### VIO Odometry
 - **Topic**: `/ov_msckf/odomimu`
 - **Type**: `nav_msgs/msg/Odometry`
 - **Description**: Odometry from OpenVINS containing pose (position + orientation) and velocity estimates
-- **Used for Update**: x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw
+- **Used for Update**: position (x, y, z), orientation quaternion (qw, qx, qy, qz), linear velocity (vx, vy, vz), angular rates (vroll, vpitch, vyaw)
 
 ### Gate Detection Pose
 - **Topic**: `/gate_detection/drone_pose`
 - **Type**: `geometry_msgs/msg/PoseWithCovarianceStamped`
 - **Description**: Absolute pose measurements from Gate Detection
-- **Used for Update**: x, y, z, roll, pitch, yaw
+- **Used for Update**: position (x, y, z) and orientation quaternion (qw, qx, qy, qz)
 
 ### Control Input (Optional)
 - **Topic**: `/control/command` (remapped from `cmd_vel`)
@@ -53,11 +53,11 @@ The EKF system publishes the following ROS 2 topics:
 
 The sensor fusion pipeline works as follows:
 
-1. **Prediction Step**: The filter propagates the state estimate forward in time using a constant-velocity motion model. The prediction runs at 100 Hz to maintain smooth state estimates.
+1. **Prediction Step**: The filter propagates the state estimate forward in time using a **quadrotor physics model** (not a generic constant-velocity model): quaternion kinematics integrate the body angular rates, gravity coupling drives the body-frame acceleration as a function of attitude, and a first-order decay relaxes the angular rates between measurements. The prediction runs at 100 Hz to maintain smooth state estimates.
 
-2. **VIO Update**: When odometry messages arrive from OpenVINS (`/ov_msckf/odomimu`), the filter incorporates full pose and velocity information (x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw) to update the state estimate.
+2. **VIO Update**: When odometry messages arrive from OpenVINS (`/ov_msckf/odomimu`), the filter incorporates full pose and velocity information (position, quaternion orientation, linear velocity, angular rates) to update the state estimate.
 
-3. **Vision Update**: Absolute pose measurements from Gate Detection (`/gate_detection/drone_pose`) provide global corrections to prevent drift. Only pose states (x, y, z, roll, pitch, yaw) are fused from this source.
+3. **Vision Update**: Absolute pose measurements from Gate Detection (`/gate_detection/drone_pose`) provide global corrections to prevent drift. Only pose states (position and quaternion orientation) are fused from this source.
 
 4. **Delayed Measurement Handling**: The filter maintains a 0.5-second state history buffer (`smooth_lagged_data: true`) to properly handle out-of-order or delayed sensor measurements.
 
