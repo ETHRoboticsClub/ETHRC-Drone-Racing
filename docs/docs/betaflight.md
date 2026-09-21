@@ -231,7 +231,7 @@ graph TD
 2.  **State Estimation**: The `drone_controller` fuses IMU telemetry with Vicon ground truth (or Gate Detection) to compute optimal actuator commands.
 3.  **Control Injection**: The `msp_bridge` node acts as a virtual RX. It consumes attitude rate commands and injects them into the FC via the MSP protocol over USB, bypassing the serial priority constraints of the primary UART.
 
-For detailed information on the Blackbox Driver configuration and ROS 2 parameters, see the [Blackbox Driver](perception/blackbox.md) page.
+For detailed information on the Blackbox Driver configuration and ROS 2 parameters, see the [IMU → Technical](perception/imu/technical.md) page.
 
 ---
 

@@ -17,7 +17,7 @@ We name our racing fleets after the Greek wind gods to reflect their agility and
 
 ## 🛠️ Calibration & Tuning
 
-*   **[Jetson Camera Pipeline](../perception/camera_pipeline.md)**: Current IMX219 60 Hz perception and H.264 compression path.
+*   **[Camera](../perception/camera/technical.md)**: Current IMX219 60 Hz perception and H.264 compression path.
 *   **[IMX219 90Hz High-Speed Tuning](imx219_90hz_tuning.md)**: Optimizing the camera for high-rate perception.
 *   **[VIO Synchronization](vio_synchronization.md)**: Hardware-level sync between the IMU and perception stack.
 *   **[Betaflight Config (2kHz Blackbox)](../betaflight.md)**: Detailed Betaflight CLI and tuning settings.

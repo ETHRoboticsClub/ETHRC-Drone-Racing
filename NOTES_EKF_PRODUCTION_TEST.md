@@ -1,56 +1,32 @@
-# EKF production test runbook
+# EKF production test — runbook
 
-Purpose: triage guide for the upcoming production-pipeline test of the 16-state quaternion EKF
-(real VIO + IMU + gate detection — not the Vicon-substituted replay we tuned against).
-Written 2026-05-08 after the iter-11 fix landed; **reframed after deciding to merge the
-pre-kludge correct-physics commit (`484337f`) instead of the replay-tuned kludge (`2308a32`).**
+Triage guide for the first run of the 16-state quaternion EKF on the real pipeline (OpenVINS + gate detection instead of the Vicon-substituted replay it was tuned on). Written 2026-05-08, updated 2026-05-27 when the merge decision was made.
 
-> **Shipped model (as merged)**: the **correct physics** — full body→world Z-column coupling
-> and `Az = +2g(Qx²+Qy²)`. The Z-zero kludge (`Az = 0`, zeroed Z-column) that we tuned on the
-> zephyrus Vicon-substituted replay is **NOT shipped**; it is preserved at commit `2308a32`
-> (tag `replay-z-kludge`, branch `humble-devel`) and is now an **opt-in lever** (Lever A below),
-> to apply only if Z regresses on the real-VIO pipeline. Everything below is framed from the
-> correct-physics default.
+**What shipped:** the correct-physics predict step, submodule commit `484337f` — full body→world Z-column coupling and `Az = +2g(Qx² + Qy²)`.
+**What did not:** the replay-tuned Z kludge (`Az = 0`, Z column zeroed), commit `2308a32`, tag `replay-z-kludge`, branch `humble-devel`. It is Lever A below and is applied only if Z regresses on real VIO.
 
-## TL;DR predicted outcomes
+## Why the kludge stays out
 
-| Metric | Replay result (kludge variant) | Expected in production | Confidence |
-|---|---:|---|---|
-| Orientation RMS | 1.71° (legacy 2.44°) | should still beat legacy | high — the Ax/Ay sign fix is real physics, IMU will reinforce |
-| ATE X / Y | 3.3 / 4.4 cm (legacy 5.5 / 5.2) | similar or better | medium — depends on VIO twist quality |
-| **ATE Z** | **1.5 cm with kludge (legacy 1.7)** | **correct-physics default; revisit if it regresses** | the 1.5 cm was the *kludge* number; the shipped full-Z-column model is kinematically correct under real VIO twist |
+The replay's Vicon adapter publishes zero twist with σ = 1 m/s, which anchors the body velocities near zero. The world-Z update `R20·Vx + R21·Vy + R22·Vz` is therefore ≈ 0 on the replay whether or not the first two terms are zeroed; the kludge only removed the `−g·sin²θ` drift that the gravity-coupled `Vx` state produced in the absence of real twist.
 
-Expect the orientation and horizontal wins to transfer.  Z is now handled by the correct
-full-Z-column physics — apply Lever A (the kludge) only if real-VIO Z regresses.
+Real VIO publishes body twist with tight σ. In tilted level flight (30° pitch, 5 m/s) the true `Vx ≈ 4 m/s` and `Vz ≈ 2.3 m/s`, and `R20·Vx + R22·Vz = 0` is the altitude-hold identity. Zeroing `R20·Vx` while keeping `R22·Vz` would add ≈ 2 m/s of phantom vertical velocity per predict step — a `+sin²θ` Z bias of the same magnitude the kludge removed on the replay. The full Z column is kinematically consistent; the kludge is not.
 
-## Why the kludge is replay-only (not shipped)
+## Expected outcome
 
-The replay's Vicon adapter publishes `twist = 0` with `σ_v = 1 m/s`.  That softly anchors body
-`Vx, Vy, Vz` near zero, so the kinematic Z-update terms `R20·Vx + R21·Vy + R22·Vz` are all ≈ 0
-already.  Iter 11 zeros the first two contributions, but on the replay they were zero anyway.
+| Metric | Replay (kludge variant) | Legacy 15-state | Expectation on real VIO |
+| :--- | ---: | ---: | :--- |
+| Orientation RMS | 1.71° | 2.44° | Transfers — the Ax/Ay sign fix is physics, and the IMU (if enabled) reinforces it |
+| ATE x / y | 3.3 / 4.4 cm | 5.5 / 5.2 cm | Similar; depends on VIO twist quality |
+| ATE z | 1.5 cm | 1.7 cm | Not measured for the shipped variant; watch for a tilt-correlated bias |
 
-Real VIO publishes real body-frame twist with much tighter σ.  During tilted forward flight
-(e.g. 30° pitch, 5 m/s horizontal): true `Vx_body ≈ 4 m/s`, true `Vz_body ≈ 2.3 m/s`.  In a full
-kinematic model, `R20·Vx + R22·Vz = 0` (altitude-hold identity).  Iter 11 dropped the first term
-but kept the second, so the world-Z prediction picks up `R22·Vz ≈ 2 m/s` per step — phantom Z drift.
+## Levers
 
-That is why the shipped model keeps the full Z-column: on a real-VIO bag of altitude-holding
-tilted flight, the kludge **would** inject a `+sin²(θ)`-correlated Z bias of comparable
-magnitude to what it eliminated on the Vicon replay.
+All in `src/perception/ekf/robot_localization/` unless noted. Apply one at a time.
 
-## The three levers
+### A — Z kludge (`2308a32`)
 
-All in `src/perception/ekf/robot_localization/src/ekf.cpp`:
+Cherry-pick `2308a32` onto the submodule; the commit is exactly the `484337f → 2308a32` diff. By hand, in `src/ekf.cpp` around line 313:
 
-### Lever A — apply the Z-zero kludge (zero the Z column)
-
-The shipped model has the **full** body→world Z-column coupling (correct physics, `484337f`).
-If real-VIO Z shows a `+sin²(tilt)`-correlated bias, the replay-tuned kludge zeroes the
-body-horizontal Z-column terms and pins `Az = 0`. It is preserved at commit `2308a32`
-(tag `replay-z-kludge`); the cleanest way to apply it is to **cherry-pick that commit onto the
-submodule** — that is exactly the `484337f → 2308a32` diff, so it is safer than hand-editing.
-
-By hand, the Z-column becomes [ekf.cpp ~L313](src/perception/ekf/robot_localization/src/ekf.cpp#L313):
 ```cpp
 transfer_function_(StateMemberZ, StateMemberVx) = 0.0;
 transfer_function_(StateMemberZ, StateMemberVy) = 0.0;
@@ -59,16 +35,13 @@ transfer_function_(StateMemberZ, StateMemberAx) = 0.0;
 transfer_function_(StateMemberZ, StateMemberAy) = 0.0;
 transfer_function_(StateMemberZ, StateMemberAz) = R22 * dt2h;
 ```
-plus `state_(StateMemberAz) = 0.0` and the simplified `∂Z/∂Q` Jacobian (Qw/Qz rows → 0;
-Qx/Qy rows keep only the `R22·Vz` term). See commit `2308a32` for the exact rows.
 
-**Effect:** on the zero-twist Vicon replay this eliminates the −g·sin²(θ) Z bias. On real VIO
-twist it is *not* kinematically correct — it drops the `R20·Vx + R22·Vz ≈ 0` altitude-hold
-cancellation — so apply it only if the correct-physics default measurably regresses Z.
+plus `state_(StateMemberAz) = 0.0` (lines 291 and 492) and the reduced ∂Z/∂Q Jacobian (Qw/Qz rows zero; Qx/Qy rows keep only the `R22·Vz` term). Use only if the diagnostic below shows a negative tilt-correlated Z bias.
 
-### Lever B — re-enable IMU in `rl_ekf.yaml`
+### B — fuse the IMU
 
-[`src/perception/ekf/ekf/config/rl_ekf.yaml:28-31`](src/perception/ekf/ekf/config/rl_ekf.yaml#L28) — uncomment:
+`src/perception/ekf/ekf/config/rl_ekf.yaml`, lines 40–43, uncomment:
+
 ```yaml
 imu0: /imu/data
 imu0_config: [false, false, false,  true, true, true, true,
@@ -76,89 +49,80 @@ imu0_config: [false, false, false,  true, true, true, true,
 imu0_remove_gravitational_acceleration: true
 ```
 
-This pulls Ax/Ay/Az toward the accelerometer's measured kinematic acceleration, replacing the
-hard-coded `T = mg` assumption with real thrust data.  With IMU on, body Az tracks reality, body
-Vz integrates correctly, R22·Vz contribution to world Z is correct.
+The accelerometer then drives Ax/Ay/Az in `correct()`, replacing the `T = mg` assumption of the predict step. Requires the topic to exist (`/imu0` on hardware — adjust) and a `base_link`→`imu_link` transform.
 
-**Effect:** the gravity-coupling formulas in the predict step become less load-bearing — IMU
-overrides them in correct().  If lever A breaks something, lever B is the principled second-order
-fix.
+### C — process noise on body acceleration
 
-### Lever C — process noise on body accel (filter_base.cpp)
+`src/filter_base.cpp`, lines 127–129:
 
-[`src/perception/ekf/robot_localization/src/filter_base.cpp:127-129`](src/perception/ekf/robot_localization/src/filter_base.cpp#L127):
 ```cpp
 process_noise_covariance_(StateMemberAx, StateMemberAx) = 0.01;
 process_noise_covariance_(StateMemberAy, StateMemberAy) = 0.01;
 process_noise_covariance_(StateMemberAz, StateMemberAz) = 0.015;
 ```
 
-If predict-step accel disagrees with IMU/data (because T ≠ mg in racing), bumping these (×4 to
-×10) lets the filter trust measurements over the model.  Already tried in replay (iter 2): made
-things slightly worse with no IMU.  Could help in production with IMU on.
+Raising these by 4–10× lets measurements override the model when thrust differs from `mg`. Tried on the replay without IMU (iteration 2): slightly worse. May help with Lever B on.
 
-## Triage: what to do based on what you see
+## Triage
 
-Read `out/eval_<bag>/metrics.csv` after the production replay.  Pull the row with `source==ekf_odometry`,
-look at `ate_per_axis_rms_m` (x,y,z), `orientation_geodesic_rms_deg`, and the umeyama translation.
+Read the `source == ekf_odometry` row of `out/eval_<tag>/metrics.csv`: `ate_per_axis_rms_m`, `orientation_geodesic_rms_deg`, Umeyama translation.
 
-| Symptom | Diagnosis | Action |
-|---|---|---|
-| All 3 axes still beat legacy | correct-physics transferred fine | celebrate, no change needed |
-| Z degrades, X/Y still beat legacy | correct-physics Z-column may need the replay kludge under real twist (this is what the kludge addressed) | **Lever A**: apply the Z-zero kludge |
-| Z degrades AND X/Y degrade | the Ax/Ay sign fix may also be conflicting with VIO twist; or process noise mistuned | **Lever A** first; if X/Y still bad, **Lever C** (bump Q_a) |
-| Orientation regresses past legacy | unlikely, but means IMU is fighting the gravity-coupling formulas | **Lever B**: enable IMU and let it dominate |
-| Z RMS very large (>10 cm) and grows over time | filter divergence — either Vicon innovation outliers being accepted or covariance underflow | check `print_diagnostics: true` in the EKF YAML — look at Mahalanobis rejections |
-| ATE explodes during high-yaw segments | the quaternion sign-flip in `preparePose` may not be triggering on VIO orientation jumps | check `out/_launch_*.log` for `WARN: An input was not normalized` lines; investigate `ros_filter.cpp:3198-3210` |
+| Observation | Likely cause | Action |
+| :--- | :--- | :--- |
+| All three axes beat legacy | — | Nothing |
+| Z worse, x/y fine | Z column interacting with real twist | Run the Z-bias diagnostic; Lever A if the slope is negative |
+| Z and x/y worse | Process noise, or Ax/Ay fighting VIO twist | Lever A, then Lever C |
+| Orientation worse than legacy | Gravity-coupling formulas fighting the IMU | Lever B |
+| Z RMS > 10 cm and growing | Divergence: accepted outliers or covariance underflow | `print_diagnostics: true`, inspect Mahalanobis rejections |
+| ATE jumps during fast yaw | Quaternion hemisphere flip not triggering | Look for `An input was not normalized` in the launch log; `src/ros_filter.cpp` ~3195–3210 |
 
-### Quick diagnostic — which lever to pull first
+### Z-bias diagnostic
 
-After the production replay, run this to get the per-axis Z bias slope (the same metric we used to
-identify the iter-3 → iter-11 mechanism):
+Slope of the Z error against `sin²(tilt)`, the metric that identified the original mechanism:
 
 ```bash
-docker compose exec dev bash -lc 'python3 -c "
+python3 - <<'PY'
 import pandas as pd, numpy as np, scipy.stats as ss
-new = pd.read_parquet(\"out/eval_<TAG>/aligned_<LABEL>_ekf_odometry.parquet\")
+new = pd.read_parquet("out/eval_<TAG>/aligned_<LABEL>_ekf_odometry.parquet")
 qx, qy = new.qx_gt.values, new.qy_gt.values
-sin2 = 1 - (1 - 2*(qx*qx+qy*qy))**2
+sin2 = 1 - (1 - 2*(qx*qx + qy*qy))**2
 zerr = (new.z_est - new.z_gt).values
 slope = np.polyfit(sin2, zerr, 1)[0]
 r = ss.pearsonr(zerr, sin2).statistic
-print(f\"slope={slope*100:+.2f} cm/unit, r={r:+.3f}, mean={zerr.mean()*100:+.2f}, rms={np.sqrt((zerr*zerr).mean())*100:.2f}\")
-"'
+print(f"slope={slope*100:+.2f} cm/unit  r={r:+.3f}  mean={zerr.mean()*100:+.2f} cm  rms={np.sqrt((zerr*zerr).mean())*100:.2f} cm")
+PY
 ```
 
-- `slope ≈ 0, r ≈ 0`: no tilt-correlated bias.  Whatever Z RMS you have is just measurement noise; no lever needed (or a different bug).
-- `slope strongly positive (+5 cm and up)`: **not** the kludge's failure mode — the kludge
-  targets a *negative* −g·sin²θ bias. Suspect VIO twist frame/sign or mistuned process noise;
-  check **Lever B / Lever C**.
-- `slope strongly negative (−5 cm and down)`: the −g·sin²θ drift from the uncompensated `R20·Vx`
-  term — exactly what the kludge removes. Expected on zero-twist replay data; on real VIO twist
-  it means the canceling `R22·Vz` isn't effective. Apply **Lever A** (the kludge).
+| Result | Meaning | Lever |
+| :--- | :--- | :--- |
+| slope ≈ 0, r ≈ 0 | No tilt-correlated bias; remaining Z error is noise or a different bug | none |
+| slope ≤ −5 cm | The `−g·sin²θ` drift from `R20·Vx` without a cancelling `R22·Vz` — what the kludge removes | A |
+| slope ≥ +5 cm | Not the kludge's failure mode; suspect VIO twist frame/sign or process noise | B, then C |
 
-## How to run the production replay
+## Running the replay
 
-(Adjust `<bag-path>` and `<TAG>` for the actual bag.)
+Inside the dev container (`docker compose exec dev bash`).
+
+Vicon-substituted (the tuning configuration):
 
 ```bash
-# inside dev container
-docker compose exec dev bash
+./scripts/perception/replay/_run_iter.sh <TAG>       # perception_replay_vio_subst.launch.py, output in out/
+```
 
-# 1. Make sure the production launch is what you want:
-#    launch/perception_replay.launch.py uses real VIO + gate detection.
-#    Keep IMU off initially to test Lever A in isolation; enable IMU as Lever B.
+Real VIO + gate detection:
 
-# 2. Run the replay
-./scripts/perception/replay/_run_iter.sh <TAG>     # uses perception_replay_vio_subst.launch.py
-# OR for full production with real VIO:
-ros2 launch launch/perception.launch.py            # depends on /ov_msckf to be live
+```bash
+ros2 launch launch/perception_replay.launch.py       # publishes the world→global and base_link→imu TFs the EKF needs
 ros2 bag record -o out/replay_<TAG> /ekf/odometry /tf /tf_static /ov_msckf/odomimu /imu0
-ros2 bag play <bag-path> --clock
+ros2 bag play <bag> --clock
+```
 
-# 3. Extract + evaluate
-python3 scripts/perception/bag_analysis/bag_extract.py \
-  --bag out/replay_<TAG> --out-dir out/extract_<TAG> --no-images
+Do not use `launch/perception.launch.py` for this: it does not publish the static transforms and fails on its defaults (missing `pose1`, missing gate-detection checkpoint).
+
+Evaluation:
+
+```bash
+python3 scripts/perception/bag_analysis/bag_extract.py --bag out/replay_<TAG> --out-dir out/extract_<TAG> --no-images
 python3 scripts/perception/bag_analysis/eval_replay.py \
   --gt-extract out/extract_<gt-bag> \
   --est-extract out/extract_<TAG> --label new \
@@ -167,54 +131,42 @@ python3 scripts/perception/bag_analysis/eval_replay.py \
 cat out/eval_<TAG>/metrics.csv
 ```
 
-## What stays unchanged regardless
+`scripts/perception/bag_analysis/` is gitignored (`.gitignore:83`) and is not in a fresh clone. The scripts (`bag_extract.py`, `bag_inspect.py`, `bag_visualize.py`, `eval_replay.py`, `_common.py`) exist in the `ekf_merge` working copy; copy them in, or remove the ignore rule and commit them.
 
-These wins are real physics and will transfer cleanly — do not revert:
+## Do not revert
 
-- Sign-corrected gravity coupling: `Ax = +2g(QwQy − QxQz)`, `Ay = −2g(QwQx + QyQz)` in
-  [ekf.cpp lines 289-291](src/perception/ekf/robot_localization/src/ekf.cpp#L289) and
-  [post-injection lines 480-485](src/perception/ekf/robot_localization/src/ekf.cpp#L480).
-- The matching Velocity- and Acceleration-row Jacobian sign fixes.
-- `Az = +2g(Qx² + Qy²)` (correct vertical gravity coupling, commit `484337f`). The `Az = 0` /
-  zeroed-Z-column form is the dropped replay kludge — **not** shipped.
-- The submodule fix `78395d3` (Qz process noise + Qw=1 reset).
-- The quaternion sign-flip in `preparePose` (already in `a1a6d25`).
+- `Ax = +2g(QwQy − QxQz)`, `Ay = −2g(QwQx + QyQz)` — `src/ekf.cpp` lines 289–290 and 488 ff., with the matching velocity- and acceleration-row Jacobian signs.
+- `Az = +2g(Qx² + Qy²)` (`484337f`).
+- Isotropic quaternion process noise and identity seed (`78395d3`).
+- Quaternion hemisphere flip in `preparePose` (`a1a6d25`).
 
-## Long-term path if Lever A doesn't satisfy
+## If the levers are not enough
 
-The principled fix is to switch the EKF's velocity state to **world frame** (drone_model.py-style):
+Move the velocity state to the world frame, as in `src/mpc/mpc/drone_model.py`: the position row becomes `p += v·dt + ½a·dt²` with no rotation, body twist is rotated to world in `prepareTwist`, and world Z decouples from horizontal velocity. This removes the need for any Z-column special-casing but touches `prepareTwist`, F, J and every position-row entry. Not before the levers have been tried.
 
-- Position update becomes `p_world += v_world·dt + ½·a_world·dt²` — diagonal, no R rotation.
-- Body-frame twist messages get rotated to world inside `prepareTwist` before fusion.
-- World-Z dynamics is fully decoupled from horizontal velocity.
+## Replay baseline (kludge variant)
 
-This eliminates the asymmetric Z-column trick entirely.  Bigger refactor though — touches
-prepareTwist, F, J, every position-row entry.  Don't do this unless the simpler levers fail.
+Bag `20260416_175153`, Vicon substituted on `/ov_msckf/odomimu`, IMU off. "New" is `2308a32`; the shipped `484337f` matches it on orientation and x/y and has not been measured on z.
 
-## File reference
-
-- Predict step: [src/ekf.cpp](src/perception/ekf/robot_localization/src/ekf.cpp)
-- Process noise / initial cov: [src/filter_base.cpp:112-129](src/perception/ekf/robot_localization/src/filter_base.cpp#L112)
-- Measurement preprocessing (incl. quaternion sign-flip): [src/ros_filter.cpp:3198-3210](src/perception/ekf/robot_localization/src/ros_filter.cpp#L3198)
-- Sensor config: [src/perception/ekf/ekf/config/rl_ekf.yaml](src/perception/ekf/ekf/config/rl_ekf.yaml)
-- Replay launch (Vicon-sub, what we tuned with): [launch/perception_replay_vio_subst.launch.py](launch/perception_replay_vio_subst.launch.py)
-- Production launch: [launch/perception.launch.py](launch/perception.launch.py)
-- Iteration helper: [scripts/perception/replay/_run_iter.sh](scripts/perception/replay/_run_iter.sh)
-- Eval script: [scripts/perception/bag_analysis/eval_replay.py](scripts/perception/bag_analysis/eval_replay.py)
-
-## Final replay metrics (kludge-variant baseline)
-
-Bag `20260416_175153`, Vicon-substituted into `/ov_msckf/odomimu`, IMU off. **Note**: the
-"new" column below is the **kludge variant** (`2308a32`), not the shipped correct-physics
-model (`484337f`). The shipped model matches these on orientation and X/Y but will differ on
-Z (it has no kludge), as discussed above.
-
-| | new (kludge, iter 11) | legacy | delta |
-|---|---:|---:|---:|
+| | new (kludge) | legacy | Δ |
+| :--- | ---: | ---: | ---: |
 | ATE RMS | 5.71 cm | 7.75 cm | −2.04 |
 | ATE x | 3.31 cm | 5.52 cm | −2.21 |
 | ATE y | 4.41 cm | 5.17 cm | −0.76 |
 | ATE z | 1.49 cm | 1.69 cm | −0.20 |
 | Orientation RMS | 1.71° | 2.44° | −0.73 |
 | Orientation max | 60.7° | 82.2° | −21.5 |
-| Z bias slope vs sin²(tilt) | +0.31 cm | −0.05 cm | (effectively zero) |
+| Z-bias slope vs sin²(tilt) | +0.31 cm | −0.05 cm | ≈ 0 |
+
+## Files
+
+| Path | Content |
+| :--- | :--- |
+| `src/perception/ekf/robot_localization/src/ekf.cpp` | Predict step (physics at 289–291, Z column at 313–318, post-predict re-injection at 488) |
+| `src/perception/ekf/robot_localization/src/filter_base.cpp` | Process and initial covariance defaults (112–129) |
+| `src/perception/ekf/robot_localization/src/ros_filter.cpp` | Measurement preprocessing incl. hemisphere flip (~3195–3210) |
+| `src/perception/ekf/ekf/config/rl_ekf.yaml` | Sensor config |
+| `launch/perception_replay_vio_subst.launch.py` | Vicon-substituted replay |
+| `launch/perception_replay.launch.py` | Real-VIO replay |
+| `scripts/perception/replay/_run_iter.sh` | Iteration helper |
+| `docs/docs/perception/ekf/technical.md` | Filter documentation |

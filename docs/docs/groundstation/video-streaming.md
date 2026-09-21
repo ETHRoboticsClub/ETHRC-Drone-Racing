@@ -5,7 +5,7 @@
 The default racing video path uses the Jetson hardware encoder inside
 `imx219_argus_camera` and publishes H.264 as a ROS topic. This page focuses on
 viewing and recording the stream; the camera-side architecture is documented in
-[Jetson Camera Pipeline](../perception/camera_pipeline.md).
+[Camera → Technical](../perception/camera/technical.md).
 
 The live ROS graph is:
 
@@ -42,7 +42,7 @@ is still available for compatibility.
 ## Jetson Setup
 
 Complete the hardware and camera checks in
-[Jetson Camera Pipeline](../perception/camera_pipeline.md#jetson-setup) first.
+[Camera → Workflow](../perception/camera/workflow.md#prerequisites-once-per-jetson) first.
 
 ## Drone Command
 

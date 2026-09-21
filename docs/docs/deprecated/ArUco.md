@@ -2,7 +2,7 @@
 
 !!! warning "DEPRECATED"
     **This module is officially deprecated and is no longer part of the active build system.**
-    It has been replaced by the [Gate Detection](../perception/gate_detection.md) system. This documentation is maintained in the **Deprecated** section for historical reference only.
+    It has been replaced by the [Gate Detection](../perception/gate_detection/technical.md) system. This documentation is maintained in the **Deprecated** section for historical reference only.
 
 **Page Owner:** [Jules Schmutz](https://github.com/juliomathis)
 

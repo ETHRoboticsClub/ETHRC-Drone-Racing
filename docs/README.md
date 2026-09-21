@@ -20,13 +20,18 @@ Below is a breakdown of the documentation, aligned with our navigation system.
 ---
 
 ### 🔍 Perception
-Our perception pipeline handles state estimation and object tracking.
+Sensors and state estimation. Each subsystem has a *Technical* page (what it is) and a *Workflow* page (how to run it).
 
-- [Overview](docs/perception/index.md)
-- [VIO](docs/perception/vio.md) — Visual Inertial Odometry.
-- [Vicon](docs/perception/vicon.md) — Motion Capture Tracking.
-- [ArUco](docs/perception/ArUco.md) — Marker Tracking.
-- [EKF](docs/perception/EKF.md) — Extended Kalman Filter.
+- [Index](docs/perception/index.md) — start here.
+- Overview — [Technical](docs/perception/overview/technical.md) · [Workflow](docs/perception/overview/workflow.md)
+- Camera — [Technical](docs/perception/camera/technical.md) · [Workflow](docs/perception/camera/workflow.md)
+- IMU — [Technical](docs/perception/imu/technical.md) · [Workflow](docs/perception/imu/workflow.md)
+- Vicon — [Technical](docs/perception/vicon/technical.md) · [Workflow](docs/perception/vicon/workflow.md)
+- VIO — [Technical](docs/perception/vio/technical.md) · [Workflow](docs/perception/vio/workflow.md)
+- EKF — [Technical](docs/perception/ekf/technical.md) · [Workflow](docs/perception/ekf/workflow.md)
+- Gate detection — [Technical](docs/perception/gate_detection/technical.md) · [Workflow](docs/perception/gate_detection/workflow.md)
+- AIGP simulator drivers — [Technical](docs/perception/aigp_drivers/technical.md) · [Workflow](docs/perception/aigp_drivers/workflow.md)
+- Calibration — [Technical](docs/perception/calibration/technical.md) · [Workflow](docs/perception/calibration/workflow.md)
 
 ---
 

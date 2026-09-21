@@ -1,142 +1,47 @@
-# Perception Stack Overview
+# Perception
 
-**Page Owner:** [Ilyas Seckin](https://github.com/ilysec)
+Sensors and state estimation for the racing drones: camera, IMU, motion capture, visual-inertial odometry, sensor fusion and gate detection.
 
----
+Every subsystem has two pages. **Technical** answers *what is this* — nodes, topics, frames, parameters, files, limitations. **Workflow** answers *how do I run it* — build, launch, verify, debug.
 
-The perception stack is responsible for providing a reliable, drift-free state estimate of the drone in the world frame. It achieves this by fusing high-frequency relative odometry with sparse absolute pose corrections.
+## Where to start
 
-## High-Level Architecture
+1. [Overview → Technical](overview/technical.md) — the data-flow diagram, the frame conventions, and what actually runs in flight. Fifteen minutes; everything else assumes it.
+2. [Overview → Workflow](overview/workflow.md) — build the packages and bring the drone up on the bench. Do this once before touching any subsystem.
+3. The two pages of the subsystem you will work on, in the order the table lists them.
 
-The system follows a tiered architecture for pose estimation:
+## Subsystems
 
-```mermaid
-graph TD
-    subgraph Sensors
-        Cam["IMX219 CSI<br/>Argus capture @ 60 Hz"]
-        Mono["/cam0/image_raw<br/>mono8"]
-        RGB["/cam0/image_rgb<br/>rgb8"]
-        IMU["IMU (Accel/Gyro)"]
-        Vicon["Vicon (Optional)"]
-    end
+| Subsystem | Code | Status | Pages |
+| :--- | :--- | :--- | :--- |
+| Overview: data flow, frames, bringup | `launch/`, `drone_control/launch/racing_bringup.launch.py` | — | [Technical](overview/technical.md) · [Workflow](overview/workflow.md) |
+| Camera (IMX219 on Jetson) | `imx219_argus_camera`, `drone_control/launch/nitros_camera.launch.py` | Production | [Technical](camera/technical.md) · [Workflow](camera/workflow.md) |
+| IMU (Betaflight blackbox over UART) | `betaflight_blackbox_driver` | Production | [Technical](imu/technical.md) · [Workflow](imu/workflow.md) |
+| Vicon motion capture | `src/ros2-vicon-receiver` | Production — the pose source in flight | [Technical](vicon/technical.md) · [Workflow](vicon/workflow.md) |
+| VIO (OpenVINS) | `VIO/open_vins` | Experimental — not calibrated for the real camera | [Technical](vio/technical.md) · [Workflow](vio/workflow.md) |
+| EKF (robot_localization fork) | `ekf`, `ekf/robot_localization` | Experimental — off by default in flight | [Technical](ekf/technical.md) · [Workflow](ekf/workflow.md) |
+| Gate detection | `gate_detection` | Experimental — model checkpoint not in the repo | [Technical](gate_detection/technical.md) · [Workflow](gate_detection/workflow.md) |
+| AIGP simulator drivers | `aigp_camera_driver`, `aigp_imu_driver` | Simulation only | [Technical](aigp_drivers/technical.md) · [Workflow](aigp_drivers/workflow.md) |
+| Camera calibration | `camera_calibration/`, `scripts/calibration/` | Intrinsics done · camera–IMU open | [Technical](calibration/technical.md) · [Workflow](calibration/workflow.md) |
+| Gazebo ground-truth markers | `gazebo_ground_thruth`, `pointcloud_gt` | Simulation only | [Overview → Technical](overview/technical.md#simulation-helpers) |
+| ArUco pose estimation | `archive/ArUco_estimation` | Deprecated, not built | [ArUco](../deprecated/ArUco.md) |
 
-    subgraph "Local Odometry"
-        VIO["OpenVINS (VIO)"]
-    end
+All package paths are relative to `src/perception/` unless they start with `src/` or `scripts/`.
 
-    subgraph "Absolute Corrections"
-        Gate["Gate Detection (WIP)"]
-    end
+## What matters, and in which order
 
-    subgraph "Fusion Layer"
-        EKF["EKF (robot_localization)"]
-    end
+The stack exists to fly without external infrastructure: camera + IMU → VIO → EKF, corrected by gate detections. Today none of that is in the loop. The drone flies on **Vicon + IMU** through `state_bridge_node` ([details](overview/technical.md#what-is-in-the-flight-loop)); VIO, EKF and gate detection are launch options that default to off. Read the subsystems with that in mind.
 
-    Cam --> Mono
-    Mono --> VIO
-    IMU --> VIO
-    VIO -->|"/ov_msckf/odomimu (Odom)"| EKF
-    
-    Cam --> RGB
-    RGB --> Gate
-    Gate -->|"/gate_detection/drone_pose (Pose)"| EKF
-    
-    
-    Vicon -->|"(Indoor GT)"| EKF
-    
-    EKF -->|"/odometry/filtered"| Control["Control & Planning"]
-```
+**Flight-critical, stable.** Camera, IMU, Vicon. A regression here grounds the drone, so learn their interfaces and health checks first even if you will not work on them. Each carries one open item worth knowing before you build on it: the camera's mono and RGB streams differ by a 180° rotation, the IMU has no hardware timestamp, Vicon has no latency compensation.
 
-## Topic Mappings
+**The open work.** VIO, EKF and gate detection, in a dependency chain: VIO cannot work until the camera–IMU calibration is finished and the real camera intrinsics are in its config; the EKF has been validated only with Vicon standing in for VIO; gate detection needs a model checkpoint, a QoS fix and a map of the lab before it can feed the EKF. If you want to make the most difference with the least code, start with [Calibration → Workflow](calibration/workflow.md): the Kalibr run is the first blocker in that chain and needs no new software.
 
-The following table summarizes the data flow between perception modules.
+**Low priority.** The AIGP simulator drivers were written for the AI Grand Prix virtual qualifier, which is over. They are kept so the simulator still runs, but they were never fully integrated — the simulator bringup takes its IMU from a different node, the camera and IMU stamps are on different clocks, and the gate detector used there is a colour heuristic tuned to the simulator's gates and camera. Do not model new work on them. The Gazebo ground-truth markers are RViz helpers; ArUco is deprecated and not built.
 
-| Source Module | Topic Name | Message Type | Frequency | Consumer |
-| :--- | :--- | :--- | :--- | :--- |
-| **Camera** | `/cam0/image_raw` | `sensor_msgs/Image` (`mono8`) | 60 Hz | VIO / mono debug |
-| **Camera** | `/cam0/image_rgb` | `sensor_msgs/Image` (`rgb8`) | 60 Hz target | Gate Detection / color debug |
-| **Video Encoder** | `/cam0/image_h264` | `sensor_msgs/CompressedImage` | 60 Hz target | Recording / ground station decoder |
-| **Sensors** | `/imu0` | `sensor_msgs/Imu` | 200 Hz | VIO |
-| **OpenVINS** | `/ov_msckf/odomimu` | `nav_msgs/Odometry` | 100 Hz | EKF |
-| **Gate Detection** | `/gate_detection/drone_pose` | `PoseWithCovarianceStamped` | 10-30 Hz | EKF |
-| **Vicon** | `/vicon/drone/drone` | `geometry_msgs/Transform` | 100 Hz | EKF |
-| **EKF** | `/odometry/filtered` | `nav_msgs/Odometry` | 100 Hz | Control |
+## Related pages
 
-## Coordinate Systems
-
-The perception stack utilizes the standard ROS 2 (REP-103) coordinate conventions:
-
-- **`world` Frame**: Global fixed frame. Its origin is typically defined at the start of the mission.
-- **`odom` Frame**: A locally stable frame provided by the EKF. It is continuous (no jumps) but may drift relative to the `world` frame over long durations if absolute fixes are lost.
-- **`base_link` Frame**: The center of mass of the drone.
-    - **X-axis**: Forward
-    - **Y-axis**: Left
-    - **Z-axis**: Up
-
-## Detailed Workings
-
-### 1. Visual-Inertial Odometry (OpenVINS)
-The **VIO** component uses the `open_vins` library to fuse camera images and IMU data.
-- **Formulation**: Implements an **Extended Kalman Filter (EKF)** with a **Multi-State Constraint Kalman Filter (MSCKF)**.
-- **Constraint-Based**: It avoids estimating feature positions in the main filter state, making it highly efficient for high-speed flight.
-- **Online Calibration**: Online-calibrates the rotation and translation between the Camera and IMU.
-- **Output**: Published as `nav_msgs/Odometry` on `/ov_msckf/odomimu`.
-
-### 2. Gate Detection & PnP (WIP)
-The **Gate Detection** component identifies racing gates and estimates the drone's pose relative to them.
-- **Deep Learning**: Uses a **U-Net** based segmentation network (**GateNet**) to detect gate masks.
-- **QuAdGate**: Extracts sub-pixel corner candidates and matches them using geometric descriptors.
-- **PnP Solver**: Uses `cv2.solvePnP` to find the absolute translation and rotation from the known gate dimensions to the observed pixel coordinates.
-- **Output**: Published as `geometry_msgs/PoseWithCovarianceStamped` on `/gate_detection/drone_pose`.
-
-
-### 3. Fusion Logic (The EKF)
-The system uses `robot_localization` with **Smooth Lagged Data** support.
-- **Rewind/Fast-Forward**: Vision processing takes time (50-100ms). The EKF maintains a history of past states, "rewinds" to the image timestamp to fuse the delayed measurement, and then re-propagates the state to the current time.
-- **Output**: The definitive state estimate on `/odometry/filtered`.
-
-## Modules
-
-For deeper technical details on individual components, see:
-- [Jetson Camera Pipeline](camera_pipeline.md)
-- [VIO (OpenVINS)](vio.md)
-- [Blackbox Driver (IMU/RPM)](blackbox.md)
-- [Gate Detection](gate_detection.md)
-- [Sensor Fusion (EKF)](EKF.md)
-- [Vicon Tracking](vicon.md)
-
-## Visualization and Monitoring
-
-Visualizing the internal state of the drone is crucial for debugging perception and control algorithms.
-
-### RViz Visualization
-We use RViz2 to visualize sensor data, gate detections, and EKF state. Most perception launch files include an `rviz:=true` argument to automatically open a pre-configured RViz window.
-
-### Full Perception Launch
-You can launch the integrated perception stack (VIO + Gate Detection + EKF) in simulation or on the hardware using:
-```bash
-source install/setup.bash
-ros2 launch launch/perception.launch.py
-```
-
-## Jetson Bringup
-
-On the drone, perception owns the CSI camera by default:
-
-```bash
-ros2 launch drone_control racing_bringup.launch.py \
-  msp_bench_mode:=true \
-  publish_raw:=true \
-  view_stream:=false
-```
-
-This starts the IMX219 camera at `1280x720 @ 60 Hz` and publishes
-`/cam0/image_raw` for OpenVINS and `/cam0/image_rgb` for color consumers. Gate
-detection is currently disabled by default in racing bringup because the package
-is still WIP.
-
-H.264 streaming is no longer an exclusive camera mode. When
-`view_stream:=true h264_backend:=gstreamer_ros`, the camera node publishes
-hardware-encoded `/cam0/image_h264` while the mono and RGB topics stay live. See
-[Jetson Camera Pipeline](camera_pipeline.md) and
-[H.264 Video Streaming](../groundstation/video-streaming.md).
+- [IMX219 90 Hz tuning](../drone-setup/imx219_90hz_tuning.md) — kernel/device-tree work to run the sensor above 60 Hz.
+- [VIO synchronization](../drone-setup/vio_synchronization.md) — hardware time-sync design (HTE). Design only; the drivers do not implement it yet.
+- [H.264 video streaming](../groundstation/video-streaming.md) — viewing the camera on the ground station.
+- [ROS bags](../infrastructure/ros_bags.md) — where recorded flights live and how to record.
+- [Gazebo SITL validation plan](gazebo_sitl_validation_plan.md) — phased plan for qualifying perception in simulation.

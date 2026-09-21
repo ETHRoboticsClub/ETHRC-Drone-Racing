@@ -39,7 +39,7 @@ The project integrates high-fidelity simulation with advanced sensing and contro
 - **Theme-Aware UI**: Added light/dark mode support for project logos and documentation branding.
 - **Enhanced Perception**: Correctly integrated `open_vins` and `ros2-vicon-receiver` as submodules.
 - **Betaflight Migration**: Successfully transitioned to Betaflight/MSP for low-latency autonomous control.
-- **Visualization Suite**: New instructions for RViz and Gazebo monitoring are now available in the [**Perception Overview**](perception/index.md#visualization-and-monitoring).
+- **Visualization Suite**: New instructions for RViz and Gazebo monitoring are now available in the [**Perception**](perception/overview/workflow.md).
 
 **[Read the full Updates & Roadmap here &raquo;](updates.md)**
 

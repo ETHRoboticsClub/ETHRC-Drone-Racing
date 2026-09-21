@@ -79,18 +79,35 @@ nav:
     - AWS Batch RL Training: infrastructure/aws_batch_rl_training.md
     - ROS Bags (S3): infrastructure/ros_bags.md
   - Perception:
-    - Overview: perception/index.md
+    - Index: perception/index.md
+    - Overview:
+      - Technical: perception/overview/technical.md
+      - Workflow: perception/overview/workflow.md
+    - Camera:
+      - Technical: perception/camera/technical.md
+      - Workflow: perception/camera/workflow.md
+    - IMU:
+      - Technical: perception/imu/technical.md
+      - Workflow: perception/imu/workflow.md
+    - Vicon:
+      - Technical: perception/vicon/technical.md
+      - Workflow: perception/vicon/workflow.md
+    - VIO:
+      - Technical: perception/vio/technical.md
+      - Workflow: perception/vio/workflow.md
+    - EKF:
+      - Technical: perception/ekf/technical.md
+      - Workflow: perception/ekf/workflow.md
+    - Gate Detection:
+      - Technical: perception/gate_detection/technical.md
+      - Workflow: perception/gate_detection/workflow.md
+    - AIGP Simulator Drivers:
+      - Technical: perception/aigp_drivers/technical.md
+      - Workflow: perception/aigp_drivers/workflow.md
+    - Calibration:
+      - Technical: perception/calibration/technical.md
+      - Workflow: perception/calibration/workflow.md
     - Gazebo SITL Validation Plan: perception/gazebo_sitl_validation_plan.md
-    - Jetson Camera Pipeline: perception/camera_pipeline.md
-    - Blackbox Driver: perception/blackbox.md
-    - VIO: perception/vio.md
-    - Vicon: perception/vicon.md
-    - Gate Detection: perception/gate_detection.md
-    - EKF: perception/EKF.md
-    - Camera Calibration:
-      - Overview: calibration/index.md
-      - IMX219 Intrinsics: calibration/imx219_intrinsics.md
-      - Kalibr Camera-IMU Calibration: perception/kalibr_calibration.md
   - Controls:
     - Overview: controls/index.md
     - Racing Bringup: controls/racing_bringup.md

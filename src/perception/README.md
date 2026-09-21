@@ -1,65 +1,24 @@
+# Perception
 
-# Perception 
-Perception stack of the autonomous drone racing project at RETH
+ROS 2 packages for sensing and state estimation. The documentation lives in the wiki under **Perception** (`docs/docs/perception/`, start at `index.md`); each subsystem has a *Technical* page (what it is) and a *Workflow* page (how to run it).
 
-## Overview
+| Package | Purpose | Status |
+| :--- | :--- | :--- |
+| `imx219_argus_camera` | GStreamer driver for the IMX219 CSI camera (Jetson only); used for calibration recordings. The flight bringup uses `drone_control/launch/nitros_camera.launch.py` instead | Production (calibration) |
+| `betaflight_blackbox_driver` | Betaflight blackbox UART decoder → `/imu0`, `/motor_rpm`, `/battery`; MSP fallback node | Production |
+| `VIO/open_vins` | OpenVINS fork (submodule) | Experimental |
+| `ekf/ekf`, `ekf/robot_localization` | 16-state quaternion EKF on a robot_localization fork (submodule) | Experimental |
+| `gate_detection` | Gate detector + PnP pose (v3.4 hybrid model; AIGP colour detector; v1 offline tools) | Experimental |
+| `aigp_camera_driver`, `aigp_imu_driver` | AI Grand Prix simulator adapters → `/cam0/*`, `/imu0` | Simulation |
+| `camera_calibration/` | IMX219 intrinsics results and checkerboard (not a package) | Data |
+| `gazebo_ground_thruth`, `pointcloud_gt` | RViz ground-truth markers from Gazebo odometry | Simulation |
+| `archive/ArUco_estimation` | ArUco pose estimation, `COLCON_IGNORE` | Deprecated |
 
-<img src="../../repo_artifact/perception_module.png" alt="Perception Pipeline" width="500"/>
+Vicon lives in `src/ros2-vicon-receiver`; stack-level launch files in `launch/`; helper scripts in `scripts/calibration/` and `scripts/perception/`.
 
-### High-Level Pipeline
+Build:
 
-The perception pipeline consists of the following main components:
-
-1. **VIO (Visual-Inertial Odometry)**: The OpenVINS system processes camera images and IMU data to provide a continuous pose estimate:
-   - **Feature Tracking**: Extracts and tracks visual features across consecutive frames
-   - **State Estimation**: Uses an Extended Kalman Filter (EKF) with Multi-State Constraint Kalman Filter (MSCKF) formulation to fuse visual and inertial measurements
-   - **Pose Output**: Provides the drone's 6-DOF pose (position and orientation) with covariance estimates
-
-2. **Gate Detection**: Detects and localizes racing gates in the camera images:
-   - Processes camera frames to identify gate structures
-   - Estimates gate pose relative to the camera
-   - Provides gate detection measurements with associated uncertainties
-
-3. **EKF Fusion**: An Extended Kalman Filter fuses both VIO and gate detection estimates:
-   - Combines the continuous VIO pose estimates with discrete gate detection measurements
-   - Improves accuracy by leveraging gate detections as absolute position references
-   - Outputs the final fused pose estimate for use by control and planning modules
-
-
-## Building the package 
-
-Go into the root of the workspace and execute the following command:
-
+```bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
+  --packages-up-to betaflight_blackbox_driver vicon_receiver ov_msckf ekf gate_detection
 ```
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release 
-```
-
-The cmake **Release** option is foundamental for having the best possible computational performance
-
-### Source 
-```
-source install/setup.bash
-```
-
-## Running the pipeline
-
-Start the px4 submodule. Inside the docker container run:
-
-```
-cd px4/PX4-Autopilot/
-make clean
-make px4_sitl gz_x500_cam
-```
-
-Open a new terminal and go into the docker container. From the root (`ros_ws`) run:
-
-```
-ros2 launch launch/perception.launch.py
-```
-
-This starts Vision, VIO, EKF and the camera bridge.
-
-
-
-
-

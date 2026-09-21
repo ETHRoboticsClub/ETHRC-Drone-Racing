@@ -11,7 +11,7 @@ This page summarizes recent changes to the ETHRC Drone Racing project and outlin
 ### ⚡ High-Speed Perception & Field Integration
 - **IMX219 90Hz High-Speed Tuning**: Documentation and driver patches for achieving **90Hz/92Hz capture** with a **Full 155° FOV** on the Jetson Orin NX.
 - **Vicon Motion Capture Ecosystem**: Detailed instructions and wiring diagrams for Vicon hardware deployment, including dynamic wand calibration.
-- **Documentation**: New [**Vicon Setup Guide**](perception/vicon.md) and [**IMX219 90Hz Tuning**](drone-setup/imx219_90hz_tuning.md).
+- **Documentation**: New [**Vicon Setup Guide**](perception/vicon/workflow.md) and [**IMX219 90Hz Tuning**](drone-setup/imx219_90hz_tuning.md).
 
 ### 🧪 Boreas Betaflight SITL Control Model
 

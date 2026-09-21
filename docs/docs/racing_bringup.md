@@ -131,6 +131,6 @@ ros2 launch drone_control racing_bringup.launch.py \
 * [**AIGP Racing Bringup**](aigp_bringup.md) — How to bring up the simulation-equivalent stack for virtual qualifications.
 * [**Fly the Drone Guide**](controls/flying_the_drone.md) — Pre-flight checklists, arming procedures, and safety considerations.
 * [**Betaflight Configuration**](betaflight.md) — Telemetry protocols, MSP ports, and manual receiver overrides.
-* [**Vicon Pipeline**](perception/vicon.md) — Setting up the Vicon motion capture bridge.
-* [**Visual Inertial Odometry (VIO)**](perception/vio.md) — Tuning the `ov_msckf` estimator.
+* [**Vicon**](perception/vicon/workflow.md) — Setting up the Vicon motion capture bridge.
+* [**VIO**](perception/vio/workflow.md) — Tuning the `ov_msckf` estimator.
 * [**Troubleshooting**](controls/troubleshooting.md) — Common serial errors, daemon hangs, and latency issues.
