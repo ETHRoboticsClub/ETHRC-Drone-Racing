@@ -3,6 +3,11 @@ ARG BASE_IMAGE=ros:humble-ros-base
 ARG PERCEPTION_CONTROLS_BASE=916780037007.dkr.ecr.us-east-2.amazonaws.com/aeronautics/droneracing:shared-perception-controls-deps-latest
 # PERCEPTION_CONTROLS_BASE originates from docker/untracked/Dockerfile.base
 
+# BUILD_JOBS caps compile parallelism for low-RAM machines (e.g. BUILD_JOBS=4).
+# Leave it EMPTY (the default) to keep the original behaviour: -j$(nproc) and
+# colcon's default worker count. Must be re-declared in every stage that uses it.
+ARG BUILD_JOBS=
+
 # =========================================================
 # STAGE 1: docs (standalone)
 # Minimal, disjoint stage for MkDocs only
@@ -23,6 +28,7 @@ CMD ["mkdocs", "serve", "-a", "0.0.0.0:8000"]
 # Perception-only build
 # =========================================================
 FROM ${PERCEPTION_CONTROLS_BASE} AS perception
+ARG BUILD_JOBS
 USER drone_dev
 
 COPY --chown=drone_dev:drone_dev src/perception ${WORKSPACE}/src/perception
@@ -40,6 +46,7 @@ USER drone_dev
 RUN ARCH=$(dpkg --print-architecture); \
     PKGS="msp ov_msckf vicon_receiver betaflight_blackbox_driver ekf gate_detection gazebo_ground_thruth pointcloud_gt h264_image_transport aigp_camera_driver aigp_imu_driver betaflight_mavlink_bridge"; \
     if [ "$ARCH" != "arm64" ]; then PKGS="$PKGS gazebo_ros_bridges"; else PKGS="$PKGS jetson_h264_publisher"; fi; \
+    if [ -n "$BUILD_JOBS" ]; then export MAKEFLAGS="-j$BUILD_JOBS"; fi; \
     source /opt/ros/humble/setup.bash && colcon build --symlink-install --parallel-workers 2 --packages-up-to $PKGS
 
 # =========================================================
@@ -47,6 +54,7 @@ RUN ARCH=$(dpkg --print-architecture); \
 # Dependencies for MPC, MAVSDK, ACADOS, and RL
 # =========================================================
 FROM ${PERCEPTION_CONTROLS_BASE} AS shared-mpc-rl-deps
+ARG BUILD_JOBS
 
 # MAVSDK C++ Build
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -55,7 +63,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
     cd /opt/MAVSDK && git fetch --tags && git checkout v3.10.2 && \
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON && \
-    cmake --build build -j$(nproc) && cmake --install build && ldconfig
+    cmake --build build -j${BUILD_JOBS:-$(nproc)} && cmake --install build && ldconfig
 
 # ACADOS C++ Build
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -63,7 +71,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone https://github.com/acados/acados.git /opt/acados && \
     cd /opt/acados && git submodule update --recursive --init && \
     mkdir -p build && cd build && cmake -DACADOS_SHARED_LIBS=ON -DACADOS_WITH_QPOASES=ON .. && \
-    make install -j$(nproc)
+    make install -j${BUILD_JOBS:-$(nproc)}
 
 # Tera Renderer
 RUN mkdir -p /opt/acados/bin && \
@@ -82,13 +90,18 @@ ENV ACADOS_SOURCE_DIR=/opt/acados
 RUN uv pip install --system --no-cache \
     setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk casadi cython pyserial && \
     uv pip install --system --no-cache -e /opt/acados/interfaces/acados_template
-RUN uv pip install --system --no-cache torch torchvision torchaudio stable-baselines3 shimmy gymnasium
+# torch is pinned: newer releases (>=2.12) require setuptools>=77, which silently
+# overrides the setuptools==58.2.0 pin above; setuptools>=80 dropped
+# `setup.py develop --editable`, breaking `colcon build --symlink-install`.
+RUN uv pip install --system --no-cache torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 stable-baselines3 shimmy gymnasium && \
+    python3 -c 'import setuptools, sys; v = setuptools.__version__; sys.exit(0 if v == "58.2.0" else f"setuptools pin lost (got {v}) -- colcon --symlink-install will fail")'
 
 # =========================================================
 # STAGE 6: mpc
 # MPC-only build
 # =========================================================
 FROM shared-mpc-rl-deps AS mpc
+ARG BUILD_JOBS
 USER drone_dev
 COPY --chown=drone_dev:drone_dev src/mpc ${WORKSPACE}/src/mpc
 COPY --chown=drone_dev:drone_dev src/drone_control ${WORKSPACE}/src/drone_control
@@ -96,7 +109,8 @@ COPY --chown=drone_dev:drone_dev src/betaflight_msp_controller ${WORKSPACE}/src/
 COPY --chown=drone_dev:drone_dev src/my_mavsdk ${WORKSPACE}/src/my_mavsdk
 COPY --chown=drone_dev:drone_dev launch ${WORKSPACE}/launch
 WORKDIR ${WORKSPACE}
-RUN source /opt/ros/humble/setup.bash && colcon build --symlink-install --packages-up-to drone_control my_mavsdk mpc betaflight_msp_controller
+RUN if [ -n "$BUILD_JOBS" ]; then export MAKEFLAGS="-j$BUILD_JOBS"; fi; \
+    source /opt/ros/humble/setup.bash && colcon build --symlink-install ${BUILD_JOBS:+--parallel-workers 2} --packages-up-to drone_control my_mavsdk mpc betaflight_msp_controller
 
 # =========================================================
 # STAGE 7: rl

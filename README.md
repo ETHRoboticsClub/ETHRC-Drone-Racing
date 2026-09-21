@@ -95,6 +95,12 @@ docker compose up dev -d
 docker compose exec dev bash
 ```
 
+> **Low-RAM machine / PC freezes during the build?** Cap the compile parallelism (default is all cores) and build the stages one at a time:
+> ```bash
+> export BUILD_JOBS=4
+> docker compose build perception && docker compose build mpc && docker compose build dev
+> ```
+
 ### 🍏 macOS Users: One-Time Setup
 
 The Docker services in this repo use `network_mode: host`. On Linux this works out of the box, but on **macOS** Docker Desktop runs containers inside a Linux VM, so host networking is **disabled by default** — ports like `http://localhost:8000` (docs), and any other service port, will not be reachable from your Mac browser even when the container is running and serving correctly.

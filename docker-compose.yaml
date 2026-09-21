@@ -26,6 +26,9 @@ services:
         USERNAME: ${CONTAINER_USERNAME:-drone_dev}
         USER_UID: ${USER_UID:-1000}
         USER_GID: ${USER_GID:-1000}
+        # Cap compile parallelism on low-RAM machines, e.g. `BUILD_JOBS=4 docker compose build dev`.
+        # Empty (default) = unchanged behaviour (-j$(nproc)).
+        BUILD_JOBS: ${BUILD_JOBS:-}
 
     network_mode: host
     tty: true
