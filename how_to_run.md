@@ -53,6 +53,7 @@ Keep using this only when you explicitly want the old PX4/Gazebo pipeline.
 
 ```bash
 cd ~/ros_ws
+source scripts/source_sitl_env.sh
 ./scripts/run_sim.sh
 ```
 
@@ -66,6 +67,13 @@ cd ~/ros_ws
 
 Or directly with `make`:
 ```bash
+cd ~/ros_ws
+source scripts/source_sitl_env.sh
+
+# Required for PX4's uXRCE-DDS client. The run_sim.sh wrapper starts this
+# automatically; start it yourself when invoking make directly.
+MicroXRCEAgent udp4 -p 8888 >/tmp/micro_xrce_agent_8888.log 2>&1 &
+
 cd ~/ros_ws/px4/PX4-Autopilot
 PX4_GZ_WORLD=default make px4_sitl gz_zephyros
 ```
@@ -75,8 +83,36 @@ Wait until you see `Ready for takeoff!` in the PX4 output before proceeding.
 ### Terminal 2 — ROS 2 Controller Against PX4
 
 ```bash
-source ~/ros_ws/install/setup.bash
-ros2 launch drone_control sim.launch.py own_simulator:=false use_mavsdk:=true
+cd ~/ros_ws
+source scripts/source_sitl_env.sh
+
+# Existing containers may use the user-local v0.2.1 renderer. Fresh images
+# use the renderer installed under /opt/acados by docker/Dockerfile.
+if [ -x "$HOME/.local/bin/t_renderer" ]; then
+  export TERA_PATH="$HOME/.local/bin/t_renderer"
+fi
+
+ros2 launch drone_control sim.launch.py \
+  own_simulator:=false \
+  use_mavsdk:=true \
+  controller_type:=mpcc_pp \
+  waypoints_file:="$HOME/ros_ws/src/drone_control/config/gates_config.yaml" \
+  mpcc_stabilization_sec:=3.0 \
+  acados_source_dir:=/opt/acados \
+  acados_lib_dir:=/opt/acados/lib \
+  rviz:=true
+```
+
+The PX4 path deliberately keeps the 3-second MPC stabilization phase before
+MPCC++ takes over. It therefore needs the shared Boreas profile at
+`~/ros_ws/config/airframes/boreas_4s.yaml`. The Compose configuration mounts
+that directory read-only; recreate an already-running development container
+after pulling this change:
+
+```bash
+# Run on the host, from the repository root.
+docker compose up -d --build --force-recreate dev
+docker compose exec dev bash
 ```
 
 ---

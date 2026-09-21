@@ -178,11 +178,11 @@ def setup_native():
 
     if needs_download:
         print(f"--- Downloading Tera Renderer for {arch} ---")
-        tera_url = "https://github.com/acados/tera_renderer/releases/download/v0.2.0/"
+        tera_url = "https://github.com/acados/tera_renderer/releases/download/v0.2.1/"
         if arch == "aarch64":
-            tera_url += "t_renderer-v0.2.0-linux-arm64"
+            tera_url += "t_renderer-v0.2.1-linux-arm64"
         else:
-            tera_url += "t_renderer-v0.2.0-linux-amd64"
+            tera_url += "t_renderer-v0.2.1-linux-amd64"
         
         run(f"mkdir -p {os.path.dirname(tera_path)} && "
             f"wget -q {tera_url} -O {tera_path} && "

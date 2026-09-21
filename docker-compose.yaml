@@ -57,6 +57,8 @@ services:
       # Mount source code
       - ./src:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/src:rw
       - ./launch:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/launch:rw
+      # Shared airframe profiles used by MPC and the SITL plant
+      - ./config:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/config:ro
       # Mount workspace build/install directories for persistence
       - ./.colcon/build:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/build:rw
       - ./.colcon/install:/home/${CONTAINER_USERNAME:-drone_dev}/ros_ws/install:rw

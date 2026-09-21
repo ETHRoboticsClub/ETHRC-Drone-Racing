@@ -77,9 +77,9 @@ RUN git clone https://github.com/acados/acados.git /opt/acados && \
 RUN mkdir -p /opt/acados/bin && \
     ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "arm64" ]; then \
-        wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-arm64 -O /opt/acados/bin/t_renderer; \
+        wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.1/t_renderer-v0.2.1-linux-arm64 -O /opt/acados/bin/t_renderer; \
     else \
-        wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.0/t_renderer-v0.2.0-linux-amd64 -O /opt/acados/bin/t_renderer; \
+        wget -q https://github.com/acados/tera_renderer/releases/download/v0.2.1/t_renderer-v0.2.1-linux-amd64 -O /opt/acados/bin/t_renderer; \
     fi && \
     chmod +x /opt/acados/bin/t_renderer
 ENV TERA_PATH=/opt/acados/bin/t_renderer

@@ -480,12 +480,19 @@ class DroneController(Node):
         self.controller.initialize()
 
         # The initial auto-hover always uses MPC regardless of controller_type.
-        if isinstance(self.controller, DroneMpcController):
-            self._mpc_hover_controller = self.controller
+        self._mpc_hover_controller = None
+
+        if self._mpcc_stabilization_s > 0.0:
+            if isinstance(self.controller, DroneMpcController):
+                self._mpc_hover_controller = self.controller
+            else:
+                self._mpc_hover_controller = DroneMpcController()
+                self._mpc_hover_controller.verbose = self._verbose
+                self._mpc_hover_controller.initialize()
         else:
-            self._mpc_hover_controller = DroneMpcController()
-            self._mpc_hover_controller.verbose = self._verbose
-            self._mpc_hover_controller.initialize()
+            self.get_logger().info(
+                "MPC hover disabled because mpcc_stabilization_sec is 0"
+            )
 
         self.get_logger().info("Controller node initialized")
 
