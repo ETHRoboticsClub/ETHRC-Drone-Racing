@@ -532,6 +532,31 @@ class GatedRacingPath(RacingPath):
         return super()._lookup_path_many(
             self._map_circuit_thetas(theta_values))
 
+    def _horizon_thetas(self, theta: float, n_stages: int, dt: float,
+                        vtheta_guess: float) -> np.ndarray:
+        """Return an unwrapped gated-path horizon that may cross the seam."""
+        theta0 = max(float(theta), 0.0)
+        step = float(vtheta_guess) * float(dt)
+        return theta0 + step * np.arange(n_stages, dtype=np.float64)
+
+    def _resolve_horizon_thetas(self, theta: float, n_stages: int, dt: float,
+                                vtheta_guess: float,
+                                theta_values: np.ndarray = None) -> np.ndarray:
+        """Resolve unwrapped, nondecreasing progress for gated horizons."""
+        if theta_values is None:
+            return self._horizon_thetas(
+                theta, n_stages, dt, vtheta_guess)
+
+        thetas = np.asarray(theta_values, dtype=np.float64).reshape(-1)
+        if thetas.size == 0 or not np.isfinite(thetas).all():
+            return self._horizon_thetas(
+                theta, n_stages, dt, vtheta_guess)
+        if thetas.size < n_stages:
+            thetas = np.pad(
+                thetas, (0, n_stages - thetas.size), mode='edge')
+        thetas = np.maximum(thetas[:n_stages], 0.0)
+        return np.maximum.accumulate(thetas)
+
     # ------------------------------------------------------------------
     # Tunnel geometry
     # ------------------------------------------------------------------
@@ -587,7 +612,7 @@ class GatedRacingPath(RacingPath):
         Gaussian transitions between W_nominal and W_gate_i.
         Wrap-around is handled by taking the nearest periodic equivalent.
         """
-        theta = self._clip(theta)
+        theta = self._map_circuit_theta(theta)
         L = self.total_length
         W = self._W_n
         # for th_g, W_g in zip(self._gate_thetas, self._gate_half_widths):
@@ -606,7 +631,7 @@ class GatedRacingPath(RacingPath):
         """
         H(θ): tunnel half-height at arc-length θ.
         """
-        theta = self._clip(theta)
+        theta = self._map_circuit_theta(theta)
         L = self.total_length
         H = self._H_n
         # for th_g, H_g in zip(self._gate_thetas, self._gate_half_heights):
@@ -622,11 +647,7 @@ class GatedRacingPath(RacingPath):
         return self._tau * float(np.clip(H, self._min_gate_half_h, self._H_n))
 
     def tunnel_widths(self, theta_values: np.ndarray) -> np.ndarray:
-        thetas = np.clip(
-            np.asarray(theta_values, dtype=np.float64).reshape(-1),
-            0.0,
-            self.total_length,
-        )
+        thetas = self._map_circuit_thetas(theta_values)
         d = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
         d -= self.total_length * np.round(d / self.total_length)
         W = self._W_n + np.sum(
@@ -637,11 +658,7 @@ class GatedRacingPath(RacingPath):
         return self._tau * np.clip(W, self._min_gate_half_w, self._W_n)
 
     def tunnel_heights(self, theta_values: np.ndarray) -> np.ndarray:
-        thetas = np.clip(
-            np.asarray(theta_values, dtype=np.float64).reshape(-1),
-            0.0,
-            self.total_length,
-        )
+        thetas = self._map_circuit_thetas(theta_values)
         d = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
         d -= self.total_length * np.round(d / self.total_length)
         H = self._H_n + np.sum(
