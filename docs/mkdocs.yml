@@ -118,6 +118,8 @@ nav:
     - MAVSDK: controls/mavsdk.md
     - AIGP Simulation: controls/aigp_simulation.md
     - MPC: controls/mpc.md
+    - MPCC++: controls/mpcc_pp.md
+    - MPCC++ Optuna & Tuning: controls/mpcc_pp_optuna.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md
   - Drone Setup:
