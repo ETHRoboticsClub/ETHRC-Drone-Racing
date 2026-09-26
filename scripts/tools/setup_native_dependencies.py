@@ -4,6 +4,8 @@ import subprocess
 import sys
 import platform
 
+ACADOS_COMMIT = "f7a0d0b18aac60f43ee9c928807e3314045df8bc"
+
 def run(cmd, shell=True):
     print(f"Running: {cmd}")
     subprocess.check_call(cmd, shell=shell)
@@ -151,7 +153,8 @@ def setup_native():
     if not os.path.exists(acados_path):
         print("--- Building acados ---")
         run(f"git clone https://github.com/acados/acados.git {acados_path} && "
-            f"cd {acados_path} && git submodule update --recursive --init && "
+            f"cd {acados_path} && git checkout --detach {ACADOS_COMMIT} && "
+            f"git submodule update --recursive --init && "
             f"mkdir -p build && cd build && cmake -DACADOS_SHARED_LIBS=ON -DACADOS_WITH_QPOASES=ON .. && "
             f"make install -j$(nproc)")
 

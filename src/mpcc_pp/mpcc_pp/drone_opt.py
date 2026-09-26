@@ -58,7 +58,6 @@ Note: changing NP invalidates any previously compiled ACADOS C code.
 
 import os
 import errno
-import hashlib
 import numpy as np
 import casadi as ca
 from acados_template import AcadosOcp, AcadosOcpSolver
@@ -373,41 +372,28 @@ class DroneOptimizerMpccPp:
             ocp.solver_options.qp_solver_warm_start = int(
                 solver_cfg['qp_solver_warm_start'])
 
-        # ── Build-cache: skip recompilation when nothing changed ────────
-        model_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'drone_model.py')
-        with open(model_file, 'rb') as _f:
-            model_hash = hashlib.md5(_f.read()).hexdigest()
-
-        model_payload = getattr(model, 'config_hash_payload', {})
-        config_str = (f"{self.T}:{self.N}:{self.nx}:{self.nu}:{self.NP}:"
-                      f"{self._alpha_track}:"
-                      f"{self._terminal_cost_multiplier}:"
-                      f"{sorted(solver_cfg.items())}:{model_payload}:"
-                      f"{lbu.tolist()}:{ubu.tolist()}:{lbx.tolist()}:{ubx.tolist()}:"
-                      f"{model_hash}")
-        config_hash = hashlib.md5(config_str.encode()).hexdigest()
-
-        hash_file = './c_generated_code/.ocp_config_hash'
-        lib_file  = './c_generated_code/libacados_ocp_solver_drone_mpcc_pp.so'
-
-        existing_hash = ''
-        if os.path.exists(hash_file):
-            with open(hash_file) as _f:
-                existing_hash = _f.read().strip()
-
-        needs_rebuild = (config_hash != existing_hash) or not os.path.exists(lib_file)
-        # ────────────────────────────────────────────────────────────────
-
-        json_file = './drone_mpcc_pp_acados_ocp.json'
-        self.solver = AcadosOcpSolver(
-            ocp, json_file=json_file,
-            generate=needs_rebuild,
-            build=needs_rebuild,
+        # Keep generated artifacts at a stable, package-local path. Current
+        # acados versions otherwise derive a hashed ``codegen_<ocp-id>``
+        # directory, which is incompatible with the old hard-coded cache
+        # paths used here.
+        code_export_directory = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            'c_generated_code',
         )
+        ocp.code_gen_options.code_export_directory = code_export_directory
+        ocp.code_gen_options.json_file = 'drone_mpcc_pp_acados_ocp.json'
 
-        if needs_rebuild:
-            with open(hash_file, 'w') as _f:
-                _f.write(config_hash)
+        # acados now owns cache validation. Starting with generate/build
+        # disabled asks it to compare the current OCP against the generated
+        # JSON hash; it automatically regenerates and rebuilds when reuse is
+        # not possible.
+        self.solver = AcadosOcpSolver(
+            ocp,
+            generate=False,
+            build=False,
+            verbose=enable_logging,
+        )
+        solver_rebuilt = self.solver.generated
 
         # Warm-start cache
         self._x_pred: np.ndarray = None   # (N+1, nx)
@@ -416,10 +402,10 @@ class DroneOptimizerMpccPp:
         self._f_hover = model.f_hover.copy()
 
         if enable_logging:
-            if needs_rebuild:
-                print(f"DroneOptimizerMpccPp: solver rebuilt (config hash: {config_hash[:8]})")
+            if solver_rebuilt:
+                print("DroneOptimizerMpccPp: solver rebuilt")
             else:
-                print(f"DroneOptimizerMpccPp: reusing cached solver (config hash: {config_hash[:8]})")
+                print("DroneOptimizerMpccPp: reusing cached solver")
             print(f"DroneOptimizerMpccPp: N={self.N}, T={self.T} s, "
                   f"dt={self.T/self.N:.3f} s")
             print(f"  nx={self.nx}, nu={self.nu}, np={self.NP}")
