@@ -497,6 +497,42 @@ class GatedRacingPath(RacingPath):
         self._build_lookup_table()
 
     # ------------------------------------------------------------------
+    # Periodic circuit geometry
+    # ------------------------------------------------------------------
+
+    def _map_circuit_thetas(self, theta_values: np.ndarray) -> np.ndarray:
+        """Map progress beyond the first lap onto the closed gate circuit."""
+        thetas = np.asarray(theta_values, dtype=np.float64).reshape(-1)
+        mapped = np.maximum(thetas, 0.0)
+        beyond_first_lap = mapped > self.total_length
+        mapped[beyond_first_lap] = (
+            self.circuit_start_theta
+            + np.mod(
+                mapped[beyond_first_lap] - self.total_length,
+                self.circuit_length,
+            )
+        )
+        return mapped
+
+    def _map_circuit_theta(self, theta: float) -> float:
+        """Scalar form of :meth:`_map_circuit_thetas`."""
+        return float(self._map_circuit_thetas(
+            np.array([theta], dtype=np.float64))[0])
+
+    def position(self, theta: float) -> np.ndarray:
+        """Evaluate position with periodic geometry after the first lap."""
+        return super().position(self._map_circuit_theta(theta))
+
+    def tangent(self, theta: float) -> np.ndarray:
+        """Evaluate tangent with periodic geometry after the first lap."""
+        return super().tangent(self._map_circuit_theta(theta))
+
+    def _lookup_path_many(self, theta_values: np.ndarray) -> tuple:
+        """Look up periodic circuit geometry for unwrapped progress values."""
+        return super()._lookup_path_many(
+            self._map_circuit_thetas(theta_values))
+
+    # ------------------------------------------------------------------
     # Tunnel geometry
     # ------------------------------------------------------------------
 
@@ -634,7 +670,8 @@ class GatedRacingPath(RacingPath):
         horiz = np.array([-t[1], t[0], 0.0])
         norm = np.linalg.norm(horiz)
         if norm < 1e-8:
-            idx = int(np.argmin(np.abs(self._gate_thetas - self._clip(theta))))
+            mapped_theta = self._map_circuit_theta(theta)
+            idx = int(np.argmin(np.abs(self._gate_thetas - mapped_theta)))
             n_raw = self._gate_normals[idx]
         else:
             n_raw = horiz / norm
@@ -723,3 +760,8 @@ class GatedRacingPath(RacingPath):
     def circuit_start_theta(self) -> float:
         """Arc-length θ at gate 1 — used to skip the lead-in on lap wrap."""
         return float(self._gate_thetas[0])
+
+    @property
+    def circuit_length(self) -> float:
+        """Closed gate-circuit length, excluding the optional lead-in."""
+        return float(self.total_length - self.circuit_start_theta)
