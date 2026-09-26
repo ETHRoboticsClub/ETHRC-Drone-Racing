@@ -220,6 +220,29 @@ def _pose_stamped_to_ned_frd_state(pose: PoseStamped) -> np.ndarray:
     return state
 
 
+def _mavsdk_state_to_ned_frd_state(state_xyzw: np.ndarray) -> np.ndarray:
+    """Normalize MAVSDK's NED/FRD state to the controller's wxyz layout."""
+    source = np.asarray(state_xyzw, dtype=np.float64).reshape(13)
+    state = source.copy()
+    state[6:10] = _normalize_quat(
+        np.array([source[9], source[6], source[7], source[8]]))
+    return state
+
+
+def _ned_frd_state_to_mpc_enu_flu(state_wxyz: np.ndarray) -> np.ndarray:
+    """Convert controller NED/FRD wxyz state to MPC's ENU/FLU xyzw API."""
+    source = np.asarray(state_wxyz, dtype=np.float64).reshape(13)
+    state = np.zeros(13, dtype=np.float64)
+    state[0:3] = _ENU_TO_NED.T @ source[0:3]
+    state[3:6] = _ENU_TO_NED.T @ source[3:6]
+    rotation_ned_frd = _quat_to_rot(source[6:10])
+    rotation_enu_flu = _ENU_TO_NED.T @ rotation_ned_frd @ _FLU_TO_FRD
+    quat_wxyz = _rot_to_quat(rotation_enu_flu)
+    state[6:10] = [quat_wxyz[1], quat_wxyz[2], quat_wxyz[3], quat_wxyz[0]]
+    state[10:13] = _FLU_TO_FRD @ source[10:13]
+    return state
+
+
 _CONTROLLER_REGISTRY = _build_registry()
 
 
@@ -449,7 +472,8 @@ class DroneController(Node):
             if callable(sync_augmented_state):
                 sync_augmented_state(data)
         elif data.shape == (13,):
-            state = data.copy()
+            state = (_mavsdk_state_to_ned_frd_state(data)
+                     if self._use_mavsdk else data.copy())
         else:
             self.get_logger().warn(
                 f'Ignoring Float64MultiArray state with {data.size} values; expected 13 or 19.')
@@ -592,11 +616,16 @@ class DroneController(Node):
 
         # Phase 1: optional MPC hover before handing off to MPCC.
         if self._mpcc_stabilization_s > 0.0:
+            mpc_hover_goal = _ned_frd_state_to_mpc_enu_flu(
+                hover_state)[0:3]
             deadline = time.time() + self._mpcc_stabilization_s
             while rclpy.ok() and time.time() < deadline and not self.stop_hover.is_set():
                 with self.state_lock:
                     current_state = self.state.copy()
-                cmd = self._mpc_hover_controller.controller_update(current_state, hover_state)
+                mpc_current_state = _ned_frd_state_to_mpc_enu_flu(
+                    current_state)
+                cmd = self._mpc_hover_controller.controller_update(
+                    mpc_current_state, mpc_hover_goal)
                 self._publish_command(cmd, current_state)
                 self.controller_rate.sleep()
 
@@ -667,12 +696,23 @@ class DroneController(Node):
         hover_state[3:6] = 0.0
         hover_state[10:13] = 0.0
         current_goal_state = hover_state
+        mpc_goal_position = None
+        if isinstance(controller, DroneMpcController):
+            mpc_goal_position = _ned_frd_state_to_mpc_enu_flu(
+                hover_state)[0:3]
 
         while rclpy.ok() and not self.stop_hover.is_set():
             with self.state_lock:
                 current_state = self.state.copy()
             self._log_mpc_inputs(controller, current_state, current_goal_state, 'hover')
-            cmd = controller.controller_update(current_state, current_goal_state)
+            if isinstance(controller, DroneMpcController):
+                controller_state = _ned_frd_state_to_mpc_enu_flu(
+                    current_state)
+                controller_goal = mpc_goal_position
+            else:
+                controller_state = current_state
+                controller_goal = current_goal_state
+            cmd = controller.controller_update(controller_state, controller_goal)
             self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
 
@@ -1282,6 +1322,10 @@ class DroneController(Node):
         pose = goal_poses.poses[0]
         self.current_target_publisher.publish(pose)
         self.current_goal_state = self._pose_stamped_to_goal_state(pose)
+        controller_goal = self.current_goal_state
+        if isinstance(self.controller, DroneMpcController):
+            controller_goal = _ned_frd_state_to_mpc_enu_flu(
+                self.current_goal_state)[0:3]
 
         result = FollowWaypoints.Result()
         result.missed_waypoints = []
@@ -1291,7 +1335,13 @@ class DroneController(Node):
             with self.state_lock:
                 current_state = self.state.copy()
             self._log_mpc_inputs(self.controller, current_state, self.current_goal_state, 'pose_goal')
-            cmd = self.controller.controller_update(current_state, self.current_goal_state)
+            if isinstance(self.controller, DroneMpcController):
+                controller_state = _ned_frd_state_to_mpc_enu_flu(
+                    current_state)
+            else:
+                controller_state = current_state
+            cmd = self.controller.controller_update(
+                controller_state, controller_goal)
             self._publish_command(cmd, current_state)
             self.controller_rate.sleep()
 
@@ -1361,6 +1411,10 @@ class DroneController(Node):
 
                 self.current_target_publisher.publish(pose)
                 self.current_goal_state = self._pose_stamped_to_goal_state(pose)
+                controller_goal = self.current_goal_state
+                if isinstance(self.controller, DroneMpcController):
+                    controller_goal = _ned_frd_state_to_mpc_enu_flu(
+                        self.current_goal_state)[0:3]
                 self.get_logger().info(
                     f'[Trajectory Goal] Lap {lap} — waypoint {i + 1}/{len(waypoints)}')
 
@@ -1368,7 +1422,13 @@ class DroneController(Node):
                     with self.state_lock:
                         current_state = self.state.copy()
                     self._log_mpc_inputs(self.controller, current_state, self.current_goal_state, 'trajectory_goal')
-                    cmd = self.controller.controller_update(current_state, self.current_goal_state)
+                    if isinstance(self.controller, DroneMpcController):
+                        controller_state = _ned_frd_state_to_mpc_enu_flu(
+                            current_state)
+                    else:
+                        controller_state = current_state
+                    cmd = self.controller.controller_update(
+                        controller_state, controller_goal)
                     self._publish_command(cmd, current_state)
                     self.controller_rate.sleep()
 
