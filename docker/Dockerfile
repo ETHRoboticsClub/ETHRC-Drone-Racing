@@ -88,7 +88,7 @@ ENV ACADOS_SOURCE_DIR=/opt/acados
 
 # Python deps (MPC + RL)
 RUN uv pip install --system --no-cache \
-    setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk casadi cython pyserial && \
+    setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk==3.10.2 casadi cython pyserial && \
     uv pip install --system --no-cache -e /opt/acados/interfaces/acados_template
 # torch is pinned: newer releases (>=2.12) require setuptools>=77, which silently
 # overrides the setuptools==58.2.0 pin above; setuptools>=80 dropped
