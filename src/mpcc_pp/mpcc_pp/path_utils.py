@@ -519,6 +519,16 @@ class GatedRacingPath(RacingPath):
         return float(self._map_circuit_thetas(
             np.array([theta], dtype=np.float64))[0])
 
+    def _gate_progress_deltas(self,
+                              theta_values: np.ndarray) -> np.ndarray:
+        """Return lead-in-aware signed distances to every gate in theta."""
+        thetas = self._map_circuit_thetas(theta_values)
+        deltas = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
+        on_circuit = thetas >= self.circuit_start_theta
+        deltas[on_circuit] -= self.circuit_length * np.round(
+            deltas[on_circuit] / self.circuit_length)
+        return deltas
+
     def position(self, theta: float) -> np.ndarray:
         """Evaluate position with periodic geometry after the first lap."""
         return super().position(self._map_circuit_theta(theta))
@@ -612,16 +622,9 @@ class GatedRacingPath(RacingPath):
         Gaussian transitions between W_nominal and W_gate_i.
         Wrap-around is handled by taking the nearest periodic equivalent.
         """
-        theta = self._map_circuit_theta(theta)
-        L = self.total_length
         W = self._W_n
-        # for th_g, W_g in zip(self._gate_thetas, self._gate_half_widths):
-        #     d = theta - th_g
-        #     d -= L * round(d / L)   # shortest periodic distance
-        #     W += (W_g - self._W_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
-        # use numpz vectorization for speedup:
-        d = theta - self._gate_thetas  # (n_gates,)
-        d -= L * np.round(d / L)       # shortest periodic distance (n_gates,)
+        d = self._gate_progress_deltas(
+            np.array([theta], dtype=np.float64))[0]
         W += np.sum((self._gate_half_widths - self._W_n) *
                     np.exp(-0.5 * d * d / (self._sigma_gate ** 2)))
 
@@ -631,25 +634,16 @@ class GatedRacingPath(RacingPath):
         """
         H(θ): tunnel half-height at arc-length θ.
         """
-        theta = self._map_circuit_theta(theta)
-        L = self.total_length
         H = self._H_n
-        # for th_g, H_g in zip(self._gate_thetas, self._gate_half_heights):
-        #     d = theta - th_g
-        #     d -= L * round(d / L)
-        #     H += (H_g - self._H_n) * np.exp(-0.5 * d * d / (self._sigma_gate ** 2))
-        # use numpz vectorization for speedup:
-        d = theta - self._gate_thetas  # (n_gates,)
-        d -= L * np.round(d / L)       # shortest periodic distance (n_gates,)
+        d = self._gate_progress_deltas(
+            np.array([theta], dtype=np.float64))[0]
         H += np.sum((self._gate_half_heights - self._H_n) *
                     np.exp(-0.5 * d * d / (self._sigma_gate ** 2)))
 
         return self._tau * float(np.clip(H, self._min_gate_half_h, self._H_n))
 
     def tunnel_widths(self, theta_values: np.ndarray) -> np.ndarray:
-        thetas = self._map_circuit_thetas(theta_values)
-        d = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
-        d -= self.total_length * np.round(d / self.total_length)
+        d = self._gate_progress_deltas(theta_values)
         W = self._W_n + np.sum(
             (self._gate_half_widths - self._W_n)[np.newaxis, :]
             * np.exp(-0.5 * d * d / (self._sigma_gate ** 2)),
@@ -658,9 +652,7 @@ class GatedRacingPath(RacingPath):
         return self._tau * np.clip(W, self._min_gate_half_w, self._W_n)
 
     def tunnel_heights(self, theta_values: np.ndarray) -> np.ndarray:
-        thetas = self._map_circuit_thetas(theta_values)
-        d = thetas[:, np.newaxis] - self._gate_thetas[np.newaxis, :]
-        d -= self.total_length * np.round(d / self.total_length)
+        d = self._gate_progress_deltas(theta_values)
         H = self._H_n + np.sum(
             (self._gate_half_heights - self._H_n)[np.newaxis, :]
             * np.exp(-0.5 * d * d / (self._sigma_gate ** 2)),
@@ -687,8 +679,9 @@ class GatedRacingPath(RacingPath):
         horiz = np.array([-t[1], t[0], 0.0])
         norm = np.linalg.norm(horiz)
         if norm < 1e-8:
-            mapped_theta = self._map_circuit_theta(theta)
-            idx = int(np.argmin(np.abs(self._gate_thetas - mapped_theta)))
+            gate_deltas = self._gate_progress_deltas(
+                np.array([theta], dtype=np.float64))[0]
+            idx = int(np.argmin(np.abs(gate_deltas)))
             n_raw = self._gate_normals[idx]
         else:
             n_raw = horiz / norm
