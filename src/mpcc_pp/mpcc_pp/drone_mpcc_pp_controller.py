@@ -649,21 +649,7 @@ class DroneMpccPpController(ControllerInterface):
 
         x_aug = self._to_augmented(x_ext)
 
-        # Project current position onto path (Algorithm 1)
-        self._theta = self._path.find_closest_theta(x_aug[0:3], self._theta)
-        self._theta_solve = self._theta
-        # Pin OCP initial θ to the projected value (not the stale vθ-advanced value
-        # that _to_augmented set). This keeps x_aug and stage_params consistent.
-        x_aug[17] = self._theta
-
-        # Lap detection — wrap θ to gate 1 (skip lead-in on subsequent laps)
-        if self._path.total_length - self._theta < self._lap_wrap_threshold:
-            circuit_start = (self._path.circuit_start_theta
-                             if isinstance(self._path, GatedRacingPath)
-                             else 0.0)
-            self._theta = circuit_start
-            self._lap  += 1
-            self._opt._warm = False   # force cold start after lap wrap
+        self._project_and_wrap_progress(x_aug)
 
         # Compute path + tunnel geometry and append runtime cost parameters.
         # import time
@@ -769,7 +755,27 @@ class DroneMpccPpController(ControllerInterface):
 
         theta_values += self._theta - theta_values[0]
         theta_values = np.maximum.accumulate(theta_values)
+        if isinstance(self._path, GatedRacingPath):
+            return np.maximum(theta_values, 0.0)
         return np.clip(theta_values, 0.0, self._path.total_length)
+
+    def _project_and_wrap_progress(self, x_aug: np.ndarray) -> None:
+        """Project progress, wrap completed laps, and synchronize OCP state."""
+        self._theta = self._path.find_closest_theta(
+            x_aug[0:3], self._theta)
+
+        if self._path.total_length - self._theta < self._lap_wrap_threshold:
+            circuit_start = (self._path.circuit_start_theta
+                             if isinstance(self._path, GatedRacingPath)
+                             else 0.0)
+            self._theta = circuit_start
+            self._lap += 1
+            self._opt._warm = False
+
+        # Keep the progress point, OCP initial state, and stage-parameter
+        # horizon anchored to the same post-wrap value.
+        self._theta_solve = self._theta
+        x_aug[17] = self._theta
 
     def _append_cost_params(self, stage_params: np.ndarray) -> np.ndarray:
         """Append runtime cost weights and discounts to stage parameters."""

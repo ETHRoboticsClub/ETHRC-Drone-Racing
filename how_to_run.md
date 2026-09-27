@@ -75,7 +75,7 @@ source scripts/source_sitl_env.sh
 MicroXRCEAgent udp4 -p 8888 >/tmp/micro_xrce_agent_8888.log 2>&1 &
 
 cd ~/ros_ws/px4/PX4-Autopilot
-PX4_GZ_WORLD=default make px4_sitl gz_zephyros
+PX4_GZ_WORLD=default make px4_sitl gz_zephyros HEADLESS=1
 ```
 
 Wait until you see `Ready for takeoff!` in the PX4 output before proceeding.

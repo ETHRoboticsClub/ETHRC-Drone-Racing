@@ -55,6 +55,7 @@ RUN ARCH=$(dpkg --print-architecture); \
 # =========================================================
 FROM ${PERCEPTION_CONTROLS_BASE} AS shared-mpc-rl-deps
 ARG BUILD_JOBS
+ARG ACADOS_COMMIT=f7a0d0b18aac60f43ee9c928807e3314045df8bc
 
 # MAVSDK C++ Build
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -69,7 +70,8 @@ RUN git clone --recursive https://github.com/mavlink/MAVSDK.git /opt/MAVSDK && \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libblas-dev liblapack-dev libopenblas-dev liblapacke-dev gfortran && rm -rf /var/lib/apt/lists/*
 RUN git clone https://github.com/acados/acados.git /opt/acados && \
-    cd /opt/acados && git submodule update --recursive --init && \
+    cd /opt/acados && git checkout --detach "${ACADOS_COMMIT}" && \
+    git submodule update --recursive --init && \
     mkdir -p build && cd build && cmake -DACADOS_SHARED_LIBS=ON -DACADOS_WITH_QPOASES=ON .. && \
     make install -j${BUILD_JOBS:-$(nproc)}
 
@@ -88,7 +90,7 @@ ENV ACADOS_SOURCE_DIR=/opt/acados
 
 # Python deps (MPC + RL)
 RUN uv pip install --system --no-cache \
-    setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk casadi cython pyserial && \
+    setuptools==58.2.0 numpy==1.24.4 scipy==1.10.1 mavsdk==3.10.2 casadi cython pyserial && \
     uv pip install --system --no-cache -e /opt/acados/interfaces/acados_template
 # torch is pinned: newer releases (>=2.12) require setuptools>=77, which silently
 # overrides the setuptools==58.2.0 pin above; setuptools>=80 dropped
