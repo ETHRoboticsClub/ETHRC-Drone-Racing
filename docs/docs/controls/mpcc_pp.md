@@ -237,6 +237,8 @@ This mode does not require PX4 or Gazebo. It starts `mpcc_pp_dynamics_simulator`
 ros2 launch drone_control sim.launch.py \
   controller_type:=mpcc_pp \
   waypoints_file:="$HOME/ros_ws/src/drone_control/config/gates_config.yaml" \
+  acados_source_dir:=/opt/acados \
+  acados_lib_dir:=/opt/acados/lib \
   own_simulator:=true \
   use_mavsdk:=false \
   rviz:=true
@@ -259,6 +261,8 @@ Wait for PX4 to report that it is ready for takeoff. In a second sourced workspa
 ros2 launch drone_control sim.launch.py \
   controller_type:=mpcc_pp \
   waypoints_file:="$HOME/ros_ws/src/drone_control/config/gates_config.yaml" \
+  acados_source_dir:=/opt/acados \
+  acados_lib_dir:=/opt/acados/lib \
   own_simulator:=false \
   use_mavsdk:=true \
   mpcc_stabilization_sec:=3.0 \
@@ -312,6 +316,8 @@ ros2 launch drone_control sim.launch.py \
   use_mavsdk:=true \
   controller_type:=mpcc_pp \
   waypoints_file:="$HOME/ros_ws/src/drone_control/config/gates_config.yaml" \
+  acados_source_dir:=/opt/acados \
+  acados_lib_dir:=/opt/acados/lib \
   mpcc_stabilization_sec:=3.0 \
   rviz:=true \
   model_logging:=true
