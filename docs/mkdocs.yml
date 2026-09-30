@@ -120,6 +120,7 @@ nav:
     - MPC: controls/mpc.md
     - MPCC++: controls/mpcc_pp.md
     - MPCC++ Optuna & Tuning: controls/mpcc_pp_optuna.md
+    - MPC Deploy Preflight: controls/mpc_deploy.md
     - RL: controls/rl.md
     - Troubleshooting: controls/troubleshooting.md
   - Drone Setup:
